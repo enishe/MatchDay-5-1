@@ -1,4 +1,4 @@
-classDiagram
+ classDiagram
     class Player {
         +int id
         +string name
@@ -45,8 +45,8 @@ classDiagram
     }
 
     IMatchRepository <|.. FileMatchRepository : implements
-    MatchService --> IMatchRepository : uses
-    MatchController --> MatchService : calls
-    MatchService ..> Match : manages
-    Match "1" -- "*" Player : contains
-    FileMatchRepository ..> DBException : throws
+    MatchService --> IMatchRepository : uses (DIP)
+    MatchController --> MatchService : delegates to
+    MatchService ..> Match : orchestrates
+    Match "1" o-- "*" Player : aggregates
+    FileMatchRepository ..> DBException : handles

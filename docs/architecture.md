@@ -1,39 +1,37 @@
-# Dokumentimi i Arkitekturës
+🏟️ MatchDay 5+1 — Dokumentimi i Arkitekturës
+🏗️ Shtresat (Layers) dhe Përgjegjësitë
+Projekti ndjek parimin e arkitekturës me shtresa (Layered Architecture) për të siguruar ndarjen e qartë të përgjegjësive (Separation of Concerns).
 
-### Shtresat (Layers) dhe Përgjegjësitë:
+Models/: Përmban definicionet e objekteve kryesore (Player, Match). Këto shërbejnë si "blueprint" për të gjithë sistemin.
 
-1. **Models/**: Përmban definicionet e objekteve kryesore (Lojtari, Ndeshja).
-2. **Services/**: Këtu ndodhet logjika "Smart Split" dhe kalkulimet e penaliteteve.
-3. **Data/**: Përdor "Repository Pattern" për të menaxhuar ruajtjen e të dhënave në CSV.
-4. **UI/**: Pikat e hyrjes (Routes) që lidhin kërkesat e përdoruesit me serverin.
+Services/: Këtu ndodhet logjika "Smart Split" dhe kalkulimet e penaliteteve. Është shtresa më e rëndësishme që përmban rregullat e biznesit.
 
-### Arsyetimi:
-Kjo arkitekturë është zgjedhur për të ndarë qartë "Business Logic" nga "Data Access". Nëse në të ardhmen vendosim të kalojmë nga CSV në një Database SQL, mjafton të ndryshojmë vetëm folderin **Data**, pa prekur pjesën tjetër të programit.
+Data/: Përdor Repository Pattern për të menaxhuar ruajtjen e të dhënave në CSV. Kjo shtresë izolon detajet teknike të diskut nga pjesa tjetër e aplikacionit.
 
-## 🌟 Bonus: Parimet SOLID
+UI/Routes: Pikat e hyrjes që lidhin kërkesat e përdoruesit me serverin dhe kthejnë përgjigjet në format JSON.
 
-Në këtë projekt është aplikuar parimi i parë i SOLID: **Single Responsibility Principle (SRP)**.
+🌟 Parimet SOLID dhe Scalability
+Në këtë projekt janë aplikuar parimet bazë të inxhinierisë softuerike për të garantuar që kodi të jetë i mirëmbajtshëm dhe i lehtë për t'u zgjeruar.
 
-**Shpjegimi:**
+1. Single Responsibility Principle (SRP)
 Çdo klasë ka vetëm një përgjegjësi të caktuar:
-- **FileRepository:** Merret vetëm me leximin/shkrimin e të dhënave në disk. Nuk e di se çfarë bëhet me paratë apo rezervimet.
-- **Models (Match/Player):** Vetëm përcaktojnë strukturën e të dhënave.
-- **index.js:** Vetëm inicializon sistemin.
 
-Kjo ndarje bën që kodi të jetë i lehtë për t'u testuar dhe mirëmbajtur. Nëse ndryshon formati i ruajtjes së të dhënave, ne ndryshojmë vetëm Repository-n, pa prekur logjikën e biznesit.
+FileRepository: Merret vetëm me leximin/shkrimin e të dhënave.
 
-Error Handling & System Resilience
-Në këtë projekt, është zbatuar një sistem i mbrojtjes nga gabimet (Error Handling) për të siguruar që aplikacioni të mos ndalojë së punuari ("crash") në raste të papritura:
+MatchService: Merret vetëm me logjikën e ndeshjeve.
 
-Përdorimi i Try-Catch: Çdo komunikim me skedarët CSV është i rrethuar me blloqe try-catch. Nëse skedari mungon ose është i dëmtuar, sistemi e kap gabimin (exception), e regjistron atë dhe kthen një mesazh miqësor për përdoruesin në vend që të bllokojë serverin.
+index.js: Vetëm inicializon sistemin (Program.cs equivalent).
 
-Data Integrity: Para se të bëhet llogaritja e ekipeve (Smart Split), sistemi kontrollon nëse të dhënat janë valide. Nëse një lojtar nuk ka nivel aftësie (skill level), sistemi cakton një vlerë të paracaktuar (default) për të parandaluar gabimet matematikore.
+2. Dependency Inversion Principle (DIP)
+Përmes abstraksionit me Interface (IMatchRepository), logjika e biznesit nuk është e lidhur drejtpërdrejt me formatin CSV.
 
- Scalability & Dependency Inversion
-Arkitektura e projektit "MatchDay" është ndërtuar duke pasur parasysh rritjen në të ardhmen (Scalability):
+Nga CSV në SQL: Nëse nesër vendosim të kalojmë në PostgreSQL ose MySQL, mjafton të krijojmë një klasë të re SqlMatchRepository që implementon të njëjtin interface.
 
-Abstraksioni përmes Interface: Duke përdorur modelin IMatchRepository, logjika e biznesit (MatchService) nuk është e lidhur drejtpërdrejt me mënyrën se si ruhen të dhënat.
+Zero Change in Frontend: Ky ndryshim do të ndodhte vetëm në shtresën e të dhënave, pa pasur nevojë të ndryshohet asnjë rresht kodi në Frontend ose në Service.
 
-Nga CSV në SQL: Falë parimit të Dependency Inversion, nëse nesër vendosim të kalojmë nga skedarët CSV në një databazë profesionale si PostgreSQL ose MySQL, mjafton të krijojmë një klasë të re SqlMatchRepository që implementon të njëjtin interface.
+🛡️ Error Handling & System Resilience
+Sistemi është dizajnuar për të qenë i qëndrueshëm (Robust) ndaj gabimeve:
 
-Zero Change in Frontend: Ky ndryshim do të ndodhte vetëm në shtresën e të dhënave (Data Layer), pa pasur nevojë të ndryshohet asnjë rresht kodi në Frontend ose në logjikën kryesore të aplikacionit.
+Përdorimi i Try-Catch: Çdo komunikim me skedarët CSV është i rrethuar me blloqe mbrojtëse. Nëse skedari mungon, sistemi e kap gabimin dhe kthen një mesazh miqësor në vend që të bllokojë serverin ("crash").
+
+Data Integrity: Para llogaritjeve, sistemi kontrollon validitetin e të dhënave. Nëse një lojtari i mungon niveli i aftësisë (skill level), caktohet një vlerë e paracaktuar (default) për të parandaluar dështimet matematike.

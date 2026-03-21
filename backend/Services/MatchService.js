@@ -1,42 +1,46 @@
 class MatchService {
-    // Kjo kllapë këtu hap klasën
+    constructor(repository) {
+        this.repo = repository; // Këtu injektohet FileRepository
+    }
 
-    generateSmartSplit(players) {
-        // Kontrollojmë nëse players ekziston dhe është array
-        if (!Array.isArray(players) || players.length === 0) {
-            return { teamA: [], teamB: [] };
-        }
-
-        // Krijojmë një kopje dhe e rendisim (b.skillLevel - a.skillLevel)
-        // Sigurohu që emri 'skillLevel' përputhet me atë që ke në model
-        const sorted = [...players].sort((a, b) => {
-            return (Number(b.skillLevel) || 0) - (Number(a.skillLevel) || 0);
-        });
-
-        let teamA = [];
-        let teamB = [];
-        let sumA = 0;
-        let sumB = 0;
-
-        sorted.forEach(p => {
-            const pSkill = Number(p.skillLevel) || 0;
+    // Merr të gjitha ndeshjet dhe llogarit totalin e borxhit (Unpaid)
+    getInventorySummary() {
+        try {
+            const matches = this.repo.getAll();
+            const totalAmount = matches.reduce((sum, m) => sum + parseFloat(m.amount || 0), 0);
+            const unpaidMatches = matches.filter(m => m.paid === 'false' || m.paid === false);
             
-            if (sumA <= sumB) {
-                teamA.push(p);
-                sumA += pSkill;
-            } else {
-                teamB.push(p);
-                sumB += pSkill;
-            }
-        });
+            return {
+                count: matches.length,
+                totalValue: totalAmount,
+                unpaidCount: unpaidMatches.length
+            };
+        } catch (error) {
+            console.error("Gabim në MatchService:", error.message);
+            return null;
+        }
+    }
 
-        return { 
-            teamA, 
-            teamB, 
-            difference: Math.abs(sumA - sumB) 
+    // Regjistron një ndeshje të re
+    createNewMatch(name, amount) {
+        const matches = this.repo.getAll();
+        const newId = matches.length > 0 ? Math.max(...matches.map(m => parseInt(m.id))) + 1 : 1;
+        
+        const newMatch = {
+            id: newId,
+            name: name,
+            amount: amount,
+            paid: false
         };
-    } // Kjo mbyll funksionin
 
-} // Kjo mbyll klasën
+        return this.repo.add(newMatch);
+    }
 
-export default new MatchService();
+    // Ndryshon statusin e pagesës (Psh. kur paguhet termini)
+    markAsPaid(id) {
+        // Këtu mund të shtohet logjika për update në CSV nëse dëshiron më vonë
+        console.log(`Duke procesuar pagesën për terminin me ID: ${id}`);
+    }
+}
+
+module.exports = MatchService;
