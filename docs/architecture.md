@@ -2,36 +2,34 @@
 🏗️ Shtresat (Layers) dhe Përgjegjësitë
 Projekti ndjek parimin e arkitekturës me shtresa (Layered Architecture) për të siguruar ndarjen e qartë të përgjegjësive (Separation of Concerns).
 
-Models/: Përmban definicionet e objekteve kryesore (Player, Match). Këto shërbejnë si "blueprint" për të gjithë sistemin.
+Models/: Përmban definicionet e objekteve kryesore (Match.js). Këto shërbejnë si blueprint për të gjithë sistemin, duke definuar atributet si terrain, hasRental, dhe status.
 
-Services/: Këtu ndodhet logjika "Smart Split" dhe kalkulimet e penaliteteve. Është shtresa më e rëndësishme që përmban rregullat e biznesit.
+Services/: Këtu ndodhet logjika "Smart Split" dhe kalkulimet e penaliteteve prej 40%. Është shtresa më e rëndësishme që përmban rregullat e biznesit (Business Logic).
 
-Data/: Përdor Repository Pattern për të menaxhuar ruajtjen e të dhënave në CSV. Kjo shtresë izolon detajet teknike të diskut nga pjesa tjetër e aplikacionit.
+Repositories/: Përdor Repository Pattern për të menaxhuar ruajtjen e të dhënave. Kjo shtresë izolon detajet teknike të shkrimit në skedarë (CSV) nga pjesa tjetër e aplikacionit.
 
-UI/Routes: Pikat e hyrjes që lidhin kërkesat e përdoruesit me serverin dhe kthejnë përgjigjet në format JSON.
+Routes/ & index.js: Pikat e hyrjes që lidhin kërkesat e përdoruesit me serverin. index.js është mbajtur minimal (Program.cs equivalent) për të respektuar rregullën e 10 rreshtave.
 
 🌟 Parimet SOLID dhe Scalability
-Në këtë projekt janë aplikuar parimet bazë të inxhinierisë softuerike për të garantuar që kodi të jetë i mirëmbajtshëm dhe i lehtë për t'u zgjeruar.
+Në këtë projekt janë aplikuar parimet bazë të inxhinierisë softuerike:
 
 1. Single Responsibility Principle (SRP)
 Çdo klasë ka vetëm një përgjegjësi të caktuar:
 
-FileRepository: Merret vetëm me leximin/shkrimin e të dhënave.
+FileRepository: Merret vetëm me leximin/shkrimin e të dhënave në disk.
 
-MatchService: Merret vetëm me logjikën e ndeshjeve.
+MatchService: Merret vetëm me kalkulimet matematike të kostos dhe rimbursimit.
 
-index.js: Vetëm inicializon sistemin (Program.cs equivalent).
+index.js: Vetëm inicializon serverin dhe lidh middleware-ët.
 
 2. Dependency Inversion Principle (DIP)
-Përmes abstraksionit me Interface (IMatchRepository), logjika e biznesit nuk është e lidhur drejtpërdrejt me formatin CSV.
+Përmes abstraksionit me Interface (IRepository), logjika e biznesit nuk është e lidhur drejtpërdrejt me formatin CSV.
 
-Nga CSV në SQL: Nëse nesër vendosim të kalojmë në PostgreSQL ose MySQL, mjafton të krijojmë një klasë të re SqlMatchRepository që implementon të njëjtin interface.
-
-Zero Change in Frontend: Ky ndryshim do të ndodhte vetëm në shtresën e të dhënave, pa pasur nevojë të ndryshohet asnjë rresht kodi në Frontend ose në Service.
+Nga CSV në SQL: Nëse nesër vendosim të kalojmë në PostgreSQL, mjafton të krijojmë një klasë të re SqlRepository që implementon të njëjtin interface. Logjika te MatchService mbetet e paprekur.
 
 🛡️ Error Handling & System Resilience
 Sistemi është dizajnuar për të qenë i qëndrueshëm (Robust) ndaj gabimeve:
 
-Përdorimi i Try-Catch: Çdo komunikim me skedarët CSV është i rrethuar me blloqe mbrojtëse. Nëse skedari mungon, sistemi e kap gabimin dhe kthen një mesazh miqësor në vend që të bllokojë serverin ("crash").
+Përdorimi i Try-Catch: Çdo komunikim me skedarët CSV (I/O operations) është i rrethuar me blloqe mbrojtëse. Nëse skedari mungon ose është i korruptuar, sistemi e kap gabimin pa u rrëzuar (crash).
 
-Data Integrity: Para llogaritjeve, sistemi kontrollon validitetin e të dhënave. Nëse një lojtari i mungon niveli i aftësisë (skill level), caktohet një vlerë e paracaktuar (default) për të parandaluar dështimet matematike.
+Integriteti i të dhënave: Para llogaritjes së penalitetit 40%, sistemi kontrollon statusin e rezervimit dhe kohën e mbetur, duke siguruar që kalkulimet financiare të jenë gjithmonë të sakta bazuar në rregullat e biznesit.
