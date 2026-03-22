@@ -1,52 +1,57 @@
  classDiagram
-    class Player {
-        +int id
-        +string name
-        +float skillLevel
-        +string position
+    class TerrainType {
+        <<enumeration>>
+        ARTIFICIAL_GRASS
+        INDOOR_HALL
+    }
+
+    class PaymentStatus {
+        <<enumeration>>
+        PENDING
+        PAID
+        REFUNDED
     }
 
     class Match {
-        +int matchId
-        +DateTime date
-        +List~Player~ teamA
-        +List~Player~ teamB
-        +string finalScore
+        -int matchId
+        -TerrainType terrain
+        -float totalCost
+        -datetime startTime
+        -int playersJoined
+        +getAmountPerPerson() float
+        +canCancelWithoutPenalty() bool
     }
 
-    class IMatchRepository {
+    class Participant {
+        -int userId
+        -string name
+        -bool needsShoes
+        -PaymentStatus status
+        +payAmount(float amount)
+    }
+
+    class IRepository {
         <<interface>>
-        +getAll() List
-        +save(Match m) bool
-        +delete(int id) bool
+        +GetAll() List
+        +GetById(id) Match
+        +Add(entity) void
+        +Save() void
     }
 
-    class FileMatchRepository {
+    class FileRepository {
         -string filePath
-        +loadFromCSV()
-        +saveToCSV()
+        +Save() void
     }
 
     class MatchService {
-        -IMatchRepository repo
-        +generateSmartSplit(List players)
-        +calculateWinProbability()
+        -IRepository repo
+        +processSmartSplit(matchId)
+        +handleCancellation(matchId)
+        +addPlayerToMatch(matchId, participant)
     }
 
-    class MatchController {
-        -MatchService service
-        +getMatches()
-        +createMatch()
-    }
-
-    class DBException {
-        +string message
-        +logError()
-    }
-
-    IMatchRepository <|.. FileMatchRepository : implements
-    MatchService --> IMatchRepository : uses (DIP)
-    MatchController --> MatchService : delegates to
-    MatchService ..> Match : orchestrates
-    Match "1" o-- "*" Player : aggregates
-    FileMatchRepository ..> DBException : handles
+    IRepository <|.. FileRepository : Realizes
+    MatchService --> IRepository : Injects (DIP)
+    Match "1" o-- "12" Participant : Aggregation
+    Match --> TerrainType : Uses
+    Participant --> PaymentStatus : Has

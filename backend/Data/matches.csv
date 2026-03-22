@@ -1,2 +1,2 @@
-id,name,amount,paid
-1,Termini_Salla_1,60,false
+id,name,terrain,amount,hasRental,status
+1,Termini_Salla_1,Sallë,60,false,Paid
