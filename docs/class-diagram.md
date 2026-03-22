@@ -1,4 +1,4 @@
- classDiagram
+classDiagram
     class TerrainType {
         <<enumeration>>
         ARTIFICIAL_GRASS
@@ -40,6 +40,9 @@
 
     class FileRepository {
         -string filePath
+        +GetAll() List
+        +GetById(id) Match
+        +Add(entity) void
         +Save() void
     }
 
