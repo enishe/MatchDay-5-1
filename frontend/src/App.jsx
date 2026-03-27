@@ -1,121 +1,60 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from './assets/vite.svg'
-import heroImg from './assets/hero.png'
-import './App.css'
+import { useEffect, useState } from 'react';
+import './App.css';
 
 function App() {
-  const [count, setCount] = useState(0)
+  const [matches, setMatches] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  // 1. Merr të dhënat nga API (Backend-i që ndezëm)
+  useEffect(() => {
+    fetch('http://localhost:5000/api/matches')
+      .then(response => response.json())
+      .then(data => {
+        setMatches(data);
+        setLoading(false);
+      })
+      .catch(error => console.error('Gabim gjatë marrjes së të dhënave:', error));
+  }, []);
 
   return (
-    <>
-      <section id="center">
-        <div className="hero">
-          <img src={heroImg} className="base" width="170" height="179" alt="" />
-          <img src={reactLogo} className="framework" alt="React logo" />
-          <img src={viteLogo} className="vite" alt="Vite logo" />
-        </div>
-        <div>
-          <h1>Get started</h1>
-          <p>
-            Edit <code>src/App.jsx</code> and save to test <code>HMR</code>
-          </p>
-        </div>
-        <button
-          className="counter"
-          onClick={() => setCount((count) => count + 1)}
-        >
-          Count is {count}
-        </button>
-      </section>
-
-      <div className="ticks"></div>
-
-      <section id="next-steps">
-        <div id="docs">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#documentation-icon"></use>
-          </svg>
-          <h2>Documentation</h2>
-          <p>Your questions, answered</p>
-          <ul>
-            <li>
-              <a href="https://vite.dev/" target="_blank">
-                <img className="logo" src={viteLogo} alt="" />
-                Explore Vite
-              </a>
-            </li>
-            <li>
-              <a href="https://react.dev/" target="_blank">
-                <img className="button-icon" src={reactLogo} alt="" />
-                Learn more
-              </a>
-            </li>
-          </ul>
-        </div>
-        <div id="social">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#social-icon"></use>
-          </svg>
-          <h2>Connect with us</h2>
-          <p>Join the Vite community</p>
-          <ul>
-            <li>
-              <a href="https://github.com/vitejs/vite" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#github-icon"></use>
-                </svg>
-                GitHub
-              </a>
-            </li>
-            <li>
-              <a href="https://chat.vite.dev/" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#discord-icon"></use>
-                </svg>
-                Discord
-              </a>
-            </li>
-            <li>
-              <a href="https://x.com/vite_js" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#x-icon"></use>
-                </svg>
-                X.com
-              </a>
-            </li>
-            <li>
-              <a href="https://bsky.app/profile/vite.dev" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#bluesky-icon"></use>
-                </svg>
-                Bluesky
-              </a>
-            </li>
-          </ul>
-        </div>
-      </section>
-
-      <div className="ticks"></div>
-      <section id="spacer"></section>
-    </>
-  )
+    <div className="App">
+      <h1>🏆 MatchDay 5+1 - Lista e Ndeshjeve</h1>
+      
+      {loading ? <p>Duke u ngarkuar...</p> : (
+        <table border="1" style={{ width: '100%', marginTop: '20px', textAlign: 'left' }}>
+          <thead>
+            <tr style={{ backgroundColor: '#2ecc71', color: 'white' }}>
+              <th>ID</th>
+              <th>Terreni (Field ID)</th>
+              <th>Data dhe Koha</th>
+              <th>Çmimi Total</th>
+              <th>Për Lojtar</th>
+              <th>Statusi</th>
+            </tr>
+          </thead>
+          <tbody>
+            {matches.map(match => (
+              <tr key={match.id}>
+                <td>{match.id}</td>
+                <td>Fusha #{match.field_id}</td>
+                <td>{new Date(match.start_time).toLocaleString()}</td>
+                <td>{match.total_price}€</td>
+                <td>{match.price_per_player}€</td>
+                <td>
+                  <span style={{ 
+                    color: match.status === 'confirmed' ? 'green' : 'orange',
+                    fontWeight: 'bold' 
+                  }}>
+                    {match.status.toUpperCase()}
+                  </span>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+    </div>
+  );
 }
 
-export default App
+export default App;
