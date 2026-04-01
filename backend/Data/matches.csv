@@ -1,2 +1,8 @@
 id,name,terrain,amount,hasRental,status
 1,Termini_Salla_1,Sallë,60,false,Paid
+2,Termini_Artificial_1,Bar Artificial,60,true,Paid
+3,Termini_Salla_2,Sallë,60,false,Pending
+4,Termini_Artificial_2,Bar Artificial,72,true,Paid
+5,Termini_Salla_3,Sallë,60,false,Pending
+6,Termini_Artificial_3,Bar Artificial,60,true,Paid
+7,Termini_Salla_4,Sallë,72,false,Pending
