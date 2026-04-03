@@ -122,3 +122,98 @@ gjejSipasId(9999)  // me mock repo që kthen null
 ## Afati
 - **Sprint Plan:** 1 Prill 2026 — pushed sot
 - **Sprint Delivery:** Martë, 8 Prill 2026, ora 08:30
+
+
+# Sprint 2 Report — MatchDay 5+1
+**Autori:** Enis Hetemi   
+**Statusi:** ✅ Përfunduar
+
+---
+
+## Çfarë u planifikua vs Çfarë u realizua
+
+| E planifikuar | E realizuar | Statusi |
+|---------------|-------------|---------|
+| Statistikat e Ndeshjeve | Implementuar plotësisht | ✅ |
+| Error Handling — 3 raste | Implementuar plotësisht | ✅ |
+| Unit Tests — 4 teste | 16 teste — të gjitha kaluan | ✅ |
+| Screenshot i aplikacionit | Screenshot1.png + Screenshot2.png | ✅ |
+| Sprint Report | Ky dokument | ✅ |
+
+---
+
+## Feature e Re: Statistikat e Ndeshjeve
+
+### Çfarë bën:
+Paneli i statistikave shfaqet automatikisht mbi listën e ndeshjeve dhe llogarit:
+- Numrin total të ndeshjeve
+- Totalin e çmimeve (€)
+- Çmimin mesatar (€)
+- Çmimin maksimal dhe minimal
+- Numrin e ndeshjeve sipas statusit (Në Pritje / Konfirmuara / Anuluara)
+
+### Rrjedha (UI → Service → Repository):
+```
+React UI → GET /api/matches/stats
+         → MatchService.llogaritStatistikat()   ← logjika këtu
+         → SqlMatchRepository.GetAll()           ← vetëm merr të dhënat
+         → { total, mesatare, max, min, ... }
+         → React shfaq panelin e kartave
+```
+
+### Pse logjika është në Service dhe jo në UI:
+Sipas parimit SRP, UI merret vetëm me shfaqjen. Llogaritjet (mesatare, max, min) janë logjikë biznesi dhe qëndrojnë në `MatchService.llogaritStatistikat()`. Kjo e bën metodën të testueshme pa UI.
+
+---
+
+## Error Handling — 3 Rastet
+
+### Rasti 1 — Input i gabuar nga useri:
+- **Problem:** `totalPrice = "abc"` → NaN dërgohej në backend → crash
+- **Zgjidhja:** Validim në UI para fetch + validim në Service
+- **Mesazhi:** `"Ju lutem shkruani një çmim valid (numër mbi 0)"`
+
+### Rasti 2 — ID që nuk ekziston:
+- **Problem:** `GET /api/matches/9999` → `undefined` → crash në UI
+- **Zgjidhja:** `gjejSipasId()` hedh Error → route kthen 404
+- **Mesazhi:** `"Ndeshja me ID 9999 nuk u gjet"`
+
+### Rasti 3 — Lidhja me DB dështon:
+- **Problem:** PostgreSQL joaktiv → aplikacioni crashonte pa mesazh
+- **Zgjidhja:** try-catch në çdo metodë të `SqlMatchRepository`
+- **Mesazhi:** `"Nuk mund të merren ndeshjet. Kontrollo lidhjen me databazën"`
+
+---
+
+## Unit Tests — 16/16 Kaluan ✅
+
+```
+Test Suites: 1 passed, 1 total
+Tests:       16 passed, 16 total
+Time:        0.411s
+```
+
+### Teste të implementuara:
+
+| Testi | Rezultati |
+|-------|-----------|
+| llogaritStatistikat — rast normal | ✅ |
+| llogaritStatistikat — listë bosh (jo NaN) | ✅ |
+| llogaritStatistikat — CSV format | ✅ |
+| shtoNdeshje — çmimi 0 | ✅ |
+| shtoNdeshje — çmimi negativ | ✅ |
+| shtoNdeshje — fieldId bosh | ✅ |
+| shtoNdeshje — të dhëna valide | ✅ |
+| gjejSipasId — ID ekzistuese | ✅ |
+| gjejSipasId — ID që nuk ekziston | ✅ |
+| gjejSipasId — ID bosh | ✅ |
+| llogaritSm
+
+
+
+## Çka Mësova
+- Si të shkruaj Unit Tests me Jest duke përdorur Mock Repository
+  pa lidhje reale me databazën
+- Si të izoloj logjikën e biznesit në Service layer për ta bërë
+  të testueshme
+- Rëndësia e Error Handling në çdo shtresë të arkitekturës
