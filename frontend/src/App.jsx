@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 
 // ─── Konstante ────────────────────────────────────────────────────────────────
-const API = 'http://localhost:5000/api';
+const API = 'http://192.168.0.226:5000/api';
 
 const STATUSET = {
   pending:   { label: 'PRITJE',     ngjyra: '#f39c12' },

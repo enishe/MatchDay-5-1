@@ -1,10 +1,10 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 
-// https://vite.dev/config/
 export default defineConfig({
   plugins: [react()],
   server: {
-    open: true, // Kjo e hap faqen vetvetiu kur ndez serverin
+    open: true,
+    allowedHosts: ['vitrescible-eldon-amusedly.ngrok-free.dev']
   }
 })
