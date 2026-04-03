@@ -23,26 +23,6 @@ const FORMA_BOSH = {
   totalPrice:  '60',
 };
 
-// ─── Llogarit statistikat nga lista ──────────────────────────────────────────
-// Sprint 2 Feature: Statistika — kalon nëpër UI → Service logic → të dhënat
-function llogaritStatistikat(matches) {
-  if (!matches || matches.length === 0) {
-    return { total: 0, mesatare: 0, max: 0, min: 0, totali_cmimit: 0,
-             pending: 0, confirmed: 0, canceled: 0 };
-  }
-  const cmimet = matches.map(m => parseFloat(m.total_price) || 0);
-  return {
-    total:         matches.length,
-    mesatare:      parseFloat((cmimet.reduce((a, b) => a + b, 0) / cmimet.length).toFixed(2)),
-    max:           Math.max(...cmimet),
-    min:           Math.min(...cmimet),
-    totali_cmimit: parseFloat(cmimet.reduce((a, b) => a + b, 0).toFixed(2)),
-    pending:       matches.filter(m => m.status === 'pending').length,
-    confirmed:     matches.filter(m => m.status === 'confirmed').length,
-    canceled:      matches.filter(m => m.status === 'canceled').length,
-  };
-}
-
 // ─── App ──────────────────────────────────────────────────────────────────────
 function App() {
   const [matches, setMatches]           = useState([]);
@@ -55,7 +35,22 @@ function App() {
   const [mesazhi, setMesazhi]           = useState(null);
   const [statistikat, setStatistikat]   = useState(null);
 
-  // ─── READ ─────────────────────────────────────────────────────────────────
+  // ─── SPRINT 2: Merr statistikat nga API (Service layer) ──────────────────
+  // Logjika e llogaritjes është në MatchService.llogaritStatistikat()
+  // UI thjesht shfaq rezultatin — respekton Separation of Concerns
+  const fetchStatistikat = async () => {
+    try {
+      const res  = await fetch(`${API}/matches/stats`);
+      if (!res.ok) return;
+      const data = await res.json();
+      setStatistikat(data);
+    } catch (err) {
+      // Statistikat janë opsionale — nëse dështojnë, lista vazhdon normalisht
+      console.error('Statistikat nuk u ngarkuan:', err.message);
+    }
+  };
+
+  // ─── READ: Merr ndeshjet ──────────────────────────────────────────────────
   const fetchMatches = async (statusFilter = '') => {
     setLoading(true);
     setError(null);
@@ -71,9 +66,11 @@ function App() {
       const data = await res.json();
       const lista = Array.isArray(data) ? data : [];
       setMatches(lista);
-      setStatistikat(llogaritStatistikat(lista));
+
+      // Pas çdo ndryshimi të listës, rifresko statistikat nga API
+      await fetchStatistikat();
     } catch (err) {
-      // Error Handling 2: lidhja me serverin dështoi (DB joaktive)
+      // Error Handling 2: lidhja me serverin dështoi
       if (err.message.includes('fetch') || err.message.includes('Failed')) {
         setError('Nuk mund të lidhet me serverin. Kontrollo që backend-i është aktiv në port 5000.');
       } else {
@@ -220,11 +217,11 @@ function App() {
       {mesazhi && <div style={s.bust(mesazhi.lloji)}>{mesazhi.tekst}</div>}
 
       {/* ── STATISTIKAT — Sprint 2 Feature ── */}
+      {/* Të dhënat vijnë nga GET /api/matches/stats → MatchService.llogaritStatistikat() */}
       {statistikat && !loading && !error && (
         <div style={s.karta}>
           <div style={s.kartaT}>Statistikat e Ndeshjeve</div>
 
-          {/* Kartat kryesore */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12, marginBottom: 14 }}>
             {[
               { label: 'Gjithsej Ndeshje', vlera: statistikat.total,         ngjyra: '#1a1a2e', sfx: '' },
@@ -239,7 +236,6 @@ function App() {
             ))}
           </div>
 
-          {/* Statuset */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10 }}>
             {[
               { label: 'Në Pritje',   vlera: statistikat.pending,   ngjyra: '#f39c12' },
@@ -312,7 +308,6 @@ function App() {
 
         {loading && <p style={{ color: '#888', fontSize: 13 }}>Duke ngarkuar ndeshjet...</p>}
 
-        {/* Error Handling — mesazh i qartë + buton riprovimi */}
         {error && (
           <div style={{ background: '#fdecea', border: '1px solid #ef9a9a', borderRadius: 8, padding: '12px 16px', fontSize: 13, color: '#c62828', display: 'flex', alignItems: 'center', gap: 12 }}>
             <span>{error}</span>
