@@ -3,12 +3,12 @@ const path = require('path');
 
 // ─── IRepository — Kontratat (DIP) ───────────────────────────────────────────
 class IRepository {
-    GetAll()        { throw new Error("Duhet të implementohet!"); }
-    GetById(id)     { throw new Error("Duhet të implementohet!"); }
-    Add(entity)     { throw new Error("Duhet të implementohet!"); }
-    Update(id, data){ throw new Error("Duhet të implementohet!"); }
-    Delete(id)      { throw new Error("Duhet të implementohet!"); }
-    Save()          { throw new Error("Duhet të implementohet!"); }
+    GetAll()         { throw new Error("Duhet të implementohet!"); }
+    GetById(id)      { throw new Error("Duhet të implementohet!"); }
+    Add(entity)      { throw new Error("Duhet të implementohet!"); }
+    Update(id, data) { throw new Error("Duhet të implementohet!"); }
+    Delete(id)       { throw new Error("Duhet të implementohet!"); }
+    Save()           { throw new Error("Duhet të implementohet!"); }
 }
 
 // ─── FileRepository — Implementimi konkret me CSV ────────────────────────────
@@ -20,18 +20,20 @@ class FileRepository extends IRepository {
         this.initFile();
     }
 
-    // Error Handling — krijon file nëse nuk ekziston
+    // Error Handling — krijon file me 7 rekorde nëse nuk ekziston
     initFile() {
         const dir = path.dirname(this.filePath);
         if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
         if (!fs.existsSync(this.filePath)) {
             fs.writeFileSync(this.filePath,
-                'id,terrain,totalCost,hasRental,isPaid\n' +
-                '1,artificial_grass,60,false,true\n'  +
-                '2,indoor_hall,60,true,true\n'        +
-                '3,artificial_grass,60,false,false\n' +
-                '4,indoor_hall,60,true,true\n'        +
-                '5,artificial_grass,60,false,true\n'
+                'id,name,terrain,amount,hasRental,status\n' +
+                '1,Termini_Salla_1,Sallë,60,false,Paid\n' +
+                '2,Termini_Artificial_1,Bar Artificial,60,true,Paid\n' +
+                '3,Termini_Salla_2,Sallë,60,false,Pending\n' +
+                '4,Termini_Artificial_2,Bar Artificial,72,true,Paid\n' +
+                '5,Termini_Salla_3,Sallë,60,false,Pending\n' +
+                '6,Termini_Artificial_3,Bar Artificial,60,true,Paid\n' +
+                '7,Termini_Salla_4,Sallë,72,false,Pending\n'
             );
         }
         this.Load();
@@ -46,13 +48,14 @@ class FileRepository extends IRepository {
                 .slice(1)
                 .filter(l => l.trim() !== '')
                 .map(line => {
-                    const [id, terrain, totalCost, hasRental, isPaid] = line.split(',');
+                    const [id, name, terrain, amount, hasRental, status] = line.split(',');
                     return {
                         id,
+                        name,
                         terrain,
-                        totalCost:  parseFloat(totalCost),
-                        hasRental:  hasRental === 'true',
-                        isPaid:     isPaid.trim() === 'true'
+                        amount:    parseFloat(amount),
+                        hasRental: hasRental === 'true',
+                        status:    status ? status.trim() : 'Pending'
                     };
                 });
         } catch (err) {
@@ -76,7 +79,6 @@ class FileRepository extends IRepository {
 
     // ─── Add ──────────────────────────────────────────────────────────────────
     Add(match) {
-        // ID auto-increment
         const maxId = this.data.length > 0
             ? Math.max(...this.data.map(m => parseInt(m.id) || 0))
             : 0;
@@ -86,22 +88,19 @@ class FileRepository extends IRepository {
         return match;
     }
 
-    // ─── Update (i shtuar — ishte i mangët) ───────────────────────────────────
+    // ─── Update ───────────────────────────────────────────────────────────────
     Update(id, updates) {
         const index = this.data.findIndex(m => m.id === id.toString());
         if (index === -1) return null;
-
-        // Bashko të dhënat ekzistuese me ndryshimet
         this.data[index] = { ...this.data[index], ...updates };
         this.Save();
         return this.data[index];
     }
 
-    // ─── Delete (i shtuar — ishte i mangët) ───────────────────────────────────
+    // ─── Delete ───────────────────────────────────────────────────────────────
     Delete(id) {
         const index = this.data.findIndex(m => m.id === id.toString());
         if (index === -1) return false;
-
         this.data.splice(index, 1);
         this.Save();
         return true;
@@ -110,13 +109,12 @@ class FileRepository extends IRepository {
     // ─── Save — Serializim objekte → CSV ──────────────────────────────────────
     Save() {
         try {
-            const header = 'id,terrain,totalCost,hasRental,isPaid\n';
+            const header = 'id,name,terrain,amount,hasRental,status\n';
             const rows   = this.data
-                .map(m => `${m.id},${m.terrain},${m.totalCost},${m.hasRental},${m.isPaid}`)
+                .map(m => `${m.id},${m.name},${m.terrain},${m.amount},${m.hasRental},${m.status}`)
                 .join('\n');
             fs.writeFileSync(this.filePath, header + rows);
         } catch (err) {
-            // Error Handling — shkrim i dështuar
             console.error('FileRepository: gabim gjatë ruajtjes në CSV:', err.message);
         }
     }
