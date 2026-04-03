@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 
 // ─── Konstante ────────────────────────────────────────────────────────────────
-const API = 'https://matchday-backend.onrender.com/api';
+const API = 'https://matchday-5-1.onrender.com/api';
 
 const STATUSET = {
   pending:   { label: 'PRITJE',     ngjyra: '#f39c12' },
