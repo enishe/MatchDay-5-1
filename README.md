@@ -114,7 +114,8 @@ Ekzekuton **Jest** mbi `tests/matchService.test.js` (mock repository). Pritet: *
 
 | Dokumenti | Përmbajtja |
 |-----------|------------|
-| `docs/sprint-plan.md` | Plani dhe raporti i sprintit |
+| `docs/sprint-plan.md` | Plani i Sprint 2 (gjendja fillestare + qëllimet) |
+| `docs/sprint-report.md` | Raporti i dorëzimit (çka u përfundua, rubrica, reflektim) |
 | `docs/implementation.md` | Detaje teknike të implementimit |
 | `docs/architecture.md` | Pamje e arkitekturës |
 | `docs/class-diagram.md` | Diagram klasesh |
