@@ -64,63 +64,7 @@
 
 ---
 
-## Parakushte
 
-- **Node.js** (LTS i rekomanduar)
-- **PostgreSQL** ose URL hosted (shih `backend/config/db.js`)
-
-### Variabla mjedisi (backend)
-
-| Variabla | Qëllimi |
-|----------|---------|
-| `DATABASE_URL` | Connection string për PostgreSQL. Për prod, vendoset në mjedis; mos e ekspozo në kod publik. |
-
----
-
-## Nisja lokale
-
-**Backend** (port **5000**):
-
-```bash
-cd backend
-npm install
-npm run dev
-```
-
-**Frontend** (Vite — zakonisht **5173**):
-
-```bash
-cd frontend
-npm install
-npm run dev
-```
-
-> **Shënim:** Në `frontend/src/App.jsx`, konstanta `API` duhet të tregojë te backend-i yt (p.sh. `http://localhost:5000/api` për lokal, ose URL e deploy-tuar për prod).
-
----
-
-## Testet (backend)
-
-```bash
-cd backend
-npm test
-```
-
-Ekzekuton **Jest** mbi `tests/matchService.test.js` (mock repository). Pritet: **16 passed**.
-
----
-
-## Dokumentacion shtesë
-
-| Dokumenti | Përmbajtja |
-|-----------|------------|
-| `docs/sprint-plan.md` | Plani i Sprint 2 (gjendja fillestare + qëllimet) |
-| `docs/sprint-report.md` | Raporti i dorëzimit (çka u përfundua, rubrica, reflektim) |
-| `docs/implementation.md` | Detaje teknike të implementimit |
-| `docs/architecture.md` | Pamje e arkitekturës |
-| `docs/class-diagram.md` | Diagram klasesh |
-
----
 
 <div align="center">
 
