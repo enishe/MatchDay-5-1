@@ -2,7 +2,7 @@
  * Unit Tests — MatchService
  * Sprint 2 | MatchDay 5+1
  *
- * Ekzekuto: npx jest tests/matchService.test.js
+ * Ekzekuto: npm test (nga dosja backend)
  *
  * Këto teste verifikojnë logjikën e biznesit të MatchService
  * pa lidhje reale me databazën (Mock Repository).

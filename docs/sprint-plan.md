@@ -207,13 +207,19 @@ Time:        0.411s
 | gjejSipasId — ID ekzistuese | ✅ |
 | gjejSipasId — ID që nuk ekziston | ✅ |
 | gjejSipasId — ID bosh | ✅ |
-| llogaritSm
+| llogaritSmartSplit — ndarje 60€/12 | ✅ |
+| llogaritSmartSplit — ndarje 72€/12 | ✅ |
+| llogaritSmartSplit — çmim 0 (gabim) | ✅ |
+| perditesoStatusin — status i pavlefshëm | ✅ |
+| perditesoStatusin — ID që nuk ekziston | ✅ |
+| perditesoStatusin — anulim me penalitet 40% | ✅ |
 
+**Komanda verifikimi:** nga dosja `backend`, ekzekuto `npm test` (Jest — 16 teste, pa databazë reale).
 
+---
 
-## Çka Mësova
-- Si të shkruaj Unit Tests me Jest duke përdorur Mock Repository
-  pa lidhje reale me databazën
-- Si të izoloj logjikën e biznesit në Service layer për ta bërë
-  të testueshme
-- Rëndësia e Error Handling në çdo shtresë të arkitekturës
+## Mësimet kryesore (reflektim)
+
+- **Unit testing me Jest:** mock i repository-t izolon `MatchService` nga PostgreSQL; testohet vetëm logjika e biznesit.
+- **SRP:** llogaritjet (statistika, Smart Split, validim) qëndrojnë në service; UI dhe repository mbeten të holla.
+- **Gabimet në çdo shtresë:** validim në UI dhe service; 404 për ID të panjohur; mesazhe të qarta kur databaza nuk përgjigjet.

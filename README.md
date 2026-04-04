@@ -1,30 +1,56 @@
-# ⚽ MatchDay 5+1
+# MatchDay 5+1
 
-**Zgjidhja inteligjente për menaxhimin e ndeshjeve dhe pajisjeve sportive.**
+Aplikacion për menaxhimin e termineve të futbollit 5+1: lista e ndeshjeve, CRUD, filtrim, statistika, Smart Split (çmimi total / 12) dhe trajtim gabimesh. Frontend: **React 19 + Vite**. Backend: **Express + PostgreSQL** (`pg`), me **Repository pattern** dhe logjikë në **MatchService**.
 
----
+## Struktura
 
-### 📝 Çfarë bën aplikacioni?
+| Dosja | Roli |
+|--------|------|
+| `backend/` | API REST (`/api/matches`, `/api/matches/stats`), lidhje DB |
+| `frontend/` | UI React |
+| `docs/` | Plan sprinti, arkitekturë, diagram klasesh, implementim |
 
-**MatchDay 5+1** është një platformë e avancuar për rezervimin e fushave të futbollit, e krijuar për të eliminuar pengesat e organizimit amator. 
-Sistemi fokusohet në dy shtylla kryesore:
-* **Smart Split:** Automon ndarjen e kostos së fushës në mënyrë të barabartë mes lojtarëve.
-* **Inventory Management:** Lejon lojtarët të marrin me qira pajisje (patika pa thuma) në mënyrë individuale.
+## Parakushte
 
----
+- **Node.js** (LTS)
+- **PostgreSQL** (ose URL hosted, sipas konfigurimit në `backend/config/db.js`)
 
-### 🛠 Teknologjitë e Përdorura
+## Variabla mjedisi (backend)
 
-| Sektori | Teknologjia |
-| :--- | :--- |
-| **Frontend** | ![React](https://img.shields.io/badge/React-20232A?style=for-the-badge&logo=react&logoColor=61DAFB) ![Tailwind](https://img.shields.io/badge/Tailwind_CSS-38B2AC?style=for-the-badge&logo=tailwind-css&logoColor=white) |
-| **Backend** | ![Node.js](https://img.shields.io/badge/Node.js-43853D?style=for-the-badge&logo=node.js&logoColor=white) ![Express](https://img.shields.io/badge/Express.js-000000?style=for-the-badge&logo=express&logoColor=white) |
-| **Database** | ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-316192?style=for-the-badge&logo=postgresql&logoColor=white) |
-| **Version Control** | ![Git](https://img.shields.io/badge/GIT-E44C30?style=for-the-badge&logo=git&logoColor=white) ![GitHub](https://img.shields.io/badge/GitHub-100000?style=for-the-badge&logo=github&logoColor=white) |
+| Variabla | Qëllimi |
+|----------|---------|
+| `DATABASE_URL` | Connection string PostgreSQL. Nëse mungon, përdoret vlera e paracaktuar në kod (vetëm për zhvillim/demo). Për prod, vendos gjithmonë `DATABASE_URL` në mjedis dhe mos e commit-o në repo. |
 
----
+## Nisja lokale
 
+**1. Backend** (port **5000**):
 
+```bash
+cd backend
+npm install
+npm run dev
+```
 
-### 👤 Zhvilluesi
-**Enis Hetemi** 📧 [enishetemi10@gmail.com](mailto:enishetemi10@gmail.com)
+**2. Frontend** (Vite, zakonisht port **5173**):
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+**Lidhja UI ↔ API lokale:** në `frontend/src/App.jsx`, konstanta `API` duhet të tregojë te backend-i lokal, p.sh. `http://localhost:5000/api` (aktualisht në projekt mund të jetë URL e deploy-tuar në Render — përshtate sipas mjedisit).
+
+## Testet (backend)
+
+```bash
+cd backend
+npm test
+```
+
+Ekzekuton **Jest** mbi `tests/matchService.test.js` (mock repository, pa DB). Pritet: **16 passed**.
+
+## Dokumentacion shtesë
+
+- `docs/sprint-plan.md` — plani dhe raporti i sprintit
+- `docs/implementation.md` — detaje teknike të implementimit
