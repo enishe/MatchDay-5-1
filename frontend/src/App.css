@@ -1,184 +1,207 @@
-.counter {
-  font-size: 16px;
-  padding: 5px 10px;
-  border-radius: 5px;
-  color: var(--accent);
-  background: var(--accent-bg);
-  border: 2px solid transparent;
-  transition: border-color 0.3s;
-  margin-bottom: 24px;
+/* MatchDay 5+1 — layout responsive (mobile-first) */
 
-  &:hover {
-    border-color: var(--accent-border);
-  }
-  &:focus-visible {
-    outline: 2px solid var(--accent);
-    outline-offset: 2px;
-  }
-}
-
-.hero {
-  position: relative;
-
-  .base,
-  .framework,
-  .vite {
-    inset-inline: 0;
-    margin: 0 auto;
-  }
-
-  .base {
-    width: 170px;
-    position: relative;
-    z-index: 0;
-  }
-
-  .framework,
-  .vite {
-    position: absolute;
-  }
-
-  .framework {
-    z-index: 1;
-    top: 34px;
-    height: 28px;
-    transform: perspective(2000px) rotateZ(300deg) rotateX(44deg) rotateY(39deg)
-      scale(1.4);
-  }
-
-  .vite {
-    z-index: 0;
-    top: 107px;
-    height: 26px;
-    width: auto;
-    transform: perspective(2000px) rotateZ(300deg) rotateX(40deg) rotateY(39deg)
-      scale(0.8);
-  }
-}
-
-#center {
-  display: flex;
-  flex-direction: column;
-  gap: 25px;
-  place-content: center;
-  place-items: center;
-  flex-grow: 1;
-
-  @media (max-width: 1024px) {
-    padding: 32px 20px 24px;
-    gap: 18px;
-  }
-}
-
-#next-steps {
-  display: flex;
-  border-top: 1px solid var(--border);
-  text-align: left;
-
-  & > div {
-    flex: 1 1 0;
-    padding: 32px;
-    @media (max-width: 1024px) {
-      padding: 24px 20px;
-    }
-  }
-
-  .icon {
-    margin-bottom: 16px;
-    width: 22px;
-    height: 22px;
-  }
-
-  @media (max-width: 1024px) {
-    flex-direction: column;
-    text-align: center;
-  }
-}
-
-#docs {
-  border-right: 1px solid var(--border);
-
-  @media (max-width: 1024px) {
-    border-right: none;
-    border-bottom: 1px solid var(--border);
-  }
-}
-
-#next-steps ul {
-  list-style: none;
-  padding: 0;
-  display: flex;
-  gap: 8px;
-  margin: 32px 0 0;
-
-  .logo {
-    height: 18px;
-  }
-
-  a {
-    color: var(--text-h);
-    font-size: 16px;
-    border-radius: 6px;
-    background: var(--social-bg);
-    display: flex;
-    padding: 6px 12px;
-    align-items: center;
-    gap: 8px;
-    text-decoration: none;
-    transition: box-shadow 0.3s;
-
-    &:hover {
-      box-shadow: var(--shadow);
-    }
-    .button-icon {
-      height: 18px;
-      width: 18px;
-    }
-  }
-
-  @media (max-width: 1024px) {
-    margin-top: 20px;
-    flex-wrap: wrap;
-    justify-content: center;
-
-    li {
-      flex: 1 1 calc(50% - 8px);
-    }
-
-    a {
-      width: 100%;
-      justify-content: center;
-      box-sizing: border-box;
-    }
-  }
-}
-
-#spacer {
-  height: 88px;
-  border-top: 1px solid var(--border);
-  @media (max-width: 1024px) {
-    height: 48px;
-  }
-}
-
-.ticks {
-  position: relative;
+.app-page {
+  font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
+  max-width: 980px;
+  margin: 0 auto;
+  padding: clamp(12px, 3vw, 24px) clamp(10px, 2.5vw, 16px);
+  background: #f5f6fa;
+  min-height: 100vh;
+  min-height: 100dvh;
+  box-sizing: border-box;
   width: 100%;
+}
 
-  &::before,
-  &::after {
-    content: '';
-    position: absolute;
-    top: -4.5px;
-    border: 5px solid transparent;
+.app-page h1 {
+  font-size: clamp(1.25rem, 4vw, 1.5rem);
+  line-height: 1.2;
+  margin-top: 0;
+  margin-bottom: 2px;
+}
+
+.app-page .app-sub {
+  font-size: clamp(12px, 2.8vw, 13px);
+}
+
+/* Statistika — 4 → 2 → 1 kolona */
+.stats-grid-top {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+@media (max-width: 900px) {
+  .stats-grid-top {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 380px) {
+  .stats-grid-top {
+    grid-template-columns: 1fr;
+  }
+}
+
+.stats-grid-status {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+@media (max-width: 640px) {
+  .stats-grid-status {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Forma — 2 kolona vetëm në ekran të gjerë */
+.form-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+@media (max-width: 640px) {
+  .form-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Header listë + filtër */
+.list-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 14px;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+@media (max-width: 480px) {
+  .list-header {
+    flex-direction: column;
+    align-items: stretch;
   }
 
-  &::before {
-    left: 0;
-    border-left-color: var(--border);
+  .list-header .filter-row {
+    width: 100%;
+    justify-content: space-between;
   }
-  &::after {
-    right: 0;
-    border-right-color: var(--border);
+
+  .list-header select {
+    flex: 1;
+    min-width: 0;
+  }
+}
+
+/* Tabela — scroll horizontal në tablet; karta në telefon */
+.table-wrap {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  margin: 0 -2px;
+  padding-bottom: 4px;
+}
+
+.matches-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: clamp(12px, 2.8vw, 13px);
+}
+
+.matches-table td.actions-cell .btn-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+  justify-content: flex-start;
+}
+
+@media (min-width: 701px) {
+  .matches-table {
+    min-width: 620px;
+  }
+}
+
+/* Mobile: shndërro rreshtat në karta */
+@media (max-width: 700px) {
+  .matches-table thead {
+    display: none;
+  }
+
+  .matches-table tbody tr {
+    display: block;
+    border: 1px solid #e8e8e8;
+    border-radius: 12px;
+    margin-bottom: 14px;
+    padding: 4px 12px 12px;
+    background: #fff;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  }
+
+  .matches-table tbody tr.row-canceled {
+    background: #fff8f8;
+  }
+
+  .matches-table td {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 0;
+    border-bottom: 1px solid #f0f0f0;
+    text-align: right;
+    vertical-align: middle;
+  }
+
+  .matches-table td:last-child {
+    border-bottom: none;
+  }
+
+  .matches-table td::before {
+    content: attr(data-label);
+    font-weight: 600;
+    color: #666;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    text-align: left;
+    flex-shrink: 0;
+    max-width: 42%;
+  }
+
+  .matches-table td.actions-cell {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+    padding-top: 12px;
+  }
+
+  .matches-table td.actions-cell::before {
+    max-width: 100%;
+    margin-bottom: 4px;
+  }
+
+  .matches-table td.actions-cell .btn-group {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    width: 100%;
+  }
+
+  .matches-table td.actions-cell button {
+    width: 100%;
+    min-height: 44px;
+    font-size: 14px;
+  }
+}
+
+/* Butona më të mëdhenj për prekje (touch) */
+@media (max-width: 700px) {
+  .app-page button[type='submit'] {
+    width: 100%;
+    min-height: 46px;
+    font-size: 15px;
   }
 }

@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import './App.css';
 
 // ─── Konstante ────────────────────────────────────────────────────────────────
 const API = 'https://matchday-5-1.onrender.com/api';
@@ -72,7 +73,7 @@ function App() {
     } catch (err) {
       // Error Handling 2: lidhja me serverin dështoi
       if (err.message.includes('fetch') || err.message.includes('Failed')) {
-        setError('Nuk mund të lidhet me serverin. Kontrollo që backend-i është aktiv në port 5000.');
+        setError('Nuk mund të lidhet me serverin. Kontrollo lidhjen ose provo përsëri më vonë.');
       } else {
         setError(err.message);
       }
@@ -187,14 +188,12 @@ function App() {
 
   // ─── Stilet ───────────────────────────────────────────────────────────────
   const s = {
-    faqja:  { fontFamily: 'system-ui, sans-serif', maxWidth: 980, margin: '0 auto', padding: '24px 16px', background: '#f5f6fa', minHeight: '100vh' },
     karta:  { border: '1px solid #e0e0e0', borderRadius: 10, padding: 20, marginBottom: 20, background: '#fff' },
     titulli: { fontSize: 22, fontWeight: 700, marginBottom: 2, color: '#1a1a2e' },
     sub:    { color: '#888', fontSize: 13, marginBottom: 24 },
     kartaT: { fontSize: 15, fontWeight: 600, marginBottom: 14, color: '#1a1a2e' },
     et:     { display: 'block', fontSize: 12, color: '#555', marginBottom: 4, fontWeight: 500 },
     inp:    { width: '100%', padding: '8px 10px', borderRadius: 6, border: '1px solid #d0d0d0', fontSize: 13, boxSizing: 'border-box' },
-    grid2:  { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 },
     btn:    { padding: '8px 14px', borderRadius: 6, border: 'none', cursor: 'pointer', fontSize: 13, fontWeight: 500 },
     tabela: { width: '100%', borderCollapse: 'collapse', fontSize: 13 },
     th:     { background: '#1a1a2e', color: '#fff', padding: '10px 12px', textAlign: 'left', fontWeight: 500, fontSize: 12 },
@@ -209,10 +208,10 @@ function App() {
 
   // ─── Render ───────────────────────────────────────────────────────────────
   return (
-    <div style={s.faqja}>
+    <div className="app-page">
 
       <h1 style={s.titulli}>MatchDay 5+1</h1>
-      <p style={s.sub}>Platforma për menaxhimin e ndeshjeve — Smart Split aktiv</p>
+      <p className="app-sub" style={s.sub}>Platforma për menaxhimin e ndeshjeve — Smart Split aktiv</p>
 
       {mesazhi && <div style={s.bust(mesazhi.lloji)}>{mesazhi.tekst}</div>}
 
@@ -222,7 +221,7 @@ function App() {
         <div style={s.karta}>
           <div style={s.kartaT}>Statistikat e Ndeshjeve</div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12, marginBottom: 14 }}>
+          <div className="stats-grid-top">
             {[
               { label: 'Gjithsej Ndeshje', vlera: statistikat.total,         ngjyra: '#1a1a2e', sfx: '' },
               { label: 'Totali i Çmimeve', vlera: statistikat.totali_cmimit, ngjyra: '#1565c0', sfx: '€' },
@@ -236,7 +235,7 @@ function App() {
             ))}
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10 }}>
+          <div className="stats-grid-status">
             {[
               { label: 'Në Pritje',   vlera: statistikat.pending,   ngjyra: '#f39c12' },
               { label: 'Konfirmuara', vlera: statistikat.confirmed,  ngjyra: '#27ae60' },
@@ -255,7 +254,7 @@ function App() {
       <div style={s.karta}>
         <div style={s.kartaT}>Shto Ndeshje të Re</div>
         <form onSubmit={handleShto}>
-          <div style={s.grid2}>
+          <div className="form-grid">
             <div>
               <label style={s.et}>ID e Fushës *</label>
               <input style={s.inp} type="number" name="fieldId"
@@ -293,11 +292,11 @@ function App() {
 
       {/* ── LISTA + FILTRIM ── */}
       <div style={s.karta}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+        <div className="list-header">
           <div style={s.kartaT}>Lista e Ndeshjeve</div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <div className="filter-row" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <label style={{ ...s.et, marginBottom: 0 }}>Filtro:</label>
-            <select style={{ ...s.inp, width: 'auto' }} value={filtri} onChange={handleFiltri}>
+            <select style={{ ...s.inp, width: 'auto', minWidth: 140 }} value={filtri} onChange={handleFiltri}>
               <option value="">Të gjitha</option>
               <option value="pending">Në Pritje</option>
               <option value="confirmed">Konfirmuara</option>
@@ -323,8 +322,8 @@ function App() {
         )}
 
         {!loading && !error && matches.length > 0 && (
-          <div style={{ overflowX: 'auto' }}>
-            <table style={s.tabela}>
+          <div className="table-wrap">
+            <table className="matches-table" style={s.tabela}>
               <thead>
                 <tr>
                   <th style={s.th}>ID</th>
@@ -338,16 +337,20 @@ function App() {
               </thead>
               <tbody>
                 {matches.map(match => (
-                  <tr key={match.id} style={{ background: match.status === 'canceled' ? '#fff8f8' : '#fff' }}>
-                    <td style={s.td}>#{match.id}</td>
-                    <td style={s.td}>Fusha #{match.field_id}</td>
-                    <td style={s.td}>{new Date(match.start_time).toLocaleString('sq-AL')}</td>
-                    <td style={s.td}>{match.total_price}€</td>
-                    <td style={s.td}>
+                  <tr
+                    key={match.id}
+                    className={match.status === 'canceled' ? 'row-canceled' : ''}
+                    style={{ background: match.status === 'canceled' ? '#fff8f8' : '#fff' }}
+                  >
+                    <td style={s.td} data-label="ID">#{match.id}</td>
+                    <td style={s.td} data-label="Fusha">Fusha #{match.field_id}</td>
+                    <td style={s.td} data-label="Fillimi">{new Date(match.start_time).toLocaleString('sq-AL')}</td>
+                    <td style={s.td} data-label="Çmimi">{match.total_price}€</td>
+                    <td style={s.td} data-label="Smart Split">
                       <strong style={{ color: '#2e7d32' }}>{match.price_per_player}€</strong>
                       <span style={{ color: '#bbb', fontSize: 11 }}>/lojtar</span>
                     </td>
-                    <td style={s.td}>
+                    <td style={s.td} data-label="Statusi">
                       <span style={{
                         background: (STATUSET[match.status]?.ngjyra || '#888') + '22',
                         color: STATUSET[match.status]?.ngjyra || '#888',
@@ -356,17 +359,19 @@ function App() {
                         {STATUSET[match.status]?.label || match.status}
                       </span>
                     </td>
-                    <td style={s.td}>
-                      {match.status !== 'canceled' && (
-                        <button onClick={() => handleUpdate(match.id, match.status)}
-                          style={{ ...s.btn, background: '#e3f2fd', color: '#1565c0', marginRight: 6 }}>
-                          Ndrysho
+                    <td className="actions-cell" style={s.td} data-label="Veprimet">
+                      <div className="btn-group">
+                        {match.status !== 'canceled' && (
+                          <button type="button" onClick={() => handleUpdate(match.id, match.status)}
+                            style={{ ...s.btn, background: '#e3f2fd', color: '#1565c0' }}>
+                            Ndrysho
+                          </button>
+                        )}
+                        <button type="button" onClick={() => handleDelete(match.id)}
+                          style={{ ...s.btn, background: '#fdecea', color: '#c62828' }}>
+                          Fshi
                         </button>
-                      )}
-                      <button onClick={() => handleDelete(match.id)}
-                        style={{ ...s.btn, background: '#fdecea', color: '#c62828' }}>
-                        Fshi
-                      </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
