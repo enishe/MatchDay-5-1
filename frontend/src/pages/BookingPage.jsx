@@ -103,7 +103,7 @@ export default function BookingPage() {
       )}
 
       <form onSubmit={handleRezervim}>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 340px', gap: 16, alignItems: 'start' }}>
+        <div className="booking-grid">
 
           {/* Kolona e majtë */}
           <div>
@@ -158,7 +158,7 @@ export default function BookingPage() {
           </div>
 
           {/* Kolona e djathtë — Përmbledhja */}
-          <div style={{ position: 'sticky', top: 72 }}>
+         <div className="booking-summary" style={{ position: 'sticky', top: 72 }}>
             <div className="card">
               <div className="card-title">Përmbledhja</div>
 

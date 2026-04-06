@@ -154,3 +154,20 @@ tr:hover td { background: var(--bg-secondary); }
 .feedback-success { background: #e8f5e9; color: #2e7d32; border: 1px solid #a5d6a7; }
 .feedback-error   { background: #fdecea; color: #c62828; border: 1px solid #ef9a9a; }
 .feedback-warning { background: #fff8e1; color: #f57f17; border: 1px solid #ffe082; }
+/* BookingPage responsive */
+.booking-grid {
+  display: grid;
+  grid-template-columns: 1fr 340px;
+  gap: 16px;
+  align-items: start;
+}
+
+@media (max-width: 768px) {
+  .booking-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .booking-summary {
+    position: static !important;
+  }
+}
