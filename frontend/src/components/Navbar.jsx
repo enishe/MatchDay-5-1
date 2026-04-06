@@ -37,7 +37,6 @@ export default function Navbar() {
           <span style={{ color: 'rgba(255,255,255,0.5)', fontSize: 13, fontWeight: 400 }}>5+1</span>
         </div>
 
-        {/* Desktop links */}
         <ul className="desktop-menu" style={{ display: 'flex', alignItems: 'center', gap: 4, listStyle: 'none', margin: 0, padding: 0 }}>
           {menuItems.map(item => (
             <li key={item.path}>
@@ -85,7 +84,7 @@ export default function Navbar() {
                 flexDirection: 'column',
                 alignItems: 'center',
                 justifyContent: 'center',
-                gap: 4,
+                gap: 3,
                 color: isActive ? '#27ae60' : 'rgba(255,255,255,0.5)',
                 fontSize: 10,
                 fontWeight: isActive ? 600 : 400,
@@ -93,43 +92,24 @@ export default function Navbar() {
                 transition: 'all 0.15s',
                 textDecoration: 'none',
               })}>
-              <span style={{ fontSize: 22 }}>{item.icon}</span>
+              <span style={{ fontSize: 20 }}>{item.icon}</span>
               <span>{item.label}</span>
             </NavLink>
           ))}
-
-          {/* Dark mode në bottom nav */}
           <button onClick={() => setDark(d => !d)}
             style={{
-              flex: 1,
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: 4,
-              background: 'none',
-              border: 'none',
-              borderTop: '2px solid transparent',
-              color: 'rgba(255,255,255,0.5)',
-              fontSize: 10,
-              cursor: 'pointer',
+              flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center',
+              justifyContent: 'center', gap: 3, background: 'none', border: 'none',
+              borderTop: '2px solid transparent', color: 'rgba(255,255,255,0.5)',
+              fontSize: 10, cursor: 'pointer',
             }}>
-            <span style={{ fontSize: 22 }}>{dark ? '☀️' : '🌙'}</span>
+            <span style={{ fontSize: 20 }}>{dark ? '☀️' : '🌙'}</span>
             <span>{dark ? 'Light' : 'Dark'}</span>
           </button>
         </div>
       </nav>
 
-      {/* Hapësirë poshtë për bottom nav në mobile */}
       <div className="bottom-spacer" style={{ display: 'none', height: 64 }} />
-
-      <style>{`
-        @media (max-width: 640px) {
-          .desktop-menu { display: none !important; }
-          .bottom-nav { display: block !important; }
-          .bottom-spacer { display: block !important; }
-        }
-      `}</style>
     </>
   );
 }

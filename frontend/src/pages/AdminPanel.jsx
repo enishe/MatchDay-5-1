@@ -4,11 +4,11 @@ import { useNavigate } from 'react-router-dom';
 const API = 'https://matchday-5-1.onrender.com/api';
 
 export default function AdminPanel() {
-  const [matches,  setMatches]  = useState([]);
-  const [stats,    setStats]    = useState(null);
-  const [loading,  setLoading]  = useState(true);
-  const [filtri,   setFiltri]   = useState('');
-  const [mesazhi,  setMesazhi]  = useState(null);
+  const [matches, setMatches] = useState([]);
+  const [stats,   setStats]   = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [filtri,  setFiltri]  = useState('');
+  const [mesazhi, setMesazhi] = useState(null);
   const navigate = useNavigate();
 
   const fetchData = () => {
@@ -47,13 +47,9 @@ export default function AdminPanel() {
         body: JSON.stringify({ status }),
       });
       if (!res.ok) throw new Error('Gabim.');
-      tregoBust(`Statusi u ndryshua.`);
+      tregoBust('Statusi u ndryshua.');
       fetchData();
     } catch (err) { tregoBust(err.message, 'error'); }
-  };
-
-  const s = {
-    statGrid: { display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 12, marginBottom: 20 },
   };
 
   return (
@@ -69,14 +65,17 @@ export default function AdminPanel() {
 
       {/* Statistikat */}
       {stats && (
-        <div style={s.statGrid}>
+        <div className="stat-grid-4">
           {[
-            { label: 'Gjithsej',    vlera: stats.total,         ngjyra: '#1a1a2e' },
+            { label: 'Gjithsej',    vlera: stats.total,              ngjyra: '#1a1a2e' },
             { label: 'Të Ardhurat', vlera: `${stats.totali_cmimit}€`, ngjyra: '#1565c0' },
-            { label: 'Konfirmuara', vlera: stats.confirmed,     ngjyra: '#27ae60' },
-            { label: 'Në Pritje',   vlera: stats.pending,       ngjyra: '#f39c12' },
+            { label: 'Konfirmuara', vlera: stats.confirmed,          ngjyra: '#27ae60' },
+            { label: 'Në Pritje',   vlera: stats.pending,            ngjyra: '#f39c12' },
           ].map((k, i) => (
-            <div key={i} style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 10, padding: 16, borderLeft: `4px solid ${k.ngjyra}` }}>
+            <div key={i} style={{
+              background: 'var(--bg-card)', border: '1px solid var(--border)',
+              borderRadius: 10, padding: 16, borderLeft: `4px solid ${k.ngjyra}`,
+            }}>
               <div style={{ fontSize: 11, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: 6 }}>{k.label}</div>
               <div style={{ fontSize: 22, fontWeight: 700, color: k.ngjyra }}>{k.vlera}</div>
             </div>
@@ -84,11 +83,11 @@ export default function AdminPanel() {
         </div>
       )}
 
-      {/* Tabela e Rezervimeve */}
+      {/* Tabela */}
       <div className="card">
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14, flexWrap: 'wrap', gap: 8 }}>
           <div className="card-title" style={{ marginBottom: 0 }}>Të gjitha Rezervimet</div>
-          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
             <select style={{ width: 'auto' }} value={filtri} onChange={e => setFiltri(e.target.value)}>
               <option value="">Të gjitha</option>
               <option value="pending">Në Pritje</option>
@@ -100,13 +99,10 @@ export default function AdminPanel() {
         </div>
 
         {loading && <p style={{ color: 'var(--text-muted)', fontSize: 13 }}>Duke ngarkuar...</p>}
-
-        {!loading && matches.length === 0 && (
-          <p style={{ color: 'var(--text-muted)', fontSize: 13 }}>Nuk ka rezervime.</p>
-        )}
+        {!loading && matches.length === 0 && <p style={{ color: 'var(--text-muted)', fontSize: 13 }}>Nuk ka rezervime.</p>}
 
         {!loading && matches.length > 0 && (
-          <div style={{ overflowX: 'auto' }}>
+          <div className="table-wrap">
             <table>
               <thead>
                 <tr>
@@ -114,7 +110,7 @@ export default function AdminPanel() {
                   <th>Fusha</th>
                   <th>Data / Ora</th>
                   <th>Çmimi</th>
-                  <th>Smart Split</th>
+                  <th>Split</th>
                   <th>Statusi</th>
                   <th>Veprimet</th>
                 </tr>
@@ -123,25 +119,25 @@ export default function AdminPanel() {
                 {matches.map(m => (
                   <tr key={m.id}>
                     <td style={{ fontWeight: 600 }}>#{m.id}</td>
-                    <td>Fusha #{m.field_id}</td>
+                    <td>#{m.field_id}</td>
                     <td style={{ fontSize: 12 }}>{new Date(m.start_time).toLocaleString('sq-AL')}</td>
                     <td>{m.total_price}€</td>
-                    <td style={{ color: '#27ae60', fontWeight: 600 }}>{m.price_per_player}€/lojtar</td>
+                    <td style={{ color: '#27ae60', fontWeight: 600 }}>{m.price_per_player}€</td>
                     <td>
                       <span className={`badge badge-${m.status}`}>
-                        {m.status === 'pending' ? 'Pritje' : m.status === 'confirmed' ? 'Konfirmuar' : 'Anuluar'}
+                        {m.status === 'pending' ? 'Pritje' : m.status === 'confirmed' ? 'OK' : 'Anuluar'}
                       </span>
                     </td>
                     <td>
-                      <div style={{ display: 'flex', gap: 6 }}>
-                        <button className="btn btn-ghost" style={{ padding: '4px 10px', fontSize: 12 }}
+                      <div style={{ display: 'flex', gap: 4 }}>
+                        <button className="btn btn-ghost" style={{ padding: '4px 8px', fontSize: 11 }}
                           onClick={() => navigate(`/match/${m.id}`)}>Hap</button>
                         {m.status === 'pending' && (
-                          <button className="btn btn-accent" style={{ padding: '4px 10px', fontSize: 12 }}
-                            onClick={() => handleNdrysho(m.id, 'confirmed')}>Konfirmo</button>
+                          <button className="btn btn-accent" style={{ padding: '4px 8px', fontSize: 11 }}
+                            onClick={() => handleNdrysho(m.id, 'confirmed')}>✓</button>
                         )}
-                        <button className="btn btn-danger" style={{ padding: '4px 10px', fontSize: 12 }}
-                          onClick={() => handleFshi(m.id)}>Fshi</button>
+                        <button className="btn btn-danger" style={{ padding: '4px 8px', fontSize: 11 }}
+                          onClick={() => handleFshi(m.id)}>✕</button>
                       </div>
                     </td>
                   </tr>
@@ -155,10 +151,10 @@ export default function AdminPanel() {
       {/* Fushat */}
       <div className="card">
         <div className="card-title">Fushat e Disponueshme</div>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+        <div className="grid-2-col" style={{ gap: 12 }}>
           {[
             { id: 1, emri: 'Fusha Prishtina 1', terrain: 'Bar Artificial', cmimi: 60, aktive: true },
-            { id: 2, emri: 'Salla Prizren',      terrain: 'Sallë Futsali', cmimi: 60, aktive: true },
+            { id: 2, emri: 'Salla Prizren',      terrain: 'Sallë Futsali',  cmimi: 60, aktive: true },
           ].map(f => (
             <div key={f.id} style={{ background: 'var(--bg-secondary)', borderRadius: 8, padding: 14, border: '1px solid var(--border)' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
