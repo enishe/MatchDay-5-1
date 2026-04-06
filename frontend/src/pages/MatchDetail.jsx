@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 
-const API = 'http://localhost:5000/api';
+const API = 'https://matchday-5-1.onrender.com/api';
 
 const LOJTARET_MOCK = Array.from({ length: 12 }, (_, i) => ({
   id: i + 1,

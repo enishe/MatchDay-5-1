@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 
-const API = 'http://localhost:5000/api';
+const API = 'https://matchday-5-1.onrender.com/api';
 
 const FUSHAT = [
   { id: 1, emri: 'Fusha Prishtina 1', terrain: 'artificial_grass', cmimi: 60, lokacioni: 'Prishtinë' },
