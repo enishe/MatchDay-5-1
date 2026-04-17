@@ -6,7 +6,7 @@ import Login from './pages/Auth/Login';
 import Register from './pages/Auth/Register';
 import useAuthStore from './store/authStore';
 
-// Import page components (will be created)
+// Import page components
 import PlayerFields from './pages/Player/PlayerFields';
 import PlayerMatches from './pages/Player/PlayerMatches';
 import PlayerInvitations from './pages/Player/PlayerInvitations';
@@ -14,9 +14,11 @@ import PlayerProfile from './pages/Player/PlayerProfile';
 import AdminDashboard from './pages/Admin/AdminDashboard';
 import AdminBookings from './pages/Admin/AdminBookings';
 import AdminUsers from './pages/Admin/AdminUsers';
-import AdminFields from './pages/Admin/AdminFields';
 import AdminInventory from './pages/Admin/AdminInventory';
 import AdminPayments from './pages/Admin/AdminPayments';
+
+// Ky eshte komponenti qe ishte jashte folderit Admin
+import AdminPanel from "./pages/AdminPanel";
 
 // Import Tailwind CSS
 import './index.css';
@@ -98,14 +100,17 @@ function App() {
                 </ProtectedRoute>
               }
             />
+            
+            {/* Ketu eshte ndryshimi: Perdoret AdminPanel ne vend te AdminFields */}
             <Route
               path="/admin/fields"
               element={
                 <ProtectedRoute requiredRole="admin">
-                  <AdminFields />
+                  <AdminPanel />
                 </ProtectedRoute>
               }
             />
+            
             <Route
               path="/admin/inventory"
               element={
@@ -151,3 +156,5 @@ function App() {
     </BrowserRouter>
   );
 }
+
+export default App;
