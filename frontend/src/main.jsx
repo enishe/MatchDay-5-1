@@ -1,13 +1,15 @@
-import { StrictMode } from 'react'
-import { createRoot } from 'react-dom/client'
-import './index.css'
-import App from './App.jsx'
-import useAuthStore from './store/authStore'
+import { StrictMode } from 'react';
+import { createRoot } from 'react-dom/client';
+import './index.css';
+import { AuthProvider, initThemeFromStorage } from './context/AuthContext';
+import App from './App.jsx';
 
-useAuthStore.getState().initAuth()
+initThemeFromStorage();
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
-    <App />
-  </StrictMode>,
-)
+    <AuthProvider>
+      <App />
+    </AuthProvider>
+  </StrictMode>
+);

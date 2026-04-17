@@ -1,134 +1,210 @@
-import { useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
+import { apiFetch } from '../lib/api';
+import { useAuth } from '../context/AuthContext';
 
-const PATIKA = [
-  { id: 1, madhesia: 40, cmimi: 2, disponueshme: true,  gjendja: 'good' },
-  { id: 2, madhesia: 41, cmimi: 2, disponueshme: true,  gjendja: 'good' },
-  { id: 3, madhesia: 42, cmimi: 2, disponueshme: false, gjendja: 'fair' },
-  { id: 4, madhesia: 43, cmimi: 2, disponueshme: true,  gjendja: 'good' },
-  { id: 5, madhesia: 44, cmimi: 2, disponueshme: true,  gjendja: 'poor' },
-  { id: 6, madhesia: 45, cmimi: 2, disponueshme: true,  gjendja: 'good' },
-  { id: 7, madhesia: 42, cmimi: 2, disponueshme: true,  gjendja: 'fair' },
-  { id: 8, madhesia: 43, cmimi: 2, disponueshme: false, gjendja: 'good' },
-];
+function useCountdown(targetIso) {
+  const [left, setLeft] = useState(null);
+  useEffect(() => {
+    if (!targetIso) return;
+    const tick = () => {
+      const ms = new Date(targetIso) - Date.now();
+      if (ms <= 0) {
+        setLeft({ h: 0, m: 0, done: true });
+        return;
+      }
+      const h = Math.floor(ms / 3600000);
+      const m = Math.floor((ms % 3600000) / 60000);
+      setLeft({ h, m, done: false });
+    };
+    tick();
+    const id = setInterval(tick, 30000);
+    return () => clearInterval(id);
+  }, [targetIso]);
+  return left;
+}
 
-const GJENDJA_LABEL = { good: 'Mirë', fair: 'Mesatare', poor: 'Keq' };
-const GJENDJA_COLOR = { good: '#27ae60', fair: '#f39c12', poor: '#e74c3c' };
+export default function MatchDetail() {
+  const { id } = useParams();
+  const { token, user } = useAuth();
+  const navigate = useNavigate();
+  const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState(null);
 
-export default function Equipment() {
-  const [zgjedhur, setZgjedhur] = useState(null);
-  const [rating,   setRating]   = useState({});
-  const [mesazhi,  setMesazhi]  = useState(null);
-  const [filtri,   setFiltri]   = useState('all');
+  const load = useCallback(() => {
+    if (!token || !id) return;
+    setLoading(true);
+    apiFetch(`/matches/${id}`, { token })
+      .then(setData)
+      .catch((e) => setError(e.message))
+      .finally(() => setLoading(false));
+  }, [token, id]);
 
-  const tregoBust = (tekst, lloji = 'sukses') => {
-    setMesazhi({ tekst, lloji });
-    setTimeout(() => setMesazhi(null), 3000);
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  const cd = useCountdown(data?.countdownTarget);
+
+  const paidCount = data?.progress?.paid ?? 0;
+  const pct = useMemo(() => Math.round((paidCount / 12) * 100), [paidCount]);
+
+  const handleConfirm = async () => {
+    if (!token) return;
+    setBusy(true);
+    setMsg(null);
+    try {
+      await apiFetch(`/matches/${id}`, { token, method: 'PUT', body: { status: 'confirmed' } });
+      setMsg('Ndeshja u konfirmua.');
+      load();
+    } catch (e) {
+      setMsg(e.message);
+    } finally {
+      setBusy(false);
+    }
   };
 
-  const handleRezervim = (id) => {
-    setZgjedhur(id);
-    tregoBust(`Patika nr. ${PATIKA.find(p => p.id === id)?.madhesia} u rezervua! +2€ do shtohen në faturën tënde.`);
+  const handleCancel = async () => {
+    if (!window.confirm('Anulo këtë rezervim?')) return;
+    setBusy(true);
+    setMsg(null);
+    try {
+      await apiFetch(`/matches/${id}/cancel`, { token, method: 'POST', body: { reason: 'user' } });
+      setMsg('Rezervimi u anulua.');
+      load();
+    } catch (e) {
+      setMsg(e.message);
+    } finally {
+      setBusy(false);
+    }
   };
 
-  const handleRating = (id, stars) => {
-    setRating(prev => ({ ...prev, [id]: stars }));
-    tregoBust('Vlerësimi u ruajt. Faleminderit!');
-  };
+  if (loading) {
+    return (
+      <div className="page">
+        <div className="spinner" />
+      </div>
+    );
+  }
+  if (error || !data) {
+    return (
+      <div className="page">
+        <div className="feedback feedback-error">{error || 'Nuk u gjet ndeshja.'}</div>
+      </div>
+    );
+  }
 
-  const patikat = filtri === 'available'
-    ? PATIKA.filter(p => p.disponueshme)
-    : filtri === 'unavailable'
-    ? PATIKA.filter(p => !p.disponueshme)
-    : PATIKA;
-
-  const disponueshme = PATIKA.filter(p => p.disponueshme).length;
+  const { match, players, financials, cancelPolicy } = data;
+  const canAct = match.organizer_id === user?.id || user?.role === 'admin';
 
   return (
     <div className="page">
-      <div className="page-title">Pajisjet Ndihmëse</div>
-      <div className="page-sub">Patika pa thuma me qira — +2€ për lojtar</div>
+      <h1 className="page-title">Ndeshja #{match.id}</h1>
+      <p className="page-subtitle">
+        {match.field_name} · {new Date(match.start_time).toLocaleString('sq-AL')}
+      </p>
 
-      {mesazhi && (
-        <div className={`feedback feedback-${mesazhi.lloji === 'error' ? 'error' : 'success'}`}>
-          {mesazhi.tekst}
-        </div>
-      )}
+      {msg && <div className="feedback feedback-warning">{msg}</div>}
 
-      {/* Statistika */}
-      <div className="stat-grid-3">
-        {[
-          { label: 'Gjithsej Palë', vlera: PATIKA.length,                 ngjyra: '#1a1a2e' },
-          { label: 'Disponueshme',  vlera: disponueshme,                   ngjyra: '#27ae60' },
-          { label: 'Rezervuara',    vlera: PATIKA.length - disponueshme,   ngjyra: '#e74c3c' },
-        ].map((k, i) => (
-          <div key={i} style={{
-            background: 'var(--bg-card)', border: '1px solid var(--border)',
-            borderRadius: 10, padding: 16, borderLeft: `4px solid ${k.ngjyra}`,
-          }}>
-            <div style={{ fontSize: 11, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: 6 }}>{k.label}</div>
-            <div style={{ fontSize: 24, fontWeight: 700, color: k.ngjyra }}>{k.vlera}</div>
+      <div className="grid-2-col">
+        <div className="card">
+          <div className="card-title">Lojtarët (12)</div>
+          <div style={{ marginBottom: 12 }}>
+            <div style={{ height: 8, background: 'var(--bg-secondary)', borderRadius: 999, overflow: 'hidden' }}>
+              <div style={{ width: `${pct}%`, height: '100%', background: 'var(--color-accent)', transition: 'width 0.2s' }} />
+            </div>
+            <p style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 6 }}>
+              {paidCount}/12 kanë paguar
+            </p>
           </div>
-        ))}
-      </div>
-
-      {/* Filtrim */}
-      <div style={{ display: 'flex', gap: 8, marginBottom: 16, flexWrap: 'wrap' }}>
-        {[['all', 'Të gjitha'], ['available', 'Disponueshme'], ['unavailable', 'Rezervuara']].map(([v, l]) => (
-          <button key={v} className={`btn ${filtri === v ? 'btn-primary' : 'btn-ghost'}`}
-            onClick={() => setFiltri(v)}>{l}</button>
-        ))}
-      </div>
-
-      {/* Grid i patikave */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: 12 }}>
-        {patikat.map(p => (
-          <div key={p.id} style={{
-            background: 'var(--bg-card)',
-            border: `1px solid ${zgjedhur === p.id ? '#27ae60' : 'var(--border)'}`,
-            borderRadius: 10, padding: 16, opacity: p.disponueshme ? 1 : 0.6,
-            outline: zgjedhur === p.id ? '2px solid #27ae60' : 'none',
-          }}>
-            <div style={{ fontSize: 28, marginBottom: 8, textAlign: 'center' }}>👟</div>
-            <div style={{ textAlign: 'center' }}>
-              <div style={{ fontSize: 20, fontWeight: 700, marginBottom: 4 }}>Nr. {p.madhesia}</div>
-              <div style={{ fontSize: 13, color: '#27ae60', fontWeight: 600, marginBottom: 8 }}>{p.cmimi}€/lojë</div>
-
-              <div style={{ display: 'flex', justifyContent: 'center', gap: 4, marginBottom: 12, flexWrap: 'wrap' }}>
-                <span style={{ fontSize: 11, background: GJENDJA_COLOR[p.gjendja] + '22', color: GJENDJA_COLOR[p.gjendja], padding: '2px 8px', borderRadius: 20, fontWeight: 600 }}>
-                  {GJENDJA_LABEL[p.gjendja]}
-                </span>
-                <span className={`badge ${p.disponueshme ? 'badge-confirmed' : 'badge-canceled'}`}>
-                  {p.disponueshme ? 'Lirë' : 'Zënë'}
-                </span>
-              </div>
-
-              {p.disponueshme && (
-                <button
-                  className={`btn ${zgjedhur === p.id ? 'btn-ghost' : 'btn-accent'}`}
-                  style={{ width: '100%', justifyContent: 'center', fontSize: 12 }}
-                  onClick={() => zgjedhur === p.id ? setZgjedhur(null) : handleRezervim(p.id)}>
-                  {zgjedhur === p.id ? 'Hiq' : 'Rezervo +2€'}
-                </button>
-              )}
-
-              <div style={{ marginTop: 10 }}>
-                <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 4 }}>Vlerëso</div>
-                <div style={{ display: 'flex', justifyContent: 'center', gap: 2 }}>
-                  {[1, 2, 3, 4, 5].map(star => (
-                    <button key={star} type="button"
-                      style={{ background: 'none', border: 'none', fontSize: 16, cursor: 'pointer', color: (rating[p.id] || 0) >= star ? '#f39c12' : 'var(--border)', padding: 0 }}
-                      onClick={() => handleRating(p.id, star)}>★</button>
-                  ))}
+          <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
+            {players.map((p) => (
+              <li
+                key={p.id}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 12,
+                  padding: '10px 0',
+                  borderBottom: '1px solid var(--border-color)',
+                }}
+              >
+                <div
+                  className="avatar"
+                  style={{
+                    width: 40,
+                    height: 40,
+                    fontSize: 14,
+                    background: p.placeholder ? 'var(--text-muted)' : 'var(--color-accent)',
+                  }}
+                >
+                  {p.initials}
                 </div>
-              </div>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontWeight: 600 }}>{p.name}</div>
+                  <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 4 }}>
+                    <span className={`badge ${p.paid ? 'badge-confirmed' : 'badge-pending'}`}>
+                      {p.paid ? 'Paguar' : 'Pa paguar'}
+                    </span>
+                    {p.shoeBadge && <span className="badge badge-pending">+2€ patika</span>}
+                  </div>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </div>
+
+        <div className="card">
+          <div className="card-title">Detaje & veprime</div>
+          <div style={{ fontSize: 14, color: 'var(--text-secondary)', lineHeight: 1.7, marginBottom: 16 }}>
+            <div>
+              <strong>Çmimi total:</strong> {financials.totalPrice}€
+            </div>
+            <div>
+              <strong>Smart split:</strong> {financials.smartSplit}€/lojtar
+            </div>
+            <div>
+              <strong>Mbledhur:</strong> {financials.collected}€
+            </div>
+            <div>
+              <strong>Mbetur:</strong> {financials.remaining}€
             </div>
           </div>
-        ))}
-      </div>
 
-      <div className="card" style={{ marginTop: 16, background: '#e3f2fd', border: '1px solid #90caf9' }}>
-        <div style={{ fontSize: 13, color: '#1565c0', lineHeight: 1.6 }}>
-          <b>Si funksionon:</b> Rezervo patikën e dëshiruar (+2€). Kostoja shtohet vetëm te fatura jote personale — shokët që kanë patikat e tyre paguajnë vetëm pjesën e fushës.
+          <div style={{ marginBottom: 16 }}>
+            <div className="label">Koha deri në ndeshje</div>
+            {cd?.done ? (
+              <span className="badge badge-canceled">Filluar / përfunduar</span>
+            ) : cd ? (
+              <div style={{ fontSize: 20, fontWeight: 700 }}>{cd.h}h {cd.m}min</div>
+            ) : (
+              <span style={{ color: 'var(--text-muted)' }}>—</span>
+            )}
+          </div>
+
+          <div style={{ marginBottom: 16 }}>
+            <div className="label">Politika e anulimit</div>
+            <span className={cancelPolicy?.type === 'ok' ? 'badge badge-confirmed' : 'badge badge-canceled'}>
+              {cancelPolicy?.label}
+            </span>
+          </div>
+
+          {canAct && match.status === 'pending' && (
+            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+              <button type="button" className="btn btn-accent" disabled={busy} onClick={handleConfirm}>
+                Konfirmo
+              </button>
+              <button type="button" className="btn btn-danger" disabled={busy} onClick={handleCancel}>
+                Anulo
+              </button>
+            </div>
+          )}
+          <button type="button" className="btn btn-ghost" style={{ marginTop: 16 }} onClick={() => navigate('/dashboard')}>
+            ← Dashboard
+          </button>
         </div>
       </div>
     </div>

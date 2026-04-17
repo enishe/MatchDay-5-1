@@ -1,12 +1,27 @@
 const { supabase } = require('../config/supabase');
-const MatchService = require('./MatchService');
+const pool = require('../config/db');
 const PaymentService = require('./PaymentService');
 
 class RealtimeService {
     constructor() {
-        this.matchService = new MatchService();
         this.paymentService = new PaymentService();
         this.subscriptions = new Map();
+    }
+
+    async _getMatchNotify(bookingId) {
+        const r = await pool.query(
+            `SELECT b.id, f.name AS field_name
+             FROM Bookings b
+             JOIN Fields f ON f.id = b.field_id
+             WHERE b.id = $1`,
+            [bookingId]
+        );
+        if (!r.rows[0]) throw new Error('Ndeshja nuk u gjet');
+        const pl = await pool.query(
+            `SELECT invitation_status FROM MatchPlayers WHERE booking_id = $1`,
+            [bookingId]
+        );
+        return { ...r.rows[0], players: pl.rows };
     }
 
     // Initialize real-time subscriptions
@@ -114,7 +129,7 @@ class RealtimeService {
     async handlePlayerAccepted(matchPlayer) {
         try {
             // Get match details
-            const match = await this.matchService.getMatchDetails(matchPlayer.booking_id);
+            const match = await this._getMatchNotify(matchPlayer.booking_id);
             
             // Notify organizer
             await this.createNotification(matchPlayer.user_id, 'confirmation', 
@@ -134,7 +149,7 @@ class RealtimeService {
     // Handle player decline
     async handlePlayerDeclined(matchPlayer) {
         try {
-            const match = await this.matchService.getMatchDetails(matchPlayer.booking_id);
+            const match = await this._getMatchNotify(matchPlayer.booking_id);
             
             // Notify organizer
             await this.createNotification(matchPlayer.user_id, 'cancellation', 
@@ -148,7 +163,7 @@ class RealtimeService {
     // Handle check-in changes
     async handleCheckInChange(matchPlayer) {
         try {
-            const match = await this.matchService.getMatchDetails(matchPlayer.booking_id);
+            const match = await this._getMatchNotify(matchPlayer.booking_id);
             
             if (matchPlayer.check_in_status === 'checked_in') {
                 await this.createNotification(matchPlayer.user_id, 'confirmation', 
@@ -184,35 +199,26 @@ class RealtimeService {
 
     // Confirm match (when 12 players have accepted)
     async confirmMatch(bookingId) {
-        const client = require('../config/db');
-        
+        const client = await pool.connect();
         try {
             await client.query('BEGIN');
-            
-            // Update booking status
+            await client.query('UPDATE Bookings SET status = $1 WHERE id = $2', [
+                'confirmed',
+                bookingId,
+            ]);
             await client.query(
-                'UPDATE Bookings SET status = $1 WHERE id = $2',
-                ['confirmed', bookingId]
-            );
-            
-            // Update all pending players to accepted
-            await client.query(
-                `UPDATE MatchPlayers 
-                 SET invitation_status = 'accepted' 
+                `UPDATE MatchPlayers
+                 SET invitation_status = 'accepted'
                  WHERE booking_id = $1 AND invitation_status = 'pending'`,
                 [bookingId]
             );
-            
             await client.query('COMMIT');
-            
             console.log(`Match ${bookingId} confirmed automatically`);
         } catch (error) {
-            await client.query('ROLLBACK');
+            await client.query('ROLLBACK').catch(() => {});
             throw error;
         } finally {
-            if (client && client.release) {
-                client.release();
-            }
+            client.release();
         }
     }
 

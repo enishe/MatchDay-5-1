@@ -1,141 +1,96 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { lazy, Suspense } from 'react';
-import Navbar from './components/Layout/Navbar';
-import ProtectedRoute from './components/Auth/ProtectedRoute';
+import { BrowserRouter, Routes, Route, Navigate, useLocation, Link } from 'react-router-dom';
+import { useAuth } from './context/AuthContext';
+import Navbar from './components/Navbar';
+import ProtectedRoute from './components/ProtectedRoute';
+import LoginPage from './pages/LoginPage';
+import RegisterPage from './pages/RegisterPage';
+import Dashboard from './pages/Dashboard';
+import BookingPage from './pages/BookingPage';
+import MatchDetail from './pages/MatchDetail';
+import Equipment from './pages/Equipment';
+import AdminPanel from './pages/AdminPanel';
 
-// Lazy load components for better performance
-const Login = lazy(() => import('./pages/Auth/Login'));
-const Register = lazy(() => import('./pages/Auth/Register'));
-
-const PlayerFields = lazy(() => import('./pages/Player/PlayerFields'));
-const PlayerMatches = lazy(() => import('./pages/Player/PlayerMatches'));
-const PlayerInvitations = lazy(() => import('./pages/Player/PlayerInvitations'));
-const PlayerProfile = lazy(() => import('./pages/Player/PlayerProfile'));
-
-const AdminDashboard = lazy(() => import('./pages/Admin/AdminDashboard'));
-const AdminBookings = lazy(() => import('./pages/Admin/AdminBookings'));
-const AdminUsers = lazy(() => import('./pages/Admin/AdminUsers'));
-const AdminPayments = lazy(() => import('./pages/Admin/AdminPayments'));
-const AdminPanel = lazy(() => import('./pages/AdminPanel'));
-
-// CSS
-import './index.css';
-
-// Loading component
-const LoadingSpinner = () => (
-  <div className="flex items-center justify-center min-h-[60vh]">
-    <div className="w-12 h-12 border-4 border-accent border-t-transparent rounded-full animate-spin"></div>
-  </div>
-);
-
-function App() {
+function AppShell({ children }) {
+  const location = useLocation();
+  const hideNav = location.pathname === '/login' || location.pathname === '/register';
   return (
-    <BrowserRouter>
-      <div className="min-h-screen bg-gradient-bg text-text font-body">
-        {/* Navbar qendron lart ne cdo faqe */}
-        <Navbar />
-        
-        <main className="container mx-auto max-w-7xl px-3 sm:px-4 lg:px-6 py-6 sm:py-8">
-          <Suspense fallback={<LoadingSpinner />}>
-            <Routes>
-              {/* --- PUBLIC ROUTES --- */}
-              <Route path="/login" element={<Login />} />
-              <Route path="/register" element={<Register />} />
-
-              {/* --- PLAYER ROUTES (Te mbrojtura) --- */}
-              <Route
-                path="/player/fields"
-                element={
-                  <ProtectedRoute>
-                    <PlayerFields />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/player/my-matches"
-                element={
-                  <ProtectedRoute>
-                    <PlayerMatches />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/player/invitations"
-                element={
-                  <ProtectedRoute>
-                    <PlayerInvitations />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/player/profile"
-                element={
-                  <ProtectedRoute>
-                    <PlayerProfile />
-                  </ProtectedRoute>
-                }
-              />
-
-              {/* --- ADMIN ROUTES (Vetem per rolin admin) --- */}
-              <Route
-                path="/admin/dashboard"
-                element={
-                  <ProtectedRoute requiredRole="admin">
-                    <AdminDashboard />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/admin/bookings"
-                element={
-                  <ProtectedRoute requiredRole="admin">
-                    <AdminBookings />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/admin/users"
-                element={
-                  <ProtectedRoute requiredRole="admin">
-                    <AdminUsers />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/admin/fields"
-                element={
-                  <ProtectedRoute requiredRole="admin">
-                    <AdminPanel />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/admin/payments"
-                element={
-                  <ProtectedRoute requiredRole="admin">
-                    <AdminPayments />
-                  </ProtectedRoute>
-                }
-              />
-
-              {/* --- REDIRECTS & ERROR HANDLING --- */}
-              <Route path="/" element={<Navigate to="/login" replace />} />
-              
-              <Route
-                path="*"
-                element={
-                  <div className="min-h-[60vh] flex flex-col items-center justify-center animate-fade-in">
-                    <h1 className="text-9xl font-heading font-bold gradient-text">404</h1>
-                    <p className="text-xl text-text/60 -mt-8">Faqja që kërkoni nuk ekziston.</p>
-                  </div>
-                }
-              />
-            </Routes>
-          </Suspense>
-        </main>
-      </div>
-    </BrowserRouter>
+    <div className="app-shell">
+      {!hideNav && <Navbar />}
+      <div className={hideNav ? undefined : 'app-main'}>{children}</div>
+    </div>
   );
 }
 
-export default App;
+function HomeRedirect() {
+  const { user } = useAuth();
+  if (user) return <Navigate to="/dashboard" replace />;
+  return <Navigate to="/login" replace />;
+}
+
+export default function App() {
+  return (
+    <BrowserRouter>
+      <AppShell>
+        <Routes>
+          <Route path="/" element={<HomeRedirect />} />
+          <Route path="/login" element={<LoginPage />} />
+          <Route path="/register" element={<RegisterPage />} />
+
+          <Route
+            path="/dashboard"
+            element={
+              <ProtectedRoute>
+                <Dashboard />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/booking"
+            element={
+              <ProtectedRoute>
+                <BookingPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/match/:id"
+            element={
+              <ProtectedRoute>
+                <MatchDetail />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/equipment"
+            element={
+              <ProtectedRoute>
+                <Equipment />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin"
+            element={
+              <ProtectedRoute requiredRole="admin">
+                <AdminPanel />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="*"
+            element={
+              <div className="page" style={{ textAlign: 'center', padding: '64px 16px' }}>
+                <h1 className="page-title">404</h1>
+                <p className="page-subtitle">Faqja nuk u gjet.</p>
+                <Link to="/dashboard" className="btn btn-accent" style={{ display: 'inline-flex', marginTop: 16 }}>
+                  Te dashboard
+                </Link>
+              </div>
+            }
+          />
+        </Routes>
+      </AppShell>
+    </BrowserRouter>
+  );
+}
