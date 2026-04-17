@@ -1,5 +1,6 @@
 const express = require('express');
 const cors = require('cors');
+const path = require('path');
 const { router: authRouter } = require('./Routes/authRoutes');
 const matchRouter = require('./Routes/matchRoutes');
 
@@ -10,6 +11,9 @@ const PORT = process.env.PORT || 5000;
 app.use(cors());
 app.use(express.json());
 
+// Serve static files from frontend dist folder
+app.use(express.static(path.join(__dirname, '../frontend/dist')));
+
 // Health check endpoint for Render
 app.get('/health', (req, res) => {
   res.json({ status: 'ok', message: 'MATCHDAY backend is running' });
@@ -19,20 +23,18 @@ app.get('/health', (req, res) => {
 app.use('/api/auth', authRouter);
 app.use('/api', matchRouter);
 
-// Root endpoint
+// Root endpoint - serve frontend
 app.get('/', (req, res) => {
-  res.json({ 
-    message: 'MATCHDAY 5+1 API',
-    version: '1.0.0',
-    endpoints: {
-      health: '/health',
-      auth: '/api/auth/*',
-      matches: '/api/matches/*',
-      payments: '/api/payments/*',
-      autoCancel: '/api/auto-cancel',
-      processEmails: '/api/process-emails'
-    }
-  });
+  res.sendFile(path.join(__dirname, '../frontend/dist/index.html'));
+});
+
+// SPA fallback - serve index.html for all non-API routes
+app.get('*', (req, res) => {
+  if (req.path.startsWith('/api') || req.path === '/health') {
+    res.status(404).json({ error: 'Not found' });
+  } else {
+    res.sendFile(path.join(__dirname, '../frontend/dist/index.html'));
+  }
 });
 
 // Start server
