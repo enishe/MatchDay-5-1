@@ -52,18 +52,18 @@ const Login = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-bg py-12 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen flex items-center justify-center gradient-bg py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-md w-full space-y-8 animate-fade-in">
         <div className="text-center">
           <div className="flex justify-center mb-6">
-            <div className="p-4 bg-accent/10 rounded-full">
-              <Trophy className="h-12 w-12 text-accent" />
+            <div className="p-4 bg-primary/10 rounded-full animate-pulse-slow">
+              <Trophy className="h-12 w-12 text-primary" />
             </div>
           </div>
           <h2 className="text-4xl font-heading font-bold gradient-text mb-2">
             MATCHDAY
           </h2>
-          <p className="text-text/70">
+          <p className="text-text-muted">
             Hyni për të vazhduar të luani
           </p>
         </div>
@@ -78,7 +78,7 @@ const Login = () => {
 
             {/* Email */}
             <div className="relative">
-              <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-text/50 z-10" />
+              <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-text-muted z-10" />
               <Input
                 {...register('email')}
                 type="email"
@@ -92,7 +92,7 @@ const Login = () => {
 
             {/* Password */}
             <div className="relative">
-              <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-text/50 z-10" />
+              <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-text-muted z-10" />
               <Input
                 {...register('password')}
                 type={showPassword ? 'text' : 'password'}
@@ -104,7 +104,7 @@ const Login = () => {
               />
               <button 
                 type="button" 
-                className="absolute right-3 top-[38px] text-text/50 hover:text-text transition-colors"
+                className="absolute right-3 top-[38px] text-text-muted hover:text-primary transition-colors"
                 onClick={() => setShowPassword(!showPassword)}
               >
                 {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
@@ -124,8 +124,8 @@ const Login = () => {
         </Card>
 
         <div className="text-center">
-          <p className="text-text/70">
-            Nuk keni llogari? <Link to="/register" className="text-accent hover:text-accent/80 font-medium transition-colors">Regjistrohuni këtu</Link>
+          <p className="text-text-muted">
+            Nuk keni llogari? <Link to="/register" className="text-primary hover:text-primary-light font-medium transition-colors">Regjistrohuni këtu</Link>
           </p>
         </div>
       </div>

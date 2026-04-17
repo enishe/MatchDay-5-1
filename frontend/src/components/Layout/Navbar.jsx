@@ -63,8 +63,8 @@ const Navbar = () => {
           {/* Logo and main nav */}
           <div className="flex items-center">
             <Link to="/" className="flex items-center space-x-2 group">
-              <div className="p-2 bg-accent/10 rounded-lg group-hover:bg-accent/20 transition-colors">
-                <Trophy className="h-6 w-6 text-accent" />
+              <div className="p-2 bg-primary/10 rounded-lg group-hover:bg-primary/20 transition-colors">
+                <Trophy className="h-6 w-6 text-primary" />
               </div>
               <span className="text-xl font-heading font-bold gradient-text">MATCHDAY</span>
             </Link>
@@ -77,8 +77,8 @@ const Navbar = () => {
                   to={item.path}
                   className={`px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
                     isActivePath(item.path)
-                      ? 'bg-accent text-bg shadow-lg shadow-accent/20'
-                      : 'text-text/70 hover:text-text hover:bg-primary/50'
+                      ? 'bg-primary text-white shadow-lg shadow-primary/20'
+                      : 'text-text-muted hover:text-text hover:bg-panel-light'
                   }`}
                 >
                   <span className="mr-2">{item.icon}</span>
@@ -94,8 +94,8 @@ const Navbar = () => {
             <Notifications />
 
             {/* User info - Desktop */}
-            <div className="hidden md:flex items-center space-x-2 px-3 py-2 bg-bg/50 rounded-lg border border-border">
-              <User className="h-4 w-4 text-text/70" />
+            <div className="hidden md:flex items-center space-x-2 px-3 py-2 bg-bg-light/50 rounded-lg border border-border">
+              <User className="h-4 w-4 text-text-muted" />
               <span className="text-sm font-medium text-text">{user?.name}</span>
             </div>
 
@@ -138,8 +138,8 @@ const Navbar = () => {
                 onClick={() => setIsMobileMenuOpen(false)}
                 className={`block px-4 py-3 rounded-lg text-base font-medium transition-all duration-200 ${
                   isActivePath(item.path)
-                    ? 'bg-accent text-bg shadow-lg shadow-accent/20'
-                    : 'text-text/70 hover:text-text hover:bg-primary/50'
+                    ? 'bg-primary text-white shadow-lg shadow-primary/20'
+                    : 'text-text-muted hover:text-text hover:bg-panel-light'
                 }`}
               >
                 <span className="mr-3">{item.icon}</span>
@@ -148,7 +148,7 @@ const Navbar = () => {
             ))}
             
             <div className="border-t border-border pt-4 mt-4 space-y-2">
-              <div className="flex items-center space-x-2 px-4 py-3 text-text/70 bg-bg/50 rounded-lg">
+              <div className="flex items-center space-x-2 px-4 py-3 text-text-muted bg-bg-light/50 rounded-lg">
                 <User className="h-4 w-4" />
                 <span className="text-sm">{user?.name}</span>
               </div>

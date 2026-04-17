@@ -75,18 +75,18 @@ const Register = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-bg py-12 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen flex items-center justify-center gradient-bg py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-md w-full space-y-8 animate-fade-in">
         <div className="text-center">
           <div className="flex justify-center mb-6">
-            <div className="p-4 bg-accent/10 rounded-full">
-              <Trophy className="h-12 w-12 text-accent" />
+            <div className="p-4 bg-primary/10 rounded-full animate-pulse-slow">
+              <Trophy className="h-12 w-12 text-primary" />
             </div>
           </div>
           <h2 className="text-4xl font-heading font-bold gradient-text mb-2">
             MATCHDAY
           </h2>
-          <p className="text-text/70">
+          <p className="text-text-muted">
             Regjistrohuni për të filluar të luani
           </p>
         </div>
@@ -101,7 +101,7 @@ const Register = () => {
 
             {/* Name */}
             <div className="relative">
-              <User className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-text/50 z-10" />
+              <User className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-text-muted z-10" />
               <Input
                 {...register('name')}
                 type="text"
@@ -115,7 +115,7 @@ const Register = () => {
 
             {/* Email */}
             <div className="relative">
-              <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-text/50 z-10" />
+              <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-text-muted z-10" />
               <Input
                 {...register('email')}
                 type="email"
@@ -129,7 +129,7 @@ const Register = () => {
 
             {/* Username */}
             <div className="relative">
-              <User className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-text/50 z-10" />
+              <User className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-text-muted z-10" />
               <Input
                 {...register('username')}
                 type="text"
@@ -143,7 +143,7 @@ const Register = () => {
 
             {/* Phone */}
             <div className="relative">
-              <Phone className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-text/50 z-10" />
+              <Phone className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-text-muted z-10" />
               <Input
                 {...register('phone_number')}
                 type="tel"
@@ -157,7 +157,7 @@ const Register = () => {
 
             {/* Bank Account */}
             <div className="relative">
-              <CreditCard className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-text/50 z-10" />
+              <CreditCard className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-text-muted z-10" />
               <Input
                 {...register('bank_account')}
                 type="text"
@@ -173,12 +173,12 @@ const Register = () => {
             <div>
               <label className="block text-sm font-medium text-text mb-2">Roli</label>
               <div className="space-y-2">
-                <label className="flex items-center p-3 bg-bg/50 border border-border rounded-lg hover:border-accent/50 cursor-pointer transition-colors">
-                  <input {...register('role')} type="radio" value="participant" className="h-4 w-4 text-accent" />
+                <label className="flex items-center p-3 bg-bg-light/50 border border-border rounded-lg hover:border-primary/50 cursor-pointer transition-colors">
+                  <input {...register('role')} type="radio" value="participant" className="h-4 w-4 text-primary" />
                   <span className="ml-2 text-sm text-text">Lojtar (Pjesëmarrës)</span>
                 </label>
-                <label className="flex items-center p-3 bg-bg/50 border border-border rounded-lg hover:border-accent/50 cursor-pointer transition-colors">
-                  <input {...register('role')} type="radio" value="organizer" className="h-4 w-4 text-accent" />
+                <label className="flex items-center p-3 bg-bg-light/50 border border-border rounded-lg hover:border-primary/50 cursor-pointer transition-colors">
+                  <input {...register('role')} type="radio" value="organizer" className="h-4 w-4 text-primary" />
                   <span className="ml-2 text-sm text-text">Organizator (Krijues ndeshjesh)</span>
                 </label>
               </div>
@@ -187,7 +187,7 @@ const Register = () => {
 
             {/* Password */}
             <div className="relative">
-              <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-text/50 z-10" />
+              <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-text-muted z-10" />
               <Input
                 {...register('password')}
                 type={showPassword ? 'text' : 'password'}
@@ -199,7 +199,7 @@ const Register = () => {
               />
               <button 
                 type="button" 
-                className="absolute right-3 top-[38px] text-text/50 hover:text-text transition-colors"
+                className="absolute right-3 top-[38px] text-text-muted hover:text-primary transition-colors"
                 onClick={() => setShowPassword(!showPassword)}
               >
                 {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
@@ -208,7 +208,7 @@ const Register = () => {
 
             {/* Confirm Password */}
             <div className="relative">
-              <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-text/50 z-10" />
+              <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-text-muted z-10" />
               <Input
                 {...register('confirmPassword')}
                 type={showConfirmPassword ? 'text' : 'password'}
@@ -220,7 +220,7 @@ const Register = () => {
               />
               <button 
                 type="button" 
-                className="absolute right-3 top-[38px] text-text/50 hover:text-text transition-colors"
+                className="absolute right-3 top-[38px] text-text-muted hover:text-primary transition-colors"
                 onClick={() => setShowConfirmPassword(!showConfirmPassword)}
               >
                 {showConfirmPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
@@ -240,8 +240,8 @@ const Register = () => {
         </Card>
 
         <div className="text-center">
-          <p className="text-text/70">
-            Keni tashmë llogari? <Link to="/login" className="text-accent hover:text-accent/80 font-medium transition-colors">Kyçuni këtu</Link>
+          <p className="text-text-muted">
+            Keni tashmë llogari? <Link to="/login" className="text-primary hover:text-primary-light font-medium transition-colors">Kyçuni këtu</Link>
           </p>
         </div>
       </div>

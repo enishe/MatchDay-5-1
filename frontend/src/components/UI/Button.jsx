@@ -12,11 +12,12 @@ const Button = ({
   const baseStyles = 'font-semibold rounded-lg transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed';
   
   const variants = {
-    primary: 'bg-accent text-bg hover:bg-accent/90 focus:ring-accent shadow-lg hover:shadow-accent/20 transform hover:-translate-y-0.5',
-    secondary: 'bg-primary text-text hover:bg-primary/90 focus:ring-primary shadow-lg hover:shadow-primary/20 transform hover:-translate-y-0.5',
-    outline: 'border-2 border-accent text-accent hover:bg-accent hover:text-bg focus:ring-accent transform hover:-translate-y-0.5',
-    danger: 'bg-red-500 text-white hover:bg-red-600 focus:ring-red-500 shadow-lg hover:shadow-red-500/20 transform hover:-translate-y-0.5',
-    ghost: 'text-text hover:bg-panel focus:ring-panel',
+    primary: 'bg-primary text-white hover:bg-primary-dark focus:ring-primary shadow-lg hover:shadow-xl hover:shadow-primary/20 transform hover:-translate-y-0.5',
+    secondary: 'bg-secondary text-white hover:bg-secondary-dark focus:ring-secondary shadow-lg hover:shadow-xl hover:shadow-secondary/20 transform hover:-translate-y-0.5',
+    accent: 'bg-accent text-white hover:bg-accent-dark focus:ring-accent shadow-lg hover:shadow-xl hover:shadow-accent/20 transform hover:-translate-y-0.5',
+    outline: 'border-2 border-primary text-primary hover:bg-primary hover:text-white focus:ring-primary transform hover:-translate-y-0.5',
+    danger: 'bg-red-500 text-white hover:bg-red-600 focus:ring-red-500 shadow-lg hover:shadow-xl hover:shadow-red-500/20 transform hover:-translate-y-0.5',
+    ghost: 'text-text hover:bg-panel-light hover:text-primary focus:ring-primary',
   };
   
   const sizes = {
