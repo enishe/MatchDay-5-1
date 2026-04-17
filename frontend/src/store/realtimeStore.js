@@ -260,7 +260,7 @@ const useRealtimeStore = create((set, get) => ({
     if (!userId) return;
 
     try {
-      await fetch(`${API}/notifications/read`, {
+      await fetch('/api/notifications/read', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('matchday_token')}`,
