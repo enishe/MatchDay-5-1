@@ -16,18 +16,20 @@ import AdminBookings from './pages/Admin/AdminBookings';
 import AdminUsers from './pages/Admin/AdminUsers';
 import AdminInventory from './pages/Admin/AdminInventory';
 import AdminPayments from './pages/Admin/AdminPayments';
-
-// Ky eshte komponenti qe ishte jashte folderit Admin
 import AdminPanel from "./pages/AdminPanel";
 
 // Import Tailwind CSS
 import './index.css';
 
+// FIX: Nese gabimi vjen nga mungesa e importit te Notifications
+// Nese ke nje komponent Notifications, importoje: import Notifications from './...';
+const Notifications = () => null; 
+
 function App() {
   const { initAuth } = useAuthStore();
 
   useEffect(() => {
-    // Initialize auth state on app load
+    // Inicializimi i gjendjes se autentikimit
     initAuth();
   }, [initAuth]);
 
@@ -42,114 +44,59 @@ function App() {
             <Route path="/register" element={<Register />} />
 
             {/* Player routes */}
-            <Route
-              path="/player/fields"
-              element={
-                <ProtectedRoute>
-                  <PlayerFields />
-                </ProtectedRoute>
-              }
+            <Route 
+              path="/player/fields" 
+              element={<ProtectedRoute><PlayerFields /></ProtectedRoute>} 
             />
-            <Route
-              path="/player/my-matches"
-              element={
-                <ProtectedRoute>
-                  <PlayerMatches />
-                </ProtectedRoute>
-              }
+            <Route 
+              path="/player/my-matches" 
+              element={<ProtectedRoute><PlayerMatches /></ProtectedRoute>} 
             />
-            <Route
-              path="/player/invitations"
-              element={
-                <ProtectedRoute>
-                  <PlayerInvitations />
-                </ProtectedRoute>
-              }
+            <Route 
+              path="/player/invitations" 
+              element={<ProtectedRoute><PlayerInvitations /></ProtectedRoute>} 
             />
-            <Route
-              path="/player/profile"
-              element={
-                <ProtectedRoute>
-                  <PlayerProfile />
-                </ProtectedRoute>
-              }
+            <Route 
+              path="/player/profile" 
+              element={<ProtectedRoute><PlayerProfile /></ProtectedRoute>} 
             />
 
             {/* Admin routes */}
-            <Route
-              path="/admin/dashboard"
-              element={
-                <ProtectedRoute requiredRole="admin">
-                  <AdminDashboard />
-                </ProtectedRoute>
-              }
+            <Route 
+              path="/admin/dashboard" 
+              element={<ProtectedRoute requiredRole="admin"><AdminDashboard /></ProtectedRoute>} 
             />
-            <Route
-              path="/admin/bookings"
-              element={
-                <ProtectedRoute requiredRole="admin">
-                  <AdminBookings />
-                </ProtectedRoute>
-              }
+            <Route 
+              path="/admin/bookings" 
+              element={<ProtectedRoute requiredRole="admin"><AdminBookings /></ProtectedRoute>} 
             />
-            <Route
-              path="/admin/users"
-              element={
-                <ProtectedRoute requiredRole="admin">
-                  <AdminUsers />
-                </ProtectedRoute>
-              }
+            <Route 
+              path="/admin/users" 
+              element={<ProtectedRoute requiredRole="admin"><AdminUsers /></ProtectedRoute>} 
             />
-            
-            {/* Ketu eshte ndryshimi: Perdoret AdminPanel ne vend te AdminFields */}
-            <Route
-              path="/admin/fields"
-              element={
-                <ProtectedRoute requiredRole="admin">
-                  <AdminPanel />
-                </ProtectedRoute>
-              }
+            <Route 
+              path="/admin/fields" 
+              element={<ProtectedRoute requiredRole="admin"><AdminPanel /></ProtectedRoute>} 
             />
-            
-            <Route
-              path="/admin/inventory"
-              element={
-                <ProtectedRoute requiredRole="admin">
-                  <AdminInventory />
-                </ProtectedRoute>
-              }
+            <Route 
+              path="/admin/inventory" 
+              element={<ProtectedRoute requiredRole="admin"><AdminInventory /></ProtectedRoute>} 
             />
-            <Route
-              path="/admin/payments"
-              element={
-                <ProtectedRoute requiredRole="admin">
-                  <AdminPayments />
-                </ProtectedRoute>
-              }
+            <Route 
+              path="/admin/payments" 
+              element={<ProtectedRoute requiredRole="admin"><AdminPayments /></ProtectedRoute>} 
             />
 
-            {/* Default redirect */}
-            <Route
-              path="/"
-              element={
-                <ProtectedRoute>
-                  <PlayerFields />
-                </ProtectedRoute>
-              }
-            />
-
-            {/* Catch all route */}
-            <Route
-              path="*"
-              element={
-                <div className="min-h-screen flex items-center justify-center bg-bg">
-                  <div className="text-center">
-                    <h1 className="text-4xl font-heading font-bold text-text mb-4">404</h1>
-                    <p className="text-text/70">Faqja nuk u gjet</p>
-                  </div>
+            {/* Home & 404 */}
+            <Route path="/" element={<ProtectedRoute><PlayerFields /></ProtectedRoute>} />
+            <Route path="*" element={
+              <div className="min-h-screen flex items-center justify-center bg-bg">
+                <div className="text-center">
+                  <h1 className="text-4xl font-heading font-bold text-text mb-4">404</h1>
+                  <p className="text-text/70">Faqja nuk u gjet</p>
                 </div>
-              }
-            />
+              </div>
+            } />
           </Routes>
         </main>
       </div>
