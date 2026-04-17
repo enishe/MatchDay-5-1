@@ -1,172 +1,259 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getApiBase } from '../lib/api';
+import PageHeader from '../components/Layout/PageHeader';
+import TableScroll from '../components/UI/TableScroll';
+import Button from '../components/UI/Button';
+import Badge from '../components/UI/Badge';
+
+const authHeaders = () => {
+  const token = localStorage.getItem('matchday_token');
+  return token
+    ? { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }
+    : { 'Content-Type': 'application/json' };
+};
 
 export default function AdminPanel() {
   const [matches, setMatches] = useState([]);
-  const [stats,   setStats]   = useState(null);
+  const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [filtri,  setFiltri]  = useState('');
+  const [filtri, setFiltri] = useState('');
   const [mesazhi, setMesazhi] = useState(null);
   const navigate = useNavigate();
 
-  const fetchData = () => {
-    setLoading(true);
-    Promise.all([
-      fetch(`${getApiBase()}/matches${filtri ? `?status=${filtri}` : ''}`).then(r => r.json()),
-      fetch(`${getApiBase()}/matches/stats`).then(r => r.json()),
-    ]).then(([m, s]) => {
-      setMatches(Array.isArray(m) ? m : []);
-      setStats(s);
-    }).catch(() => tregoBust('Gabim gjatë ngarkimit.', 'error'))
-      .finally(() => setLoading(false));
-  };
-
-  useEffect(() => { fetchData(); }, [filtri]);
-
-  const tregoBust = (tekst, lloji = 'sukses') => {
+  const tregoBust = useCallback((tekst, lloji = 'sukses') => {
     setMesazhi({ tekst, lloji });
-    setTimeout(() => setMesazhi(null), 3000);
-  };
+    setTimeout(() => setMesazhi(null), 4000);
+  }, []);
+
+  const fetchData = useCallback(() => {
+    setLoading(true);
+    const base = getApiBase();
+    const q = filtri ? `?status=${encodeURIComponent(filtri)}` : '';
+    Promise.all([
+      fetch(`${base}/matches${q}`, { headers: authHeaders() }).then((r) => r.json()),
+      fetch(`${base}/matches/stats`, { headers: authHeaders() }).then((r) => r.json()),
+    ])
+      .then(([m, s]) => {
+        setMatches(Array.isArray(m) ? m : []);
+        setStats(s && typeof s === 'object' ? s : null);
+      })
+      .catch(() => tregoBust('Gabim gjatë ngarkimit të të dhënave.', 'error'))
+      .finally(() => setLoading(false));
+  }, [filtri, tregoBust]);
+
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
 
   const handleFshi = async (id) => {
     if (!window.confirm(`Fshi rezervimin #${id}?`)) return;
     try {
-      const res = await fetch(`${getApiBase()}/matches/${id}`, { method: 'DELETE' });
+      const res = await fetch(`${getApiBase()}/matches/${id}`, {
+        method: 'DELETE',
+        headers: authHeaders(),
+      });
       if (!res.ok) throw new Error('Gabim gjatë fshirjes.');
       tregoBust(`Rezervimi #${id} u fshi.`);
       fetchData();
-    } catch (err) { tregoBust(err.message, 'error'); }
+    } catch (err) {
+      tregoBust(err.message, 'error');
+    }
   };
 
   const handleNdrysho = async (id, status) => {
     try {
       const res = await fetch(`${getApiBase()}/matches/${id}`, {
-        method: 'PUT', headers: { 'Content-Type': 'application/json' },
+        method: 'PUT',
+        headers: authHeaders(),
         body: JSON.stringify({ status }),
       });
-      if (!res.ok) throw new Error('Gabim.');
-      tregoBust('Statusi u ndryshua.');
+      if (!res.ok) throw new Error('Gabim gjatë përditësimit.');
+      tregoBust('Statusi u përditësua.');
       fetchData();
-    } catch (err) { tregoBust(err.message, 'error'); }
+    } catch (err) {
+      tregoBust(err.message, 'error');
+    }
   };
 
+  const statusBadge = (status) => {
+    if (status === 'confirmed') return { variant: 'confirmed', label: 'Konfirmuar' };
+    if (status === 'pending') return { variant: 'pending', label: 'Në pritje' };
+    if (status === 'canceled' || status === 'cancelled')
+      return { variant: 'cancelled', label: 'Anuluar' };
+    return { variant: 'default', label: status };
+  };
+
+  const statCards = stats
+    ? [
+        { label: 'Gjithsej', value: stats.total, accent: 'border-l-slate-400/60' },
+        { label: 'Të ardhurat', value: `${stats.totali_cmimit ?? 0}€`, accent: 'border-l-indigo-400/70' },
+        { label: 'Konfirmuara', value: stats.confirmed, accent: 'border-l-emerald-400/70' },
+        { label: 'Në pritje', value: stats.pending, accent: 'border-l-amber-400/70' },
+      ]
+    : [];
+
+  const fieldsDemo = [
+    { id: 1, emri: 'Fusha Prishtina 1', terrain: 'Bar artificial', cmimi: 60, aktive: true },
+    { id: 2, emri: 'Salla Prizren', terrain: 'Sallë futsali', cmimi: 60, aktive: true },
+  ];
+
   return (
-    <div className="page">
-      <div className="page-title">Panel Admin</div>
-      <div className="page-sub">Menaxho fushat, rezervimet dhe inventarin</div>
+    <div className="w-full max-w-7xl mx-auto pb-12">
+      <PageHeader
+        variant="admin"
+        eyebrow="Fushat"
+        title="Menaxhimi i fushave"
+        description="Përmbledhje e rezervimeve dhe lista operacionale. Veprimet kërkojnë sesion admin të vlefshëm."
+      />
 
       {mesazhi && (
-        <div className={`feedback feedback-${mesazhi.lloji === 'error' ? 'error' : 'success'}`}>
+        <div
+          className={`mb-6 rounded-xl border px-4 py-3 text-sm font-medium ${
+            mesazhi.lloji === 'error'
+              ? 'border-red-500/40 bg-red-500/10 text-red-200'
+              : 'border-emerald-500/40 bg-emerald-500/10 text-emerald-100'
+          }`}
+        >
           {mesazhi.tekst}
         </div>
       )}
 
-      {/* Statistikat */}
-      {stats && (
-        <div className="stat-grid-4">
-          {[
-            { label: 'Gjithsej',    vlera: stats.total,              ngjyra: '#1a1a2e' },
-            { label: 'Të Ardhurat', vlera: `${stats.totali_cmimit}€`, ngjyra: '#1565c0' },
-            { label: 'Konfirmuara', vlera: stats.confirmed,          ngjyra: '#27ae60' },
-            { label: 'Në Pritje',   vlera: stats.pending,            ngjyra: '#f39c12' },
-          ].map((k, i) => (
-            <div key={i} style={{
-              background: 'var(--bg-card)', border: '1px solid var(--border)',
-              borderRadius: 10, padding: 16, borderLeft: `4px solid ${k.ngjyra}`,
-            }}>
-              <div style={{ fontSize: 11, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: 6 }}>{k.label}</div>
-              <div style={{ fontSize: 22, fontWeight: 700, color: k.ngjyra }}>{k.vlera}</div>
+      {statCards.length > 0 && (
+        <div className="mb-8 grid grid-cols-2 gap-3 lg:grid-cols-4">
+          {statCards.map((s) => (
+            <div
+              key={s.label}
+              className={`rounded-2xl border border-border/50 border-l-4 bg-panel/80 p-4 shadow-lg backdrop-blur-sm ${s.accent}`}
+            >
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-text-muted">
+                {s.label}
+              </p>
+              <p className="mt-1 font-heading text-2xl font-bold text-text">{s.value}</p>
             </div>
           ))}
         </div>
       )}
 
-      {/* Tabela */}
-      <div className="card">
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14, flexWrap: 'wrap', gap: 8 }}>
-          <div className="card-title" style={{ marginBottom: 0 }}>Të gjitha Rezervimet</div>
-          <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-            <select style={{ width: 'auto' }} value={filtri} onChange={e => setFiltri(e.target.value)}>
+      <section className="mb-8 overflow-hidden rounded-2xl border border-indigo-500/10 bg-panel/85 shadow-xl">
+        <div className="flex flex-col gap-4 border-b border-border/50 p-5 sm:flex-row sm:items-center sm:justify-between sm:p-6">
+          <h2 className="font-heading text-xl font-bold text-text">Të gjitha rezervimet</h2>
+          <div className="flex flex-wrap items-center gap-2">
+            <select
+              value={filtri}
+              onChange={(e) => setFiltri(e.target.value)}
+              className="input-field min-w-[10rem] flex-1 sm:flex-initial"
+            >
               <option value="">Të gjitha</option>
-              <option value="pending">Në Pritje</option>
+              <option value="pending">Në pritje</option>
               <option value="confirmed">Konfirmuara</option>
               <option value="canceled">Anuluara</option>
             </select>
-            <button className="btn btn-accent" onClick={() => navigate('/booking')}>+ Shto</button>
+            <Button variant="accent" size="sm" onClick={() => navigate('/admin/bookings')}>
+              + Rezervim i ri
+            </Button>
           </div>
         </div>
 
-        {loading && <p style={{ color: 'var(--text-muted)', fontSize: 13 }}>Duke ngarkuar...</p>}
-        {!loading && matches.length === 0 && <p style={{ color: 'var(--text-muted)', fontSize: 13 }}>Nuk ka rezervime.</p>}
-
-        {!loading && matches.length > 0 && (
-          <div className="table-wrap">
-            <table>
-              <thead>
-                <tr>
-                  <th>ID</th>
-                  <th>Fusha</th>
-                  <th>Data / Ora</th>
-                  <th>Çmimi</th>
-                  <th>Split</th>
-                  <th>Statusi</th>
-                  <th>Veprimet</th>
-                </tr>
-              </thead>
-              <tbody>
-                {matches.map(m => (
-                  <tr key={m.id}>
-                    <td style={{ fontWeight: 600 }}>#{m.id}</td>
-                    <td>#{m.field_id}</td>
-                    <td style={{ fontSize: 12 }}>{new Date(m.start_time).toLocaleString('sq-AL')}</td>
-                    <td>{m.total_price}€</td>
-                    <td style={{ color: '#27ae60', fontWeight: 600 }}>{m.price_per_player}€</td>
-                    <td>
-                      <span className={`badge badge-${m.status}`}>
-                        {m.status === 'pending' ? 'Pritje' : m.status === 'confirmed' ? 'OK' : 'Anuluar'}
-                      </span>
-                    </td>
-                    <td>
-                      <div style={{ display: 'flex', gap: 4 }}>
-                        <button className="btn btn-ghost" style={{ padding: '4px 8px', fontSize: 11 }}
-                          onClick={() => navigate(`/match/${m.id}`)}>Hap</button>
-                        {m.status === 'pending' && (
-                          <button className="btn btn-accent" style={{ padding: '4px 8px', fontSize: 11 }}
-                            onClick={() => handleNdrysho(m.id, 'confirmed')}>✓</button>
-                        )}
-                        <button className="btn btn-danger" style={{ padding: '4px 8px', fontSize: 11 }}
-                          onClick={() => handleFshi(m.id)}>✕</button>
-                      </div>
-                    </td>
+        <div className="p-4 sm:p-6">
+          {loading && (
+            <p className="text-center text-sm text-text-muted">Duke ngarkuar…</p>
+          )}
+          {!loading && matches.length === 0 && (
+            <p className="text-center text-sm text-text-muted">Nuk ka rezervime për këtë filtrim.</p>
+          )}
+          {!loading && matches.length > 0 && (
+            <TableScroll>
+              <table className="w-full min-w-[720px] border-collapse text-left text-sm">
+                <thead>
+                  <tr className="border-b border-border/60 bg-bg-light/40 text-xs uppercase tracking-wide text-text-muted">
+                    <th className="px-4 py-3 font-semibold">ID</th>
+                    <th className="px-4 py-3 font-semibold">Fusha</th>
+                    <th className="px-4 py-3 font-semibold">Data / ora</th>
+                    <th className="px-4 py-3 font-semibold">Çmimi</th>
+                    <th className="px-4 py-3 font-semibold">Split</th>
+                    <th className="px-4 py-3 font-semibold">Statusi</th>
+                    <th className="px-4 py-3 font-semibold text-right">Veprimet</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
+                </thead>
+                <tbody className="divide-y divide-border/40">
+                  {matches.map((m) => {
+                    const sb = statusBadge(m.status);
+                    return (
+                      <tr key={m.id} className="transition-colors hover:bg-panel-light/30">
+                        <td className="px-4 py-3 font-semibold text-text">#{m.id}</td>
+                        <td className="px-4 py-3 text-text-muted">#{m.field_id}</td>
+                        <td className="px-4 py-3 text-text-muted">
+                          {new Date(m.start_time).toLocaleString('sq-AL')}
+                        </td>
+                        <td className="px-4 py-3">{m.total_price}€</td>
+                        <td className="px-4 py-3 font-semibold text-primary-light">
+                          {m.price_per_player}€
+                        </td>
+                        <td className="px-4 py-3">
+                          <Badge variant={sb.variant}>{sb.label}</Badge>
+                        </td>
+                        <td className="px-4 py-3">
+                          <div className="flex flex-wrap justify-end gap-2">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="!py-1.5 !px-3 text-xs"
+                              onClick={() => navigate(`/match/${m.id}`)}
+                            >
+                              Hap
+                            </Button>
+                            {m.status === 'pending' && (
+                              <Button
+                                variant="primary"
+                                size="sm"
+                                className="!py-1.5 !px-3 text-xs"
+                                onClick={() => handleNdrysho(m.id, 'confirmed')}
+                              >
+                                Konfirmo
+                              </Button>
+                            )}
+                            <Button
+                              variant="danger"
+                              size="sm"
+                              className="!py-1.5 !px-3 text-xs"
+                              onClick={() => handleFshi(m.id)}
+                            >
+                              Fshi
+                            </Button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </TableScroll>
+          )}
+        </div>
+      </section>
 
-      {/* Fushat */}
-      <div className="card">
-        <div className="card-title">Fushat e Disponueshme</div>
-        <div className="grid-2-col" style={{ gap: 12 }}>
-          {[
-            { id: 1, emri: 'Fusha Prishtina 1', terrain: 'Bar Artificial', cmimi: 60, aktive: true },
-            { id: 2, emri: 'Salla Prizren',      terrain: 'Sallë Futsali',  cmimi: 60, aktive: true },
-          ].map(f => (
-            <div key={f.id} style={{ background: 'var(--bg-secondary)', borderRadius: 8, padding: 14, border: '1px solid var(--border)' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
-                <div style={{ fontWeight: 600, fontSize: 14 }}>{f.emri}</div>
-                <span className={`badge ${f.aktive ? 'badge-confirmed' : 'badge-canceled'}`}>
+      <section className="rounded-2xl border border-indigo-500/10 bg-panel/85 p-5 shadow-xl sm:p-6">
+        <h2 className="mb-5 font-heading text-xl font-bold text-text">Fushat e disponueshme</h2>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          {fieldsDemo.map((f) => (
+            <div
+              key={f.id}
+              className="rounded-xl border border-border/60 bg-bg-light/25 p-4 transition-colors hover:border-indigo-500/25"
+            >
+              <div className="flex items-start justify-between gap-2">
+                <p className="font-heading font-bold text-text">{f.emri}</p>
+                <Badge variant={f.aktive ? 'confirmed' : 'cancelled'}>
                   {f.aktive ? 'Aktive' : 'Joaktive'}
-                </span>
+                </Badge>
               </div>
-              <div style={{ fontSize: 13, color: 'var(--text-secondary)' }}>{f.terrain} · {f.cmimi}€/orë</div>
+              <p className="mt-2 text-sm text-text-muted">
+                {f.terrain} · {f.cmimi}€ / orë
+              </p>
             </div>
           ))}
         </div>
-      </div>
+      </section>
     </div>
   );
 }

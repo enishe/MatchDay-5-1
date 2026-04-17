@@ -1,191 +1,150 @@
 import React from 'react';
 import { User, Mail, Phone, CreditCard, Trophy, Edit } from 'lucide-react';
 import useAuthStore from '../../store/authStore';
+import Button from '../../components/UI/Button';
+import PageHeader from '../../components/Layout/PageHeader';
+import SectionCard from '../../components/Layout/SectionCard';
+import Badge from '../../components/UI/Badge';
 
 const PlayerProfile = () => {
   const { user } = useAuthStore();
 
   if (!user) {
-    return <div>Loading...</div>;
+    return (
+      <div className="flex min-h-[40vh] items-center justify-center">
+        <div className="h-10 w-10 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+      </div>
+    );
   }
 
+  const roleLabel =
+    user.role === 'admin'
+      ? 'Administrator'
+      : user.role === 'organizer'
+        ? 'Organizator'
+        : 'Lojtar';
+
+  const badgeVariant =
+    user.role === 'admin' ? 'accent' : user.role === 'organizer' ? 'confirmed' : 'default';
+
   return (
-    <div className="min-h-screen bg-bg">
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-3xl font-heading font-bold text-text mb-2">
-            Profili Im
-          </h1>
-          <p className="text-text/70">
-            Menaxhoni informacionet tuaja personale
-          </p>
-        </div>
+    <div className="w-full max-w-5xl mx-auto pb-12">
+      <PageHeader
+        variant="player"
+        eyebrow="Profili"
+        title="Profili im"
+        description="Të dhënat e llogarisë dhe preferencat e lojës. Për ndryshime të thella, kontaktoni mbështetjen."
+      />
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Profile Card */}
-          <div className="lg:col-span-1">
-            <div className="card text-center">
-              {/* Avatar */}
-              <div className="w-24 h-24 bg-primary rounded-full mx-auto mb-4 flex items-center justify-center">
-                <User className="h-12 w-12 text-text/50" />
-              </div>
-              
-              <h2 className="text-xl font-heading font-bold text-text mb-1">
-                {user.name}
-              </h2>
-              <p className="text-accent font-medium mb-4">
-                @{user.username}
-              </p>
-              
-              <div className="text-sm text-text/70">
-                <span className="badge-confirmed">
-                  {user.role === 'admin' ? 'Administrator' : 
-                   user.role === 'organizer' ? 'Organizator' : 'Lojtar'}
-                </span>
-              </div>
-
-              <button className="btn-outline w-full mt-6 flex items-center justify-center">
-                <Edit className="h-4 w-4 mr-2" />
-                Ndrysho Avatar
-              </button>
+      <div className="grid grid-cols-1 gap-8 lg:grid-cols-12">
+        <aside className="lg:col-span-4">
+          <div className="sticky top-24 overflow-hidden rounded-2xl border border-border/70 bg-gradient-to-b from-panel to-panel-dark/90 p-6 shadow-xl">
+            <div className="mx-auto flex h-28 w-28 items-center justify-center rounded-2xl bg-gradient-to-br from-primary/30 to-primary/5 ring-2 ring-primary/20">
+              <User className="h-14 w-14 text-primary-light/90" strokeWidth={1.25} />
             </div>
+            <h2 className="mt-5 text-center font-heading text-2xl font-bold text-text">{user.name}</h2>
+            <p className="text-center text-sm font-medium text-primary-light">@{user.username}</p>
+            <div className="mt-4 flex justify-center">
+              <Badge variant={badgeVariant}>{roleLabel}</Badge>
+            </div>
+            <Button variant="outline" size="sm" className="mt-6 w-full">
+              <Edit className="mr-2 h-4 w-4" />
+              Ndrysho avatar
+            </Button>
           </div>
+        </aside>
 
-          {/* Profile Information */}
-          <div className="lg:col-span-2 space-y-6">
-            {/* Personal Information */}
-            <div className="card">
-              <h3 className="text-lg font-heading font-bold text-text mb-4 flex items-center">
-                <User className="h-5 w-5 mr-2 text-accent" />
-                Informacionet Personale
-              </h3>
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-text/70 mb-1">
-                    Emri i plotë
-                  </label>
-                  <input
-                    type="text"
-                    value={user.name}
-                    className="input-field"
-                    readOnly
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-text/70 mb-1">
-                    Username Matchday
-                  </label>
-                  <input
-                    type="text"
-                    value={user.username}
-                    className="input-field"
-                    readOnly
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* Contact Information */}
-            <div className="card">
-              <h3 className="text-lg font-heading font-bold text-text mb-4 flex items-center">
-                <Mail className="h-5 w-5 mr-2 text-accent" />
-                Informacionet e Kontaktit
-              </h3>
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-text/70 mb-1">
-                    Email
-                  </label>
-                  <input
-                    type="email"
-                    value={user.email}
-                    className="input-field"
-                    readOnly
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-text/70 mb-1">
-                    Numri i telefonit
-                  </label>
-                  <input
-                    type="tel"
-                    value={user.phone_number}
-                    className="input-field"
-                    readOnly
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* Payment Information */}
-            <div className="card">
-              <h3 className="text-lg font-heading font-bold text-text mb-4 flex items-center">
-                <CreditCard className="h-5 w-5 mr-2 text-accent" />
-                Informacionet e Pagesave
-              </h3>
-              
+        <div className="space-y-6 lg:col-span-8">
+          <SectionCard title="Informacionet personale" icon={User}>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div>
-                <label className="block text-sm font-medium text-text/70 mb-1">
-                  Numri i llogarisë bankare
+                <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-text-muted">
+                  Emri i plotë
+                </label>
+                <input type="text" value={user.name} readOnly className="input-field" />
+              </div>
+              <div>
+                <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-text-muted">
+                  Username Matchday
+                </label>
+                <input type="text" value={user.username || ''} readOnly className="input-field" />
+              </div>
+            </div>
+          </SectionCard>
+
+          <SectionCard title="Kontakti" icon={Mail}>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div>
+                <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-text-muted">
+                  Email
+                </label>
+                <input type="email" value={user.email} readOnly className="input-field" />
+              </div>
+              <div>
+                <label className="mb-1.5 flex items-center gap-1 text-xs font-semibold uppercase tracking-wide text-text-muted">
+                  <Phone className="h-3 w-3" />
+                  Telefoni
                 </label>
                 <input
-                  type="text"
-                  value={user.bank_account}
-                  className="input-field"
+                  type="tel"
+                  value={user.phone_number || '—'}
                   readOnly
+                  className="input-field"
                 />
-                <p className="text-xs text-text/50 mt-1">
-                  Përdoret për pagesa dhe rimbursime
-                </p>
               </div>
             </div>
+          </SectionCard>
 
-            {/* Game Preferences */}
-            <div className="card">
-              <h3 className="text-lg font-heading font-bold text-text mb-4 flex items-center">
-                <Trophy className="h-5 w-5 mr-2 text-accent" />
-                Preferencat e Lojës
-              </h3>
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-text/70 mb-1">
-                    Pozicioni i preferuar
-                  </label>
-                  <select className="input-field">
-                    <option>Pa preferencë</option>
-                    <option>Portier</option>
-                    <option>Mbrojtës</option>
-                    <option>Mesfushor</option>
-                    <option> sulmues</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-text/70 mb-1">
-                    Niveli i lojës
-                  </label>
-                  <select className="input-field">
-                    <option>Fillues</option>
-                    <option>Mesatar</option>
-                    <option>E përparuar</option>
-                    <option>Profesional</option>
-                  </select>
-                </div>
+          <SectionCard title="Pagesat" icon={CreditCard}>
+            <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-text-muted">
+              Llogaria bankare
+            </label>
+            <input
+              type="text"
+              value={user.bank_account || '—'}
+              readOnly
+              className="input-field"
+            />
+            <p className="mt-2 text-xs text-text-muted">
+              Përdoret për pagesa dhe rimbursime sipas rregullave të platformës.
+            </p>
+          </SectionCard>
+
+          <SectionCard title="Preferencat e lojës" icon={Trophy}>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div>
+                <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-text-muted">
+                  Pozicioni i preferuar
+                </label>
+                <select className="input-field cursor-pointer">
+                  <option>Pa preferencë</option>
+                  <option>Portier</option>
+                  <option>Mbrojtës</option>
+                  <option>Mesfushor</option>
+                  <option>Sulmues</option>
+                </select>
+              </div>
+              <div>
+                <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-text-muted">
+                  Niveli
+                </label>
+                <select className="input-field cursor-pointer">
+                  <option>Fillues</option>
+                  <option>Mesatar</option>
+                  <option>I përparuar</option>
+                  <option>Profesional</option>
+                </select>
               </div>
             </div>
+          </SectionCard>
 
-            {/* Action Buttons */}
-            <div className="flex space-x-4">
-              <button className="btn-primary">
-                Ruaj Ndryshimet
-              </button>
-              <button className="btn-outline">
-                Anullo
-              </button>
-            </div>
+          <div className="flex flex-col gap-3 sm:flex-row sm:justify-end">
+            <Button variant="outline" className="w-full sm:w-auto">
+              Anulo
+            </Button>
+            <Button variant="primary" className="w-full sm:w-auto">
+              Ruaj ndryshimet
+            </Button>
           </div>
         </div>
       </div>

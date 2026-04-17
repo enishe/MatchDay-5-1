@@ -1,8 +1,12 @@
 import React from 'react';
-import { Mail, Clock, Check, X, Users } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { Mail, Clock, Check, X, Users, MapPin } from 'lucide-react';
+import Button from '../../components/UI/Button';
+import Badge from '../../components/UI/Badge';
+import PageHeader from '../../components/Layout/PageHeader';
+import EmptyState from '../../components/Layout/EmptyState';
 
 const PlayerInvitations = () => {
-  // Mock data for invitations
   const invitations = [
     {
       id: 1,
@@ -12,9 +16,9 @@ const PlayerInvitations = () => {
       start_time: '2026-04-18T18:00:00Z',
       end_time: '2026-04-18T19:00:00Z',
       status: 'pending',
-      price_per_player: 5.00,
+      price_per_player: 5.0,
       current_players: 8,
-      max_players: 12
+      max_players: 12,
     },
     {
       id: 2,
@@ -24,146 +28,152 @@ const PlayerInvitations = () => {
       start_time: '2026-04-19T20:00:00Z',
       end_time: '2026-04-19T21:00:00Z',
       status: 'accepted',
-      price_per_player: 5.00,
+      price_per_player: 5.0,
       current_players: 10,
-      max_players: 12
-    }
+      max_players: 12,
+    },
   ];
 
-  const formatDate = (dateString) => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString('sq-AL', {
+  const formatDate = (dateString) =>
+    new Date(dateString).toLocaleDateString('sq-AL', {
       weekday: 'long',
-      year: 'numeric',
+      day: 'numeric',
       month: 'long',
-      day: 'numeric'
     });
-  };
 
-  const formatTime = (dateString) => {
-    const date = new Date(dateString);
-    return date.toLocaleTimeString('sq-AL', {
+  const formatTime = (dateString) =>
+    new Date(dateString).toLocaleTimeString('sq-AL', {
       hour: '2-digit',
-      minute: '2-digit'
+      minute: '2-digit',
     });
-  };
 
   const handleAcceptInvitation = (invitationId) => {
     console.log('Accepting invitation:', invitationId);
-    // TODO: Implement accept invitation logic
   };
 
   const handleDeclineInvitation = (invitationId) => {
     console.log('Declining invitation:', invitationId);
-    // TODO: Implement decline invitation logic
   };
 
   return (
-    <div className="min-h-screen bg-bg">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-3xl font-heading font-bold text-text mb-2">
-            Ftesat
-          </h1>
-          <p className="text-text/70">
-            Menaxhoni ftesat për ndeshje
-          </p>
-        </div>
+    <div className="w-full max-w-7xl mx-auto pb-12">
+      <PageHeader
+        variant="player"
+        eyebrow="Ftesat"
+        title="Ftesat për ndeshje"
+        description="Pranoni ose refuzoni ftesa nga organizatorët. Çmimi për lojtar shfaqet qartë përpara konfirmimit."
+      />
 
-        {/* Invitations List */}
-        <div className="space-y-6">
-          {invitations.map((invitation) => (
-            <div key={invitation.id} className="card">
-              <div className="flex items-start justify-between">
-                {/* Invitation Info */}
-                <div className="flex-1">
-                  <div className="flex items-center space-x-3 mb-3">
-                    <Mail className="h-5 w-5 text-accent" />
-                    <h3 className="text-lg font-heading font-bold text-text">
-                      Ftesë nga {invitation.organizer_name}
-                    </h3>
-                    <span className="text-text/70 text-sm">
-                      @{invitation.organizer_username}
+      {invitations.length === 0 ? (
+        <EmptyState
+          icon={Mail}
+          title="Nuk keni ftesa"
+          description="Kur dikush ju fton në një ndeshje, do të shfaqet këtu."
+          action={
+            <Link
+              to="/player/my-matches"
+              className="btn-outline inline-flex w-full items-center justify-center rounded-lg sm:w-auto"
+            >
+              Shiko ndeshjet
+            </Link>
+          }
+        />
+      ) : (
+        <ul className="space-y-4 sm:space-y-5">
+          {invitations.map((inv) => (
+            <li
+              key={inv.id}
+              className="overflow-hidden rounded-2xl border border-border/70 bg-panel/85 shadow-lg backdrop-blur-sm"
+            >
+              <div className="flex flex-col gap-5 p-5 sm:flex-row sm:items-start sm:justify-between sm:p-6">
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/15 text-primary">
+                      <Mail className="h-5 w-5" />
+                    </div>
+                    <div>
+                      <h3 className="font-heading text-lg font-bold text-text">
+                        {inv.organizer_name}
+                      </h3>
+                      <p className="text-sm text-text-muted">@{inv.organizer_username}</p>
+                    </div>
+                    {inv.status === 'accepted' && (
+                      <Badge variant="confirmed" className="ml-auto sm:ml-0">
+                        E pranuar
+                      </Badge>
+                    )}
+                    {inv.status === 'declined' && (
+                      <Badge variant="cancelled" className="ml-auto sm:ml-0">
+                        E refuzuar
+                      </Badge>
+                    )}
+                  </div>
+
+                  <div className="mt-5 grid gap-4 sm:grid-cols-2">
+                    <div className="flex gap-3 rounded-xl border border-border/50 bg-bg-light/30 p-3">
+                      <Clock className="mt-0.5 h-5 w-5 shrink-0 text-primary/80" />
+                      <div>
+                        <p className="text-xs font-semibold uppercase tracking-wide text-text-muted">
+                          Koha
+                        </p>
+                        <p className="text-sm font-medium text-text">{formatDate(inv.start_time)}</p>
+                        <p className="text-xs text-text-muted">
+                          {formatTime(inv.start_time)} – {formatTime(inv.end_time)}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex gap-3 rounded-xl border border-border/50 bg-bg-light/30 p-3">
+                      <MapPin className="mt-0.5 h-5 w-5 shrink-0 text-primary/80" />
+                      <div>
+                        <p className="text-xs font-semibold uppercase tracking-wide text-text-muted">
+                          Fusha
+                        </p>
+                        <p className="text-sm font-medium text-text">{inv.field_name}</p>
+                        <p className="mt-1 flex items-center gap-1 text-xs text-text-muted">
+                          <Users className="h-3.5 w-3.5" />
+                          {inv.current_players}/{inv.max_players} lojtarë
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <p className="mt-4 text-sm">
+                    <span className="text-text-muted">Çmimi për lojtar: </span>
+                    <span className="font-heading text-lg font-bold text-primary-light">
+                      €{inv.price_per_player.toFixed(2)}
                     </span>
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-text/70">
-                    <div className="flex items-center">
-                      <Clock className="h-4 w-4 mr-2" />
-                      <div>
-                        <div>{formatDate(invitation.start_time)}</div>
-                        <div>
-                          {formatTime(invitation.start_time)} - {formatTime(invitation.end_time)}
-                        </div>
-                      </div>
-                    </div>
-                    <div className="flex items-center">
-                      <Users className="h-4 w-4 mr-2" />
-                      <div>
-                        <div>{invitation.field_name}</div>
-                        <div>
-                          {invitation.current_players}/{invitation.max_players} lojtarë
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="mt-3 text-sm">
-                    <span className="text-text/70">Çmimi për lojtar: </span>
-                    <span className="text-accent font-bold">€{invitation.price_per_player}</span>
-                  </div>
+                  </p>
                 </div>
 
-                {/* Actions */}
-                <div className="flex flex-col space-y-2 ml-4">
-                  {invitation.status === 'pending' && (
+                <div className="flex w-full shrink-0 flex-col gap-2 sm:w-44">
+                  {inv.status === 'pending' && (
                     <>
-                      <button
-                        onClick={() => handleAcceptInvitation(invitation.id)}
-                        className="btn-primary flex items-center"
+                      <Button
+                        variant="primary"
+                        size="sm"
+                        className="w-full"
+                        onClick={() => handleAcceptInvitation(inv.id)}
                       >
-                        <Check className="h-4 w-4 mr-1" />
+                        <Check className="mr-1.5 inline h-4 w-4" />
                         Prano
-                      </button>
-                      <button
-                        onClick={() => handleDeclineInvitation(invitation.id)}
-                        className="btn-outline flex items-center"
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="w-full"
+                        onClick={() => handleDeclineInvitation(inv.id)}
                       >
-                        <X className="h-4 w-4 mr-1" />
+                        <X className="mr-1.5 inline h-4 w-4" />
                         Refuzo
-                      </button>
+                      </Button>
                     </>
-                  )}
-                  {invitation.status === 'accepted' && (
-                    <div className="text-center">
-                      <span className="badge-confirmed">E Pranuar</span>
-                    </div>
-                  )}
-                  {invitation.status === 'declined' && (
-                    <div className="text-center">
-                      <span className="badge-cancelled">E Refuzuar</span>
-                    </div>
                   )}
                 </div>
               </div>
-            </div>
+            </li>
           ))}
-        </div>
-
-        {/* Empty State */}
-        {invitations.length === 0 && (
-          <div className="text-center py-12">
-            <Mail className="h-16 w-16 text-text/30 mx-auto mb-4" />
-            <h3 className="text-xl font-heading font-bold text-text mb-2">
-              Nuk keni ftesa
-            </h3>
-            <p className="text-text/70">
-              Kur të ftoni për ndeshje, ftesat do të shfaqen këtu
-            </p>
-          </div>
-        )}
-      </div>
+        </ul>
+      )}
     </div>
   );
 };
