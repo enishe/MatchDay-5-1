@@ -1,103 +1,142 @@
 const express = require('express');
-const router  = express.Router();
 const MatchService = require('../Services/MatchService');
-const repo         = require('../Repositories/SqlMatchRepository');
+const PaymentService = require('../Services/PaymentService');
+const { authenticateToken, requireRole } = require('./authRoutes');
 
-// Dependency Injection — repo inject-ohet te Service, jo hardcoded brenda
-const service = new MatchService(repo);
+const router = express.Router();
+const matchService = new MatchService();
+const paymentService = new PaymentService();
 
-// ─── GET /api/matches/stats ───────────────────────────────────────────────
-// SPRINT 2 — Statistikat e ndeshjeve
-// Shembuj: /api/matches/stats
-//          /api/matches/stats?status=confirmed
-// KUJDES: Ky route duhet PARA /matches/:id — përndryshe Express
-//         lexon "stats" si parametër :id dhe kthehet gabim
-router.get('/matches/stats', async (req, res) => {
+// Create new match
+router.post('/matches', authenticateToken, requireRole(['organizer', 'admin']), async (req, res) => {
     try {
-        const stats = await service.llogaritStatistikat(req.query);
-        res.json(stats);
-    } catch (err) {
-        res.status(500).json({ error: err.message });
+        const match = await matchService.createMatch(req.user.id, req.body);
+        res.status(201).json(match);
+    } catch (error) {
+        console.error('Create match error:', error);
+        res.status(400).json({ error: error.message });
     }
 });
 
-// ─── GET /api/matches/split-preview ──────────────────────────────────────
-// Llogarit Smart Split para pagesës (pa ruajtur në DB)
-// KUJDES: Edhe ky duhet PARA /matches/:id
-router.get('/matches/split-preview', async (req, res) => {
+// Get match details
+router.get('/matches/:id', authenticateToken, async (req, res) => {
     try {
-        const totalPrice  = parseFloat(req.query.totalPrice);
+        const match = await matchService.getMatchDetails(req.params.id, req.user.id);
+        res.json(match);
+    } catch (error) {
+        console.error('Get match error:', error);
+        res.status(404).json({ error: error.message });
+    }
+});
+
+// Get user's matches
+router.get('/my-matches', authenticateToken, async (req, res) => {
+    try {
+        const { status } = req.query;
+        const matches = await matchService.getUserMatches(req.user.id, status);
+        res.json(matches);
+    } catch (error) {
+        console.error('Get user matches error:', error);
+        res.status(400).json({ error: error.message });
+    }
+});
+
+// Respond to invitation
+router.post('/matches/:id/respond', authenticateToken, async (req, res) => {
+    try {
+        const { response } = req.body; // 'accepted' or 'declined'
+        const result = await matchService.respondToInvitation(req.params.id, req.user.id, response);
+        res.json(result);
+    } catch (error) {
+        console.error('Respond to invitation error:', error);
+        res.status(400).json({ error: error.message });
+    }
+});
+
+// Cancel match
+router.post('/matches/:id/cancel', authenticateToken, async (req, res) => {
+    try {
+        const result = await matchService.cancelMatch(req.params.id, req.user.id);
+        res.json(result);
+    } catch (error) {
+        console.error('Cancel match error:', error);
+        res.status(400).json({ error: error.message });
+    }
+});
+
+// Get available slots for a field
+router.get('/fields/:id/slots', authenticateToken, async (req, res) => {
+    try {
+        const { date } = req.query;
+        const slots = await matchService.getAvailableSlots(req.params.id, date);
+        res.json(slots);
+    } catch (error) {
+        console.error('Get slots error:', error);
+        res.status(400).json({ error: error.message });
+    }
+});
+
+// Search users for invitations
+router.get('/search-users', authenticateToken, async (req, res) => {
+    try {
+        const { q } = req.query;
+        const users = await matchService.searchUsers(q, req.user.id);
+        res.json(users);
+    } catch (error) {
+        console.error('Search users error:', error);
+        res.status(400).json({ error: error.message });
+    }
+});
+
+// Process payment
+router.post('/payments/:id/process', authenticateToken, async (req, res) => {
+    try {
+        const { payment_method, transaction_reference } = req.body;
+        const payment = await paymentService.processPayment(req.params.id, payment_method, transaction_reference);
+        res.json(payment);
+    } catch (error) {
+        console.error('Process payment error:', error);
+        res.status(400).json({ error: error.message });
+    }
+});
+
+// Get payment summary for booking
+router.get('/matches/:id/payments', authenticateToken, async (req, res) => {
+    try {
+        const payments = await paymentService.getPaymentSummary(req.params.id);
+        res.json(payments);
+    } catch (error) {
+        console.error('Get payment summary error:', error);
+        res.status(400).json({ error: error.message });
+    }
+});
+
+// Auto-cancel matches (cron job endpoint)
+router.post('/auto-cancel', async (req, res) => {
+    try {
+        const cancelledCount = await matchService.autoCancelMatches();
+        res.json({ cancelled_matches: cancelledCount });
+    } catch (error) {
+        console.error('Auto cancel error:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Smart Split calculator (for preview)
+router.get('/split-preview', async (req, res) => {
+    try {
+        const totalPrice = parseFloat(req.query.totalPrice);
         const playerCount = parseInt(req.query.players) || 12;
 
-        // Error Handling — input i gabuar
         if (isNaN(totalPrice) || totalPrice <= 0) {
-            return res.status(400).json({ error: 'Ju lutem shkruani një çmim valid (numër mbi 0).' });
+            return res.status(400).json({ error: 'Total price must be a valid number greater than 0' });
         }
 
-        const perPlayer = service.llogaritSmartSplit(totalPrice, playerCount);
-        res.json({ totalPrice, playerCount, pricePerPlayer: perPlayer, currency: 'EUR' });
-    } catch (err) {
-        res.status(400).json({ error: err.message });
-    }
-});
-
-// ─── GET /api/matches ─────────────────────────────────────────────────────
-// Listo me filtrim opsional
-router.get('/matches', async (req, res) => {
-    try {
-        const matches = await service.listoTeGjitha(req.query);
-        res.json(matches);
-    } catch (err) {
-        res.status(500).json({ error: err.message });
-    }
-});
-
-// ─── GET /api/matches/:id ─────────────────────────────────────────────────
-// Gjej sipas ID
-router.get('/matches/:id', async (req, res) => {
-    try {
-        const match = await service.gjejSipasId(req.params.id);
-        res.json(match);
-    } catch (err) {
-        res.status(404).json({ error: err.message });
-    }
-});
-
-// ─── POST /api/matches ────────────────────────────────────────────────────
-// Shto ndeshje të re me validim
-router.post('/matches', async (req, res) => {
-    try {
-        const newMatch = await service.shtoNdeshje(req.body);
-        res.status(201).json(newMatch);
-    } catch (err) {
-        res.status(400).json({ error: err.message });
-    }
-});
-
-// ─── PUT /api/matches/:id ─────────────────────────────────────────────────
-// Përditëso statusin
-router.put('/matches/:id', async (req, res) => {
-    try {
-        const { status } = req.body;
-        if (!status)
-            return res.status(400).json({ error: 'Statusi është i detyrueshëm në body.' });
-        const updated = await service.perditesoStatusin(req.params.id, status);
-        res.json(updated);
-    } catch (err) {
-        const code = err.message.includes('nuk u gjet') ? 404 : 400;
-        res.status(code).json({ error: err.message });
-    }
-});
-
-// ─── DELETE /api/matches/:id ──────────────────────────────────────────────
-// Fshi ndeshjen
-router.delete('/matches/:id', async (req, res) => {
-    try {
-        await service.fshiNdeshjen(req.params.id);
-        res.json({ message: `Ndeshja me ID ${req.params.id} u fshi me sukses.` });
-    } catch (err) {
-        const code = err.message.includes('nuk ekziston') ? 404 : 500;
-        res.status(code).json({ error: err.message });
+        const split = paymentService.calculateSmartSplit(totalPrice, playerCount);
+        res.json(split);
+    } catch (error) {
+        console.error('Split preview error:', error);
+        res.status(400).json({ error: error.message });
     }
 });
 

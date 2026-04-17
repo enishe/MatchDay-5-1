@@ -1,0 +1,301 @@
+const pool = require('../config/db');
+
+class NotificationService {
+    // Create notification
+    async createNotification(userId, type, subject, body, bookingId = null) {
+        try {
+            const result = await pool.query(
+                `INSERT INTO Notifications (user_id, booking_id, type, subject, body) 
+                 VALUES ($1, $2, $3, $4, $5) 
+                 RETURNING *`,
+                [userId, bookingId, type, subject, body]
+            );
+            
+            return result.rows[0];
+        } catch (error) {
+            console.error('Error creating notification:', error);
+            throw error;
+        }
+    }
+
+    // Get user notifications
+    async getUserNotifications(userId, limit = 20, offset = 0) {
+        try {
+            const result = await pool.query(
+                `SELECT * FROM Notifications 
+                 WHERE user_id = $1 
+                 ORDER BY created_at DESC 
+                 LIMIT $2 OFFSET $3`,
+                [userId, limit, offset]
+            );
+            
+            return result.rows;
+        } catch (error) {
+            console.error('Error getting user notifications:', error);
+            throw error;
+        }
+    }
+
+    // Get unread notifications count
+    async getUnreadCount(userId) {
+        try {
+            const result = await pool.query(
+                'SELECT COUNT(*) as count FROM Notifications WHERE user_id = $1 AND is_sent = false',
+                [userId]
+            );
+            
+            return parseInt(result.rows[0].count);
+        } catch (error) {
+            console.error('Error getting unread count:', error);
+            return 0;
+        }
+    }
+
+    // Mark notifications as sent/read
+    async markAsSent(userId, notificationIds = null) {
+        try {
+            let query = 'UPDATE Notifications SET is_sent = true WHERE user_id = $1';
+            const params = [userId];
+            
+            if (notificationIds && notificationIds.length > 0) {
+                query += ' AND id = ANY($2)';
+                params.push(notificationIds);
+            }
+            
+            await pool.query(query, params);
+            return true;
+        } catch (error) {
+            console.error('Error marking notifications as sent:', error);
+            throw error;
+        }
+    }
+
+    // Delete old notifications (cleanup)
+    async deleteOldNotifications(daysOld = 30) {
+        try {
+            await pool.query(
+                `DELETE FROM Notifications 
+                 WHERE created_at < NOW() - INTERVAL '${daysOld} days'`,
+                []
+            );
+            return true;
+        } catch (error) {
+            console.error('Error deleting old notifications:', error);
+            throw error;
+        }
+    }
+
+    // Send email confirmation (using Resend or similar service)
+    async sendEmailConfirmation(userId, bookingId, type = 'confirmation') {
+        try {
+            // Get booking and user details
+            const result = await pool.query(
+                `SELECT 
+                    b.*,
+                    f.name as field_name,
+                    f.location,
+                    u.name as user_name,
+                    u.email,
+                    up.username
+                 FROM Bookings b
+                 JOIN Fields f ON b.field_id = f.id
+                 JOIN Users u ON b.organizer_id = u.id
+                 LEFT JOIN UserProfiles up ON u.id = up.user_id
+                 WHERE b.id = $1`,
+                [bookingId]
+            );
+            
+            if (result.rows.length === 0) {
+                throw new Error('Booking not found');
+            }
+            
+            const booking = result.rows[0];
+            
+            // Prepare email content based on type
+            let subject, body;
+            
+            switch (type) {
+                case 'confirmation':
+                    subject = '✅ Ndeshja u konfirmua! - MATCHDAY';
+                    body = `
+Përshëndetje ${booking.user_name},
+
+Ndeshja juaj është konfirmuar me sukses!
+
+🏟️ **Fusha:** ${booking.field_name}
+📍 **Lokacioni:** ${booking.location}
+📅 **Data:** ${new Date(booking.start_time).toLocaleDateString('sq-AL', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+⏰ **Ora:** ${new Date(booking.start_time).toLocaleTimeString('sq-AL', { hour: '2-digit', minute: '2-digit' })} - ${new Date(booking.end_time).toLocaleTimeString('sq-AL', { hour: '2-digit', minute: '2-digit' })}
+💰 **Çmimi per lojtar:** €${booking.price_per_player}
+
+Numri i lojtarëve: 12/12
+Statusi: ✅ E KONFIRMUAR
+
+Faleminderit,
+MATCHDAY Team
+                    `;
+                    break;
+                    
+                case 'cancellation':
+                    subject = '❌ Ndeshja u anulua - MATCHDAY';
+                    body = `
+Përshëndetje ${booking.user_name},
+
+Ndeshja juaj është anuluar.
+
+🏟️ **Fusha:** ${booking.field_name}
+📅 **Data:** ${new Date(booking.start_time).toLocaleDateString('sq-AL')}
+💰 **Politika e rimbursimit:** ${booking.cancellation_status === 'free' ? '100% refund' : '60% fushë, 100% patika'}
+
+Rimbursimi do të procesohet brenda 24-48 orëve.
+
+Faleminderit,
+MATCHDAY Team
+                    `;
+                    break;
+                    
+                case 'invitation':
+                    subject = '📩 Ftesë për ndeshje - MATCHDAY';
+                    body = `
+Përshëndetje,
+
+Jeni ftuar në një ndeshje futbolli!
+
+🏟️ **Fusha:** ${booking.field_name}
+📅 **Data:** ${new Date(booking.start_time).toLocaleDateString('sq-AL')}
+⏰ **Ora:** ${new Date(booking.start_time).toLocaleTimeString('sq-AL', { hour: '2-digit', minute: '2-digit' })} - ${new Date(booking.end_time).toLocaleTimeString('sq-AL', { hour: '2-digit', minute: '2-digit' })}
+👤 **Organizatori:** ${booking.organizer_name}
+
+Hyni në platformën MATCHDAY për të pranuar ose refuzuar ftesën.
+
+Faleminderit,
+MATCHDAY Team
+                    `;
+                    break;
+                    
+                default:
+                    subject = '📧 Njoftim MATCHDAY';
+                    body = 'Keni një njoftim të ri në platformën MATCHDAY.';
+            }
+            
+            // Store email in database (for tracking)
+            await pool.query(
+                `INSERT INTO EmailQueue (user_id, email, subject, body, status, created_at) 
+                 VALUES ($1, $2, $3, $4, 'pending', CURRENT_TIMESTAMP)`,
+                [userId, booking.email, subject, body]
+            );
+            
+            // TODO: Integrate with actual email service (Resend, SendGrid, etc.)
+            // For now, just log that email would be sent
+            console.log(`Email queued for user ${userId}: ${subject}`);
+            
+            return {
+                success: true,
+                message: 'Email confirmation queued successfully',
+                subject,
+                body
+            };
+            
+        } catch (error) {
+            console.error('Error sending email confirmation:', error);
+            throw error;
+        }
+    }
+
+    // Send bulk notifications to all players in a match
+    async notifyMatchPlayers(bookingId, type, subject, body) {
+        try {
+            const result = await pool.query(
+                `SELECT mp.user_id 
+                 FROM MatchPlayers mp 
+                 WHERE mp.booking_id = $1`,
+                [bookingId]
+            );
+            
+            const players = result.rows;
+            
+            for (const player of players) {
+                await this.createNotification(player.user_id, type, subject, body, bookingId);
+            }
+            
+            return {
+                success: true,
+                notified_players: players.length
+            };
+            
+        } catch (error) {
+            console.error('Error notifying match players:', error);
+            throw error;
+        }
+    }
+
+    // Get notification statistics for admin
+    async getNotificationStats() {
+        try {
+            const result = await pool.query(
+                `SELECT 
+                    COUNT(*) as total_notifications,
+                    COUNT(CASE WHEN is_sent = false THEN 1 END) as unread_notifications,
+                    COUNT(CASE WHEN type = 'confirmation' THEN 1 END) as confirmations,
+                    COUNT(CASE WHEN type = 'cancellation' THEN 1 END) as cancellations,
+                    COUNT(CASE WHEN type = 'invitation' THEN 1 END) as invitations
+                 FROM Notifications`
+            );
+            
+            return result.rows[0];
+        } catch (error) {
+            console.error('Error getting notification stats:', error);
+            throw error;
+        }
+    }
+
+    // Process email queue (cron job)
+    async processEmailQueue(limit = 50) {
+        try {
+            const result = await pool.query(
+                `SELECT * FROM EmailQueue 
+                 WHERE status = 'pending' 
+                 ORDER BY created_at ASC 
+                 LIMIT $1`,
+                [limit]
+            );
+            
+            const emails = result.rows;
+            let processedCount = 0;
+            
+            for (const email of emails) {
+                try {
+                    // TODO: Send actual email using email service
+                    // await emailService.send(email.to, email.subject, email.body);
+                    
+                    // Mark as sent
+                    await pool.query(
+                        'UPDATE EmailQueue SET status = $1, sent_at = CURRENT_TIMESTAMP WHERE id = $2',
+                        ['sent', email.id]
+                    );
+                    
+                    processedCount++;
+                } catch (error) {
+                    console.error(`Failed to send email ${email.id}:`, error);
+                    
+                    // Mark as failed
+                    await pool.query(
+                        'UPDATE EmailQueue SET status = $1, error_message = $2 WHERE id = $3',
+                        ['failed', error.message, email.id]
+                    );
+                }
+            }
+            
+            return {
+                processed: processedCount,
+                total: emails.length
+            };
+            
+        } catch (error) {
+            console.error('Error processing email queue:', error);
+            throw error;
+        }
+    }
+}
+
+module.exports = NotificationService;
