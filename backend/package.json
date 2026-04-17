@@ -4,10 +4,11 @@
   "description": "Sistemi profesional për menaxhimin e termineve dhe ndeshjeve 5+1",
   "main": "index.js",
   "scripts": {
-    "start": "node index-simple.js",
-    "dev": "nodemon index-simple.js",
+    "start": "node index-render.js",
+    "dev": "nodemon index-render.js",
     "full": "node index.js",
-    "test": "jest tests/matchService.test.js"
+    "test": "jest tests/matchService.test.js",
+    "test-basic": "node test-basic.js"
   },
   "keywords": [
     "football",
@@ -21,7 +22,7 @@
     "@supabase/supabase-js": "^2.103.3",
     "bcryptjs": "^3.0.3",
     "cors": "^2.8.6",
-    "dotenv": "^16.3.1",
+    "dotenv": "^16.6.1",
     "express": "^4.22.1",
     "jsonwebtoken": "^9.0.3",
     "pg": "^8.20.0",
