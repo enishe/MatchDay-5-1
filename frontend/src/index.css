@@ -78,4 +78,46 @@
   .backdrop-blur-custom {
     backdrop-filter: blur(8px);
   }
+
+  /* Responsive spacing */
+  .container-responsive {
+    @apply px-4 sm:px-6 lg:px-8;
+  }
+
+  /* Responsive grid */
+  .grid-responsive {
+    @apply grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4;
+  }
+
+  /* Responsive text sizes */
+  .text-responsive-sm {
+    @apply text-sm sm:text-base lg:text-lg;
+  }
+
+  .text-responsive-base {
+    @apply text-base sm:text-lg lg:text-xl xl:text-2xl;
+  }
+
+  .text-responsive-lg {
+    @apply text-lg sm:text-xl lg:text-2xl xl:text-3xl;
+  }
+
+  /* Mobile-first responsive utilities */
+  @media (max-width: 640px) {
+    .hide-mobile {
+      display: none;
+    }
+  }
+
+  @media (min-width: 641px) and (max-width: 1024px) {
+    .hide-tablet {
+      display: none;
+    }
+  }
+
+  @media (min-width: 1025px) {
+    .hide-desktop {
+      display: none;
+    }
+  }
 }

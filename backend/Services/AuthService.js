@@ -45,9 +45,9 @@ class AuthService {
             
             // Insert user
             const userResult = await client.query(
-                `INSERT INTO Users (name, email, password, role) 
-                 VALUES ($1, $2, $3, $4) RETURNING id, name, email, role, created_at`,
-                [name, email, hashedPassword, role]
+                `INSERT INTO Users (name, email, password, phone, bank_account, role) 
+                 VALUES ($1, $2, $3, $4, $5, $6) RETURNING id, name, email, role, created_at`,
+                [name, email, hashedPassword, phone_number, bank_account, role]
             );
             
             const user = userResult.rows[0];

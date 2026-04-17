@@ -16,6 +16,7 @@ export default function BookingPage() {
   const [data,        setData]       = useState('');
   const [ora,         setOra]        = useState('');
   const [patika,      setPatika]     = useState(false);
+  const [paymentMethod, setPaymentMethod] = useState('cash');
   const [duke_shtuar, setDukeShtur]  = useState(false);
   const [mesazhi,     setMesazhi]    = useState(null);
   const navigate = useNavigate();
@@ -189,6 +190,48 @@ export default function BookingPage() {
                     Fatura jote: {totalLojtar.toFixed(2)}€ (fushë + patika)
                   </div>
                 )}
+              </div>
+
+              <div style={{ background: 'var(--bg-secondary)', borderRadius: 8, padding: 12, marginBottom: 16 }}>
+                <div style={{ fontSize: 13, fontWeight: 500, marginBottom: 8 }}>Metoda e Pagesës</div>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <button
+                    type="button"
+                    onClick={() => setPaymentMethod('cash')}
+                    style={{
+                      flex: 1,
+                      padding: '10px',
+                      borderRadius: 6,
+                      border: paymentMethod === 'cash' ? '2px solid #c8ff00' : '1px solid var(--border)',
+                      background: paymentMethod === 'cash' ? '#1a6b3c' : 'transparent',
+                      color: paymentMethod === 'cash' ? '#c8ff00' : 'var(--text-secondary)',
+                      fontWeight: paymentMethod === 'cash' ? 600 : 400,
+                      cursor: 'pointer',
+                      transition: 'all 0.15s',
+                      fontSize: 13
+                    }}
+                  >
+                    💵 Cash
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPaymentMethod('card')}
+                    style={{
+                      flex: 1,
+                      padding: '10px',
+                      borderRadius: 6,
+                      border: paymentMethod === 'card' ? '2px solid #c8ff00' : '1px solid var(--border)',
+                      background: paymentMethod === 'card' ? '#1a6b3c' : 'transparent',
+                      color: paymentMethod === 'card' ? '#c8ff00' : 'var(--text-secondary)',
+                      fontWeight: paymentMethod === 'card' ? 600 : 400,
+                      cursor: 'pointer',
+                      transition: 'all 0.15s',
+                      fontSize: 13
+                    }}
+                  >
+                    💳 Card
+                  </button>
+                </div>
               </div>
 
               {fusha && (

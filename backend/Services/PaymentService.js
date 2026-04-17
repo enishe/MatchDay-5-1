@@ -21,7 +21,7 @@ class PaymentService {
             const payments = [];
             
             for (const player of players) {
-                const { user_id, shoe_id = null, is_organizer = false } = player;
+                const { user_id, shoe_id = null, is_organizer = false, payment_method = 'cash' } = player;
                 
                 // Get booking details to calculate price
                 const bookingResult = await client.query(
@@ -50,13 +50,13 @@ class PaymentService {
                 
                 const totalAmount = pricePerPlayer + rentalFee;
                 
-                // Create payment record
+                // Create payment record with payment method
                 const paymentResult = await client.query(
                     `INSERT INTO PlayerPayments 
-                     (booking_id, user_id, field_share, rental_fee, shoe_id, total_amount) 
-                     VALUES ($1, $2, $3, $4, $5, $6) 
-                     RETURNING id, field_share, rental_fee, total_amount, status`,
-                    [bookingId, user_id, pricePerPlayer, rentalFee, shoe_id, totalAmount]
+                     (booking_id, user_id, field_share, rental_fee, shoe_id, total_amount, payment_method) 
+                     VALUES ($1, $2, $3, $4, $5, $6, $7) 
+                     RETURNING id, field_share, rental_fee, total_amount, status, payment_method`,
+                    [bookingId, user_id, pricePerPlayer, rentalFee, shoe_id, totalAmount, payment_method]
                 );
                 
                 payments.push({
@@ -249,6 +249,7 @@ class PaymentService {
                 pp.rental_fee,
                 pp.total_amount,
                 pp.status,
+                pp.payment_method,
                 pp.paid_at,
                 pp.refunded_at,
                 u.name as user_name,
@@ -279,6 +280,28 @@ class PaymentService {
              FROM PlayerPayments pp`
         );
         
+        return result.rows[0];
+    }
+
+    // Update payment method for an existing payment
+    async updatePaymentMethod(paymentId, paymentMethod) {
+        const validMethods = ['cash', 'card'];
+        if (!validMethods.includes(paymentMethod)) {
+            throw new Error('Invalid payment method. Must be cash or card');
+        }
+
+        const result = await pool.query(
+            `UPDATE PlayerPayments 
+             SET payment_method = $1 
+             WHERE id = $2 
+             RETURNING id, payment_method, status`,
+            [paymentMethod, paymentId]
+        );
+
+        if (result.rows.length === 0) {
+            throw new Error('Payment not found');
+        }
+
         return result.rows[0];
     }
 }

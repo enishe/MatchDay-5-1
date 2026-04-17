@@ -1,11 +1,15 @@
 const express = require('express');
 const MatchService = require('../Services/MatchService');
 const PaymentService = require('../Services/PaymentService');
+const AutoCancelService = require('../Services/AutoCancelService');
+const EmailService = require('../Services/EmailService');
 const { authenticateToken, requireRole } = require('./authRoutes');
 
 const router = express.Router();
 const matchService = new MatchService();
 const paymentService = new PaymentService();
+const autoCancelService = new AutoCancelService();
+const emailService = new EmailService();
 
 // Create new match
 router.post('/matches', authenticateToken, requireRole(['organizer', 'admin']), async (req, res) => {
@@ -111,11 +115,23 @@ router.get('/matches/:id/payments', authenticateToken, async (req, res) => {
     }
 });
 
+// Update payment method
+router.put('/payments/:id/method', authenticateToken, async (req, res) => {
+    try {
+        const { payment_method } = req.body;
+        const payment = await paymentService.updatePaymentMethod(req.params.id, payment_method);
+        res.json(payment);
+    } catch (error) {
+        console.error('Update payment method error:', error);
+        res.status(400).json({ error: error.message });
+    }
+});
+
 // Auto-cancel matches (cron job endpoint)
 router.post('/auto-cancel', async (req, res) => {
     try {
-        const cancelledCount = await matchService.autoCancelMatches();
-        res.json({ cancelled_matches: cancelledCount });
+        const result = await autoCancelService.runAutoCancel();
+        res.json(result);
     } catch (error) {
         console.error('Auto cancel error:', error);
         res.status(500).json({ error: error.message });
@@ -137,6 +153,17 @@ router.get('/split-preview', async (req, res) => {
     } catch (error) {
         console.error('Split preview error:', error);
         res.status(400).json({ error: error.message });
+    }
+});
+
+// Process pending emails (cron job endpoint)
+router.post('/process-emails', async (req, res) => {
+    try {
+        const result = await emailService.processPendingNotifications();
+        res.json(result);
+    } catch (error) {
+        console.error('Process emails error:', error);
+        res.status(500).json({ error: error.message });
     }
 });
 

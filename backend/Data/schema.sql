@@ -10,13 +10,15 @@
 --  Mbështet: UserRole enum (ORGANIZER, PARTICIPANT, ADMIN)
 -- ============================================================
 CREATE TABLE Users (
-    id          SERIAL PRIMARY KEY,
-    name        VARCHAR(100)        NOT NULL,
-    email       VARCHAR(100) UNIQUE NOT NULL,
-    password    VARCHAR(255)        NOT NULL,          -- bcrypt hash
-    role        VARCHAR(20)         NOT NULL DEFAULT 'participant'
-                    CHECK (role IN ('organizer', 'participant', 'admin')),
-    created_at  TIMESTAMP           NOT NULL DEFAULT CURRENT_TIMESTAMP
+    id              SERIAL PRIMARY KEY,
+    name            VARCHAR(100)        NOT NULL,
+    email           VARCHAR(100) UNIQUE NOT NULL,
+    password        VARCHAR(255)        NOT NULL,          -- bcrypt hash
+    phone           VARCHAR(20)         NOT NULL,
+    bank_account    VARCHAR(50)         NOT NULL,          -- për pagesa dhe rimbursime
+    role            VARCHAR(20)         NOT NULL DEFAULT 'participant'
+                        CHECK (role IN ('organizer', 'participant', 'admin')),
+    created_at      TIMESTAMP           NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
 -- ============================================================
@@ -84,6 +86,8 @@ CREATE TABLE PlayerPayments (
     field_share     DECIMAL(10, 2)  NOT NULL DEFAULT 5.00,  -- Smart Split (US #2)
     rental_fee      DECIMAL(10, 2)  NOT NULL DEFAULT 0.00,  -- +2€ patika (US #3)
     total_amount    DECIMAL(10, 2)  GENERATED ALWAYS AS (field_share + rental_fee) STORED,
+    payment_method  VARCHAR(20)     NOT NULL DEFAULT 'cash'
+                        CHECK (payment_method IN ('cash', 'card')),
     status          VARCHAR(20)     NOT NULL DEFAULT 'pending'
                         CHECK (status IN ('pending', 'paid', 'refunded')),
     shoe_id         INT             DEFAULT NULL REFERENCES ShoesInventory(id),
