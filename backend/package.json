@@ -4,8 +4,9 @@
   "description": "Sistemi profesional për menaxhimin e termineve dhe ndeshjeve 5+1",
   "main": "index.js",
   "scripts": {
-    "start": "node index.js",
-    "dev": "nodemon index.js",
+    "start": "node index-simple.js",
+    "dev": "nodemon index-simple.js",
+    "full": "node index.js",
     "test": "jest tests/matchService.test.js"
   },
   "keywords": [
