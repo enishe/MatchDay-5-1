@@ -1,6 +1,8 @@
 import { create } from 'zustand';
 import { supabase } from '../lib/supabase';
 
+const API = 'https://matchday-5-1.onrender.com/api';
+
 const useAuthStore = create((set, get) => ({
   user: null,
   token: null,
@@ -29,7 +31,7 @@ const useAuthStore = create((set, get) => ({
     set({ isLoading: true, error: null });
     
     try {
-      const response = await fetch('/api/auth/register', {
+      const response = await fetch(`${API}/auth/register`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -68,7 +70,7 @@ const useAuthStore = create((set, get) => ({
     set({ isLoading: true, error: null });
     
     try {
-      const response = await fetch('/api/auth/login', {
+      const response = await fetch(`${API}/auth/login`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -120,7 +122,7 @@ const useAuthStore = create((set, get) => ({
     try {
       const { token } = get();
       
-      const response = await fetch('/api/auth/profile', {
+      const response = await fetch(`${API}/auth/profile`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -158,7 +160,7 @@ const useAuthStore = create((set, get) => ({
     try {
       const { token } = get();
       
-      const response = await fetch(`/api/auth/search?q=${encodeURIComponent(query)}`, {
+      const response = await fetch(`${API}/auth/search?q=${encodeURIComponent(query)}`, {
         headers: {
           'Authorization': `Bearer ${token}`,
         },

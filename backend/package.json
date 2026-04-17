@@ -2,10 +2,10 @@
   "name": "matchday-backend",
   "version": "1.0.0",
   "description": "MATCHDAY Football Field Booking Platform",
-  "main": "app.js",
+  "main": "server.js",
   "scripts": {
-    "start": "node app.js",
-    "dev": "node app.js"
+    "start": "node server.js",
+    "dev": "node server.js"
   },
   "keywords": ["football", "booking", "api"],
   "author": "Enis Hetemi",
