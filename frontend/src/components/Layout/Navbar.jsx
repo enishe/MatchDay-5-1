@@ -1,8 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { Bell, Menu, X, LogOut, User, Trophy, Settings } from 'lucide-react';
+import { Bell, Menu, X, LogOut, User, Trophy } from 'lucide-react';
 import useAuthStore from '../../store/authStore';
 import Notifications from '../Realtime/Notifications';
+import Button from '../UI/Button';
 
 const Navbar = () => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -46,7 +47,6 @@ const Navbar = () => {
         { path: '/admin/bookings', label: 'Rezervimet', icon: '📅' },
         { path: '/admin/users', label: 'Përdoruesit', icon: '👥' },
         { path: '/admin/fields', label: 'Fushat', icon: '🏟️' },
-        { path: '/admin/inventory', label: 'Inventari', icon: '👟' },
         { path: '/admin/payments', label: 'Pagesat', icon: '💰' }
       );
     }
@@ -57,25 +57,27 @@ const Navbar = () => {
   const navItems = getNavItems();
 
   return (
-    <nav className="bg-panel border-b border-border sticky top-0 z-50">
+    <nav className="glass-panel border-b border-border sticky top-0 z-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between h-16">
           {/* Logo and main nav */}
           <div className="flex items-center">
-            <Link to="/" className="flex items-center space-x-2">
-              <Trophy className="h-8 w-8 text-accent" />
-              <span className="text-xl font-heading font-bold text-accent">MATCHDAY</span>
+            <Link to="/" className="flex items-center space-x-2 group">
+              <div className="p-2 bg-accent/10 rounded-lg group-hover:bg-accent/20 transition-colors">
+                <Trophy className="h-6 w-6 text-accent" />
+              </div>
+              <span className="text-xl font-heading font-bold gradient-text">MATCHDAY</span>
             </Link>
 
             {/* Desktop navigation */}
-            <div className="hidden md:flex ml-10 space-x-4">
+            <div className="hidden md:flex ml-10 space-x-2">
               {navItems.map((item) => (
                 <Link
                   key={item.path}
                   to={item.path}
-                  className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
                     isActivePath(item.path)
-                      ? 'bg-primary text-text'
+                      ? 'bg-accent text-bg shadow-lg shadow-accent/20'
                       : 'text-text/70 hover:text-text hover:bg-primary/50'
                   }`}
                 >
@@ -87,78 +89,77 @@ const Navbar = () => {
           </div>
 
           {/* Right side items */}
-          <div className="flex items-center space-x-4">
+          <div className="flex items-center space-x-3">
             {/* Real-time Notifications */}
             <Notifications />
 
-            {/* User menu */}
-            <div className="relative hidden md:block">
-              <button className="flex items-center space-x-2 text-text/70 hover:text-text transition-colors">
-                <User className="h-5 w-5" />
-                <span className="text-sm font-medium">{user?.name}</span>
-              </button>
+            {/* User info - Desktop */}
+            <div className="hidden md:flex items-center space-x-2 px-3 py-2 bg-bg/50 rounded-lg border border-border">
+              <User className="h-4 w-4 text-text/70" />
+              <span className="text-sm font-medium text-text">{user?.name}</span>
             </div>
 
-            {/* Logout button */}
-            <button
+            {/* Logout button - Desktop */}
+            <Button
+              variant="ghost"
+              size="sm"
               onClick={handleLogout}
-              className="hidden md:flex items-center space-x-2 text-text/70 hover:text-text transition-colors"
+              className="hidden md:flex items-center space-x-2"
             >
-              <LogOut className="h-5 w-5" />
-              <span className="text-sm">Dalja</span>
-            </button>
+              <LogOut className="h-4 w-4" />
+              <span>Dalja</span>
+            </Button>
 
             {/* Mobile menu button */}
-            <button
+            <Button
+              variant="ghost"
+              size="sm"
               onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-              className="md:hidden p-2 text-text/70 hover:text-text transition-colors"
+              className="md:hidden p-2"
             >
               {isMobileMenuOpen ? (
                 <X className="h-6 w-6" />
               ) : (
                 <Menu className="h-6 w-6" />
               )}
-            </button>
+            </Button>
           </div>
         </div>
       </div>
 
       {/* Mobile menu */}
       {isMobileMenuOpen && (
-        <div className="md:hidden bg-panel border-t border-border">
-          <div className="px-2 pt-2 pb-3 space-y-1">
+        <div className="md:hidden bg-panel/95 backdrop-blur-md border-t border-border animate-slide-up">
+          <div className="px-4 pt-4 pb-6 space-y-2">
             {navItems.map((item) => (
               <Link
                 key={item.path}
                 to={item.path}
                 onClick={() => setIsMobileMenuOpen(false)}
-                className={`block px-3 py-2 rounded-md text-base font-medium transition-colors ${
+                className={`block px-4 py-3 rounded-lg text-base font-medium transition-all duration-200 ${
                   isActivePath(item.path)
-                    ? 'bg-primary text-text'
+                    ? 'bg-accent text-bg shadow-lg shadow-accent/20'
                     : 'text-text/70 hover:text-text hover:bg-primary/50'
                 }`}
               >
-                <span className="mr-2">{item.icon}</span>
+                <span className="mr-3">{item.icon}</span>
                 {item.label}
               </Link>
             ))}
             
-            <div className="border-t border-border pt-4 mt-4">
-              <div className="px-3 py-2 text-text/70">
-                <div className="flex items-center space-x-2">
-                  <User className="h-4 w-4" />
-                  <span className="text-sm">{user?.name}</span>
-                </div>
+            <div className="border-t border-border pt-4 mt-4 space-y-2">
+              <div className="flex items-center space-x-2 px-4 py-3 text-text/70 bg-bg/50 rounded-lg">
+                <User className="h-4 w-4" />
+                <span className="text-sm">{user?.name}</span>
               </div>
-              <button
+              <Button
+                variant="ghost"
                 onClick={handleLogout}
-                className="block w-full text-left px-3 py-2 text-text/70 hover:text-text hover:bg-primary/50 transition-colors"
+                className="w-full flex items-center justify-start space-x-2"
               >
-                <div className="flex items-center space-x-2">
-                  <LogOut className="h-4 w-4" />
-                  <span>Dalja</span>
-                </div>
-              </button>
+                <LogOut className="h-4 w-4" />
+                <span>Dalja</span>
+              </Button>
             </div>
           </div>
         </div>

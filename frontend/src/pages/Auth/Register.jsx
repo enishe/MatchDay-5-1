@@ -5,6 +5,9 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Eye, EyeOff, Trophy, User, Mail, Phone, CreditCard, Lock } from 'lucide-react';
 import useAuthStore from '../../store/authStore';
+import Button from '../../components/UI/Button';
+import Input from '../../components/UI/Input';
+import Card from '../../components/UI/Card';
 
 // KORRIGJIMI: Heqja e .required() dhe perdorimi i .min(1, ...) per fushat e detyrueshme
 const registerSchema = z.object({
@@ -72,127 +75,109 @@ const Register = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-bg py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-md w-full space-y-8">
+    <div className="min-h-screen flex items-center justify-center bg-gradient-bg py-12 px-4 sm:px-6 lg:px-8">
+      <div className="max-w-md w-full space-y-8 animate-fade-in">
         <div className="text-center">
           <div className="flex justify-center mb-6">
-            <Trophy className="h-12 w-12 text-accent" />
+            <div className="p-4 bg-accent/10 rounded-full">
+              <Trophy className="h-12 w-12 text-accent" />
+            </div>
           </div>
-          <h2 className="text-3xl font-heading font-bold text-text">
-            Krijo llogari MATCHDAY
+          <h2 className="text-4xl font-heading font-bold gradient-text mb-2">
+            MATCHDAY
           </h2>
-          <p className="mt-2 text-sm text-text/70">
+          <p className="text-text/70">
             Regjistrohuni për të filluar të luani
           </p>
         </div>
 
-        <form className="mt-8 space-y-6" onSubmit={handleSubmit(onSubmit)}>
-          <div className="bg-panel p-6 rounded-lg border border-border space-y-4">
+        <Card>
+          <form className="space-y-4" onSubmit={handleSubmit(onSubmit)}>
             {error && (
-              <div className="bg-red-900/20 border border-red-500 text-red-400 px-4 py-3 rounded-md text-sm">
+              <div className="bg-red-500/10 border border-red-500/50 text-red-400 px-4 py-3 rounded-lg text-sm backdrop-blur-sm">
                 {error}
               </div>
             )}
 
             {/* Name */}
-            <div>
-              <label htmlFor="name" className="block text-sm font-medium text-text mb-1">
-                Emri i plotë
-              </label>
-              <div className="relative">
-                <User className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-text/50" />
-                <input
-                  {...register('name')}
-                  type="text"
-                  id="name"
-                  className="w-full pl-10 pr-3 py-2 bg-bg border border-border rounded-md text-text placeholder-text/50 focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent"
-                  placeholder="Emri dhe Mbiemri"
-                />
-              </div>
-              {errors.name && <p className="mt-1 text-sm text-red-400">{errors.name.message}</p>}
+            <div className="relative">
+              <User className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-text/50 z-10" />
+              <Input
+                {...register('name')}
+                type="text"
+                id="name"
+                label="Emri i plotë"
+                placeholder="Emri dhe Mbiemri"
+                className="pl-10"
+                error={errors.name?.message}
+              />
             </div>
 
             {/* Email */}
-            <div>
-              <label htmlFor="email" className="block text-sm font-medium text-text mb-1">
-                Email
-              </label>
-              <div className="relative">
-                <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-text/50" />
-                <input
-                  {...register('email')}
-                  type="email"
-                  id="email"
-                  className="w-full pl-10 pr-3 py-2 bg-bg border border-border rounded-md text-text placeholder-text/50 focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent"
-                  placeholder="email@shembull.com"
-                />
-              </div>
-              {errors.email && <p className="mt-1 text-sm text-red-400">{errors.email.message}</p>}
+            <div className="relative">
+              <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-text/50 z-10" />
+              <Input
+                {...register('email')}
+                type="email"
+                id="email"
+                label="Email"
+                placeholder="email@shembull.com"
+                className="pl-10"
+                error={errors.email?.message}
+              />
             </div>
 
             {/* Username */}
-            <div>
-              <label htmlFor="username" className="block text-sm font-medium text-text mb-1">
-                Username Matchday
-              </label>
-              <div className="relative">
-                <User className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-text/50" />
-                <input
-                  {...register('username')}
-                  type="text"
-                  id="username"
-                  className="w-full pl-10 pr-3 py-2 bg-bg border border-border rounded-md text-text placeholder-text/50 focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent"
-                  placeholder="username_matchday"
-                />
-              </div>
-              {errors.username && <p className="mt-1 text-sm text-red-400">{errors.username.message}</p>}
+            <div className="relative">
+              <User className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-text/50 z-10" />
+              <Input
+                {...register('username')}
+                type="text"
+                id="username"
+                label="Username Matchday"
+                placeholder="username_matchday"
+                className="pl-10"
+                error={errors.username?.message}
+              />
             </div>
 
             {/* Phone */}
-            <div>
-              <label htmlFor="phone_number" className="block text-sm font-medium text-text mb-1">
-                Numri i telefonit
-              </label>
-              <div className="relative">
-                <Phone className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-text/50" />
-                <input
-                  {...register('phone_number')}
-                  type="tel"
-                  id="phone_number"
-                  className="w-full pl-10 pr-3 py-2 bg-bg border border-border rounded-md text-text placeholder-text/50 focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent"
-                  placeholder="+383 4x xxx xxx"
-                />
-              </div>
-              {errors.phone_number && <p className="mt-1 text-sm text-red-400">{errors.phone_number.message}</p>}
+            <div className="relative">
+              <Phone className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-text/50 z-10" />
+              <Input
+                {...register('phone_number')}
+                type="tel"
+                id="phone_number"
+                label="Numri i telefonit"
+                placeholder="+383 4x xxx xxx"
+                className="pl-10"
+                error={errors.phone_number?.message}
+              />
             </div>
 
             {/* Bank Account */}
-            <div>
-              <label htmlFor="bank_account" className="block text-sm font-medium text-text mb-1">
-                Numri i llogarisë bankare
-              </label>
-              <div className="relative">
-                <CreditCard className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-text/50" />
-                <input
-                  {...register('bank_account')}
-                  type="text"
-                  id="bank_account"
-                  className="w-full pl-10 pr-3 py-2 bg-bg border border-border rounded-md text-text placeholder-text/50 focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent"
-                  placeholder="IBAN ose numër llogarie"
-                />
-              </div>
-              {errors.bank_account && <p className="mt-1 text-sm text-red-400">{errors.bank_account.message}</p>}
+            <div className="relative">
+              <CreditCard className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-text/50 z-10" />
+              <Input
+                {...register('bank_account')}
+                type="text"
+                id="bank_account"
+                label="Numri i llogarisë bankare"
+                placeholder="IBAN ose numër llogarie"
+                className="pl-10"
+                error={errors.bank_account?.message}
+              />
             </div>
 
             {/* Role */}
             <div>
-              <label className="block text-sm font-medium text-text mb-1">Roli</label>
+              <label className="block text-sm font-medium text-text mb-2">Roli</label>
               <div className="space-y-2">
-                <label className="flex items-center">
+                <label className="flex items-center p-3 bg-bg/50 border border-border rounded-lg hover:border-accent/50 cursor-pointer transition-colors">
                   <input {...register('role')} type="radio" value="participant" className="h-4 w-4 text-accent" />
                   <span className="ml-2 text-sm text-text">Lojtar (Pjesëmarrës)</span>
                 </label>
-                <label className="flex items-center">
+                <label className="flex items-center p-3 bg-bg/50 border border-border rounded-lg hover:border-accent/50 cursor-pointer transition-colors">
                   <input {...register('role')} type="radio" value="organizer" className="h-4 w-4 text-accent" />
                   <span className="ml-2 text-sm text-text">Organizator (Krijues ndeshjesh)</span>
                 </label>
@@ -201,56 +186,62 @@ const Register = () => {
             </div>
 
             {/* Password */}
-            <div>
-              <label htmlFor="password" className="block text-sm font-medium text-text mb-1">Fjalëkalimi</label>
-              <div className="relative">
-                <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-text/50" />
-                <input
-                  {...register('password')}
-                  type={showPassword ? 'text' : 'password'}
-                  id="password"
-                  className="w-full pl-10 pr-10 py-2 bg-bg border border-border rounded-md text-text placeholder-text/50 focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent"
-                  placeholder="••••••••"
-                />
-                <button type="button" className="absolute inset-y-0 right-0 pr-3 flex items-center" onClick={() => setShowPassword(!showPassword)}>
-                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                </button>
-              </div>
-              {errors.password && <p className="mt-1 text-sm text-red-400">{errors.password.message}</p>}
+            <div className="relative">
+              <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-text/50 z-10" />
+              <Input
+                {...register('password')}
+                type={showPassword ? 'text' : 'password'}
+                id="password"
+                label="Fjalëkalimi"
+                placeholder="••••••••"
+                className="pl-10 pr-12"
+                error={errors.password?.message}
+              />
+              <button 
+                type="button" 
+                className="absolute right-3 top-[38px] text-text/50 hover:text-text transition-colors"
+                onClick={() => setShowPassword(!showPassword)}
+              >
+                {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+              </button>
             </div>
 
             {/* Confirm Password */}
-            <div>
-              <label htmlFor="confirmPassword" className="block text-sm font-medium text-text mb-1">Konfirmo fjalëkalimin</label>
-              <div className="relative">
-                <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-text/50" />
-                <input
-                  {...register('confirmPassword')}
-                  type={showConfirmPassword ? 'text' : 'password'}
-                  id="confirmPassword"
-                  className="w-full pl-10 pr-10 py-2 bg-bg border border-border rounded-md text-text placeholder-text/50 focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent"
-                  placeholder="••••••••"
-                />
-                <button type="button" className="absolute inset-y-0 right-0 pr-3 flex items-center" onClick={() => setShowConfirmPassword(!showConfirmPassword)}>
-                  {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                </button>
-              </div>
-              {errors.confirmPassword && <p className="mt-1 text-sm text-red-400">{errors.confirmPassword.message}</p>}
+            <div className="relative">
+              <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-text/50 z-10" />
+              <Input
+                {...register('confirmPassword')}
+                type={showConfirmPassword ? 'text' : 'password'}
+                id="confirmPassword"
+                label="Konfirmo fjalëkalimin"
+                placeholder="••••••••"
+                className="pl-10 pr-12"
+                error={errors.confirmPassword?.message}
+              />
+              <button 
+                type="button" 
+                className="absolute right-3 top-[38px] text-text/50 hover:text-text transition-colors"
+                onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+              >
+                {showConfirmPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+              </button>
             </div>
 
-            <button
+            <Button
               type="submit"
-              disabled={isLoading}
-              className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-bg bg-accent hover:bg-accent/90 disabled:opacity-50 transition-colors"
+              variant="primary"
+              size="lg"
+              loading={isLoading}
+              className="w-full"
             >
               {isLoading ? 'Duke regjistruar...' : 'Regjistrohuni'}
-            </button>
-          </div>
-        </form>
+            </Button>
+          </form>
+        </Card>
 
         <div className="text-center">
-          <p className="text-sm text-text/70">
-            Keni tashmë llogari? <Link to="/login" className="text-accent hover:text-accent/80 font-medium">Kyçuni këtu</Link>
+          <p className="text-text/70">
+            Keni tashmë llogari? <Link to="/login" className="text-accent hover:text-accent/80 font-medium transition-colors">Kyçuni këtu</Link>
           </p>
         </div>
       </div>

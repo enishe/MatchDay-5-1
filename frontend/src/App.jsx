@@ -1,29 +1,33 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { useEffect } from 'react';
+import { useEffect, lazy, Suspense } from 'react';
 import Navbar from './components/Layout/Navbar';
 import ProtectedRoute from './components/Auth/ProtectedRoute';
-import Login from './pages/Auth/Login';
-import Register from './pages/Auth/Register';
 import useAuthStore from './store/authStore';
 
-// Importet e Player
-import PlayerFields from './pages/Player/PlayerFields';
-import PlayerMatches from './pages/Player/PlayerMatches';
-import PlayerInvitations from './pages/Player/PlayerInvitations';
-import PlayerProfile from './pages/Player/PlayerProfile';
+// Lazy load components for better performance
+const Login = lazy(() => import('./pages/Auth/Login'));
+const Register = lazy(() => import('./pages/Auth/Register'));
 
-// Importet e Admin
-import AdminDashboard from './pages/Admin/AdminDashboard';
-import AdminBookings from './pages/Admin/AdminBookings';
-import AdminUsers from './pages/Admin/AdminUsers';
-import AdminPayments from './pages/Admin/AdminPayments';
-import AdminPanel from "./pages/AdminPanel";
+const PlayerFields = lazy(() => import('./pages/Player/PlayerFields'));
+const PlayerMatches = lazy(() => import('./pages/Player/PlayerMatches'));
+const PlayerInvitations = lazy(() => import('./pages/Player/PlayerInvitations'));
+const PlayerProfile = lazy(() => import('./pages/Player/PlayerProfile'));
+
+const AdminDashboard = lazy(() => import('./pages/Admin/AdminDashboard'));
+const AdminBookings = lazy(() => import('./pages/Admin/AdminBookings'));
+const AdminUsers = lazy(() => import('./pages/Admin/AdminUsers'));
+const AdminPayments = lazy(() => import('./pages/Admin/AdminPayments'));
+const AdminPanel = lazy(() => import('./pages/AdminPanel'));
 
 // CSS
 import './index.css';
 
-// FIX: Ky rresht parandalon gabimin "Notifications is not defined" qe pe sheh ne konsole
-const Notifications = () => null;
+// Loading component
+const LoadingSpinner = () => (
+  <div className="flex items-center justify-center min-h-[60vh]">
+    <div className="w-12 h-12 border-4 border-accent border-t-transparent rounded-full animate-spin"></div>
+  </div>
+);
 
 function App() {
   const { initAuth } = useAuthStore();
@@ -35,105 +39,107 @@ function App() {
 
   return (
     <BrowserRouter>
-      <div className="min-h-screen bg-bg text-text font-body">
+      <div className="min-h-screen bg-gradient-bg text-text font-body">
         {/* Navbar qendron lart ne cdo faqe */}
         <Navbar />
         
         <main className="container mx-auto px-4 py-8">
-          <Routes>
-            {/* --- PUBLIC ROUTES --- */}
-            <Route path="/login" element={<Login />} />
-            <Route path="/register" element={<Register />} />
+          <Suspense fallback={<LoadingSpinner />}>
+            <Routes>
+              {/* --- PUBLIC ROUTES --- */}
+              <Route path="/login" element={<Login />} />
+              <Route path="/register" element={<Register />} />
 
-            {/* --- PLAYER ROUTES (Te mbrojtura) --- */}
-            <Route
-              path="/player/fields"
-              element={
-                <ProtectedRoute>
-                  <PlayerFields />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/player/my-matches"
-              element={
-                <ProtectedRoute>
-                  <PlayerMatches />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/player/invitations"
-              element={
-                <ProtectedRoute>
-                  <PlayerInvitations />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/player/profile"
-              element={
-                <ProtectedRoute>
-                  <PlayerProfile />
-                </ProtectedRoute>
-              }
-            />
+              {/* --- PLAYER ROUTES (Te mbrojtura) --- */}
+              <Route
+                path="/player/fields"
+                element={
+                  <ProtectedRoute>
+                    <PlayerFields />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/player/my-matches"
+                element={
+                  <ProtectedRoute>
+                    <PlayerMatches />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/player/invitations"
+                element={
+                  <ProtectedRoute>
+                    <PlayerInvitations />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/player/profile"
+                element={
+                  <ProtectedRoute>
+                    <PlayerProfile />
+                  </ProtectedRoute>
+                }
+              />
 
-            {/* --- ADMIN ROUTES (Vetem per rolin admin) --- */}
-            <Route
-              path="/admin/dashboard"
-              element={
-                <ProtectedRoute requiredRole="admin">
-                  <AdminDashboard />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/admin/bookings"
-              element={
-                <ProtectedRoute requiredRole="admin">
-                  <AdminBookings />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/admin/users"
-              element={
-                <ProtectedRoute requiredRole="admin">
-                  <AdminUsers />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/admin/fields"
-              element={
-                <ProtectedRoute requiredRole="admin">
-                  <AdminPanel />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/admin/payments"
-              element={
-                <ProtectedRoute requiredRole="admin">
-                  <AdminPayments />
-                </ProtectedRoute>
-              }
-            />
+              {/* --- ADMIN ROUTES (Vetem per rolin admin) --- */}
+              <Route
+                path="/admin/dashboard"
+                element={
+                  <ProtectedRoute requiredRole="admin">
+                    <AdminDashboard />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/admin/bookings"
+                element={
+                  <ProtectedRoute requiredRole="admin">
+                    <AdminBookings />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/admin/users"
+                element={
+                  <ProtectedRoute requiredRole="admin">
+                    <AdminUsers />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/admin/fields"
+                element={
+                  <ProtectedRoute requiredRole="admin">
+                    <AdminPanel />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/admin/payments"
+                element={
+                  <ProtectedRoute requiredRole="admin">
+                    <AdminPayments />
+                  </ProtectedRoute>
+                }
+              />
 
-            {/* --- REDIRECTS & ERROR HANDLING --- */}
-            <Route path="/" element={<Navigate to="/login" replace />} />
-            
-            <Route
-              path="*"
-              element={
-                <div className="min-h-[60vh] flex flex-col items-center justify-center">
-                  <h1 className="text-9xl font-bold text-accent/20">404</h1>
-                  <p className="text-xl text-text/60 -mt-8">Faqja që kërkoni nuk ekziston.</p>
-                </div>
-              }
-            />
-          </Routes>
+              {/* --- REDIRECTS & ERROR HANDLING --- */}
+              <Route path="/" element={<Navigate to="/login" replace />} />
+              
+              <Route
+                path="*"
+                element={
+                  <div className="min-h-[60vh] flex flex-col items-center justify-center animate-fade-in">
+                    <h1 className="text-9xl font-heading font-bold gradient-text">404</h1>
+                    <p className="text-xl text-text/60 -mt-8">Faqja që kërkoni nuk ekziston.</p>
+                  </div>
+                }
+              />
+            </Routes>
+          </Suspense>
         </main>
       </div>
     </BrowserRouter>
