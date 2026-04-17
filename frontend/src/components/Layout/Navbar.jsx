@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { Bell, Menu, X, LogOut, User, Trophy, Settings } from 'lucide-react';
 import useAuthStore from '../../store/authStore';
+import Notifications from '../Realtime/Notifications';
 
 const Navbar = () => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);

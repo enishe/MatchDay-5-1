@@ -16,7 +16,6 @@ import PlayerProfile from './pages/Player/PlayerProfile';
 import AdminDashboard from './pages/Admin/AdminDashboard';
 import AdminBookings from './pages/Admin/AdminBookings';
 import AdminUsers from './pages/Admin/AdminUsers';
-import AdminInventory from './pages/Admin/AdminInventory';
 import AdminPayments from './pages/Admin/AdminPayments';
 import AdminPanel from "./pages/AdminPanel";
 
@@ -110,14 +109,6 @@ function App() {
               element={
                 <ProtectedRoute requiredRole="admin">
                   <AdminPanel />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/admin/inventory"
-              element={
-                <ProtectedRoute requiredRole="admin">
-                  <AdminInventory />
                 </ProtectedRoute>
               }
             />
