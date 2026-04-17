@@ -167,6 +167,25 @@ class SqlMatchRepository {
             throw new Error('Ndeshja nuk mund të fshihet. Kontrollo lidhjen me databazën.');
         }
     }
+    // ─── checkConflict(fieldId, startTime, endTime) ───────────────────────────
+// Kontrollon nëse fusha është e zënë për intervalin kohor të kërkuar.
+// Thirret nga MatchService.shtoNdeshje() para çdo INSERT.
+async checkConflict(fieldId, startTime, endTime) {
+    try {
+        const result = await pool.query(
+            `SELECT id FROM Bookings 
+             WHERE field_id = $1 
+               AND status != 'canceled'
+               AND start_time < $3 
+               AND end_time > $2`,
+            [fieldId, startTime, endTime]
+        );
+        return result.rows.length > 0;
+    } catch (err) {
+        console.error('SqlMatchRepository.checkConflict gabim:', err.message);
+        throw new Error('Nuk mund të kontrollohet disponueshmëria. Provo përsëri.');
+    }
+}
 
     // ─── Save() — kontratat IRepository ──────────────────────────────────────
     async Save() {
