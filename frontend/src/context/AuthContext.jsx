@@ -13,6 +13,10 @@ const STORAGE_USER = 'matchday_user';
 const STORAGE_TOKEN = 'matchday_token';
 const STORAGE_THEME = 'matchday_theme';
 
+/** Shqip me Unicode escapes (shmang mojibake n\u00ebse file ruhet me encoding tjet\u00ebr) */
+const MSG_LOGIN_FAIL = 'Ky\u00e7ja d\u00ebshtoi';
+const MSG_REGISTER_FAIL = 'Regjistrimi d\u00ebshtoi';
+
 function readStoredUser() {
   try {
     const raw = localStorage.getItem(STORAGE_USER);
@@ -39,11 +43,20 @@ export function AuthProvider({ children }) {
     try {
       const res = await fetch(`${base}/auth/login`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json; charset=utf-8' },
         body: JSON.stringify({ email, password }),
       });
       const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data.error || 'Kyçja dështoi');
+      if (!res.ok) {
+        const serverMsg =
+          typeof data.error === 'string' && data.error.trim() !== ''
+            ? data.error
+            : MSG_LOGIN_FAIL;
+        throw new Error(serverMsg);
+      }
+      if (!data.token || !data.user) {
+        throw new Error(MSG_LOGIN_FAIL);
+      }
       localStorage.setItem(STORAGE_USER, JSON.stringify(data.user));
       localStorage.setItem(STORAGE_TOKEN, data.token);
       setUser(data.user);
@@ -64,11 +77,20 @@ export function AuthProvider({ children }) {
     try {
       const res = await fetch(`${base}/auth/register`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json; charset=utf-8' },
         body: JSON.stringify(payload),
       });
       const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data.error || 'Regjistrimi dështoi');
+      if (!res.ok) {
+        const serverMsg =
+          typeof data.error === 'string' && data.error.trim() !== ''
+            ? data.error
+            : MSG_REGISTER_FAIL;
+        throw new Error(serverMsg);
+      }
+      if (!data.token || !data.user) {
+        throw new Error(MSG_REGISTER_FAIL);
+      }
       localStorage.setItem(STORAGE_USER, JSON.stringify(data.user));
       localStorage.setItem(STORAGE_TOKEN, data.token);
       setUser(data.user);
@@ -116,7 +138,9 @@ export function AuthProvider({ children }) {
 
 export function useAuth() {
   const ctx = useContext(AuthContext);
-  if (!ctx) throw new Error('useAuth duhet përdorur brenda AuthProvider');
+  if (!ctx) {
+    throw new Error('useAuth duhet p\u00ebrdorur brenda AuthProvider');
+  }
   return ctx;
 }
 

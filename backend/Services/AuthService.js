@@ -198,6 +198,8 @@ class AuthService {
 
         const emailNorm = String(email).trim().toLowerCase();
 
+        console.log('[AuthService.login] attempt', { emailNorm });
+
         const result = await pool.query(
 
             `SELECT u.id, u.name, u.email, u.password, u.role, u.created_at,
@@ -214,9 +216,11 @@ class AuthService {
 
         );
 
-
+        console.log('[AuthService.login] rows', result.rows.length);
 
         if (result.rows.length === 0) {
+
+            console.log('[AuthService.login] no user for email');
 
             throw new Error('Invalid credentials');
 
@@ -226,15 +230,26 @@ class AuthService {
 
         const user = result.rows[0];
 
+        const hashPreview =
+            typeof user.password === 'string'
+                ? `${user.password.slice(0, 7)}…(len=${user.password.length})`
+                : String(user.password);
+
+        console.log('[AuthService.login] user id', user.id, 'hash preview', hashPreview);
+
         
 
         // Check password
 
         const isPasswordValid = await bcrypt.compare(password, user.password);
 
+        console.log('[AuthService.login] bcrypt.compare', isPasswordValid);
+
         
 
         if (!isPasswordValid) {
+
+            console.log('[AuthService.login] password mismatch');
 
             throw new Error('Invalid credentials');
 
