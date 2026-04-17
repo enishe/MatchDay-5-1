@@ -160,7 +160,7 @@ const useAuthStore = create((set, get) => ({
     try {
       const { token } = get();
       
-      const response = await fetch(`/api/auth/search?q=${encodeURIComponent(query)}`, {
+      const response = await fetch(`${API}/auth/search?q=${encodeURIComponent(query)}`, {
         headers: {
           'Authorization': `Bearer ${token}`,
         },

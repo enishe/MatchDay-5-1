@@ -37,6 +37,24 @@ app.get('*', (req, res) => {
   }
 });
 
+// Global error handling middleware
+app.use((err, req, res, next) => {
+  console.error('Error:', err);
+
+  // Don't leak error details in production
+  const isDevelopment = process.env.NODE_ENV !== 'production';
+  
+  res.status(err.status || 500).json({
+    error: isDevelopment ? err.message : 'Internal server error',
+    ...(isDevelopment && { stack: err.stack })
+  });
+});
+
+// 404 handler for API routes
+app.use('/api/*', (req, res) => {
+  res.status(404).json({ error: 'API endpoint not found' });
+});
+
 // Start server
 app.listen(PORT, () => {
   console.log(`MATCHDAY server running on port ${PORT}`);
