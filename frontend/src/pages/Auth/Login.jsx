@@ -6,9 +6,15 @@ import { z } from 'zod';
 import { Eye, EyeOff, Trophy } from 'lucide-react';
 import useAuthStore from '../../store/authStore';
 
+// KORRIGJIMI: Zod nuk ka metode .required(). 
+// Per fushat e detyrueshme perdoret .min(1, 'mesazhi')
 const loginSchema = z.object({
-  email: z.string().email('Email i pavlefshëm').required('Email është i detyrueshëm'),
-  password: z.string().min(6, 'Fjalëkalimi duhet të ketë të paktën 6 karaktere').required('Fjalëkalimi është i detyrueshëm'),
+  email: z.string()
+    .min(1, 'Email është i detyrueshëm')
+    .email('Email i pavlefshëm'),
+  password: z.string()
+    .min(1, 'Fjalëkalimi është i detyrueshëm')
+    .min(6, 'Fjalëkalimi duhet të ketë të paktën 6 karaktere'),
 });
 
 const Login = () => {
@@ -29,15 +35,19 @@ const Login = () => {
       clearError();
       await login(data.email, data.password);
       
-      // Redirect based on user role
-      const user = JSON.parse(localStorage.getItem('matchday_user'));
-      if (user.role === 'admin') {
-        navigate('/admin/dashboard');
-      } else {
-        navigate('/player/fields');
+      // Kontrolli i rolit pas login-it te suksesshem
+      const userData = localStorage.getItem('matchday_user');
+      if (userData) {
+        const user = JSON.parse(userData);
+        if (user.role === 'admin') {
+          navigate('/admin/dashboard');
+        } else {
+          navigate('/player/fields');
+        }
       }
-    } catch (error) {
-      // Error is handled by the store
+    } catch (err) {
+      // Gabimi menaxhohet automatikisht nga store (authStore)
+      console.error("Login error:", err);
     }
   };
 
@@ -132,7 +142,7 @@ const Login = () => {
 
               <div className="text-sm">
                 <a href="#" className="text-accent hover:text-accent/80">
-                  Harrovit fjalëkalimin?
+                  Harruat fjalëkalimin?
                 </a>
               </div>
             </div>
