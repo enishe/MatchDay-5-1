@@ -9,7 +9,6 @@ import Button from '../../components/UI/Button';
 import Input from '../../components/UI/Input';
 import Card from '../../components/UI/Card';
 
-// KORRIGJIMI: Heqja e .required() dhe perdorimi i .min(1, ...) per fushat e detyrueshme
 const registerSchema = z.object({
   name: z.string()
     .min(1, 'Emri është i detyrueshëm')
@@ -31,9 +30,6 @@ const registerSchema = z.object({
     .min(6, 'Fjalëkalimi duhet të ketë të paktën 6 karaktere'),
   confirmPassword: z.string()
     .min(1, 'Konfirmimi i fjalëkalimit është i detyrueshëm'),
-  role: z.enum(['participant', 'organizer'], {
-    errorMap: () => ({ message: 'Zgjidhni një rol' }),
-  }),
 }).refine((data) => data.password === data.confirmPassword, {
   message: 'Fjalëkalimet nuk përputhen',
   path: ['confirmPassword'],
@@ -56,26 +52,20 @@ const Register = () => {
   const onSubmit = async (data) => {
     try {
       clearError();
-      const { confirmPassword, ...userData } = data;
-      await registerUser(userData);
-      
-      // Kontrolli i rolit pas regjistrimit te suksesshem
-      const storedUser = localStorage.getItem('matchday_user');
-      if (storedUser) {
-        const user = JSON.parse(storedUser);
-        if (user.role === 'admin') {
-          navigate('/admin/dashboard');
-        } else {
-          navigate('/player/fields');
-        }
+      const { confirmPassword, ...rest } = data;
+      const result = await registerUser(rest);
+      if (result?.user?.role === 'admin') {
+        navigate('/admin/dashboard', { replace: true });
+      } else {
+        navigate('/player/fields', { replace: true });
       }
     } catch (err) {
-      console.error("Registration error:", err);
+      console.error('Registration error:', err);
     }
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center gradient-bg py-12 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen flex items-center justify-center gradient-bg py-10 sm:py-12 px-3 sm:px-6 lg:px-8">
       <div className="max-w-md w-full space-y-8 animate-fade-in">
         <div className="text-center">
           <div className="flex justify-center mb-6">
@@ -83,11 +73,11 @@ const Register = () => {
               <Trophy className="h-12 w-12 text-primary" />
             </div>
           </div>
-          <h2 className="text-4xl font-heading font-bold gradient-text mb-2">
+          <h2 className="text-3xl sm:text-4xl font-heading font-bold gradient-text mb-2">
             MATCHDAY
           </h2>
-          <p className="text-text-muted">
-            Regjistrohuni për të filluar të luani
+          <p className="text-text-muted text-sm sm:text-base">
+            Regjistrohuni si organizator për të menaxhuar ndeshjet
           </p>
         </div>
 
@@ -99,9 +89,8 @@ const Register = () => {
               </div>
             )}
 
-            {/* Name */}
             <div className="relative">
-              <User className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-text-muted z-10" />
+              <User className="pointer-events-none absolute left-3 top-[38px] h-5 w-5 text-text-muted z-10 sm:top-10" />
               <Input
                 {...register('name')}
                 type="text"
@@ -113,9 +102,8 @@ const Register = () => {
               />
             </div>
 
-            {/* Email */}
             <div className="relative">
-              <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-text-muted z-10" />
+              <Mail className="pointer-events-none absolute left-3 top-[38px] h-5 w-5 text-text-muted z-10 sm:top-10" />
               <Input
                 {...register('email')}
                 type="email"
@@ -127,9 +115,8 @@ const Register = () => {
               />
             </div>
 
-            {/* Username */}
             <div className="relative">
-              <User className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-text-muted z-10" />
+              <User className="pointer-events-none absolute left-3 top-[38px] h-5 w-5 text-text-muted z-10 sm:top-10" />
               <Input
                 {...register('username')}
                 type="text"
@@ -141,9 +128,8 @@ const Register = () => {
               />
             </div>
 
-            {/* Phone */}
             <div className="relative">
-              <Phone className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-text-muted z-10" />
+              <Phone className="pointer-events-none absolute left-3 top-[38px] h-5 w-5 text-text-muted z-10 sm:top-10" />
               <Input
                 {...register('phone_number')}
                 type="tel"
@@ -155,9 +141,8 @@ const Register = () => {
               />
             </div>
 
-            {/* Bank Account */}
             <div className="relative">
-              <CreditCard className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-text-muted z-10" />
+              <CreditCard className="pointer-events-none absolute left-3 top-[38px] h-5 w-5 text-text-muted z-10 sm:top-10" />
               <Input
                 {...register('bank_account')}
                 type="text"
@@ -169,62 +154,50 @@ const Register = () => {
               />
             </div>
 
-            {/* Role */}
-            <div>
-              <label className="block text-sm font-medium text-text mb-2">Roli</label>
-              <div className="space-y-2">
-                <label className="flex items-center p-3 bg-bg-light/50 border border-border rounded-lg hover:border-primary/50 cursor-pointer transition-colors">
-                  <input {...register('role')} type="radio" value="participant" className="h-4 w-4 text-primary" />
-                  <span className="ml-2 text-sm text-text">Lojtar (Pjesëmarrës)</span>
-                </label>
-                <label className="flex items-center p-3 bg-bg-light/50 border border-border rounded-lg hover:border-primary/50 cursor-pointer transition-colors">
-                  <input {...register('role')} type="radio" value="organizer" className="h-4 w-4 text-primary" />
-                  <span className="ml-2 text-sm text-text">Organizator (Krijues ndeshjesh)</span>
-                </label>
-              </div>
-              {errors.role && <p className="mt-1 text-sm text-red-400">{errors.role.message}</p>}
-            </div>
-
-            {/* Password */}
             <div className="relative">
-              <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-text-muted z-10" />
+              <Lock className="pointer-events-none absolute left-3 top-[38px] z-[1] h-5 w-5 text-text-muted sm:top-10" />
               <Input
                 {...register('password')}
                 type={showPassword ? 'text' : 'password'}
                 id="password"
                 label="Fjalëkalimi"
                 placeholder="••••••••"
-                className="pl-10 pr-12"
+                className="pl-10"
                 error={errors.password?.message}
+                endAdornment={
+                  <button
+                    type="button"
+                    className="rounded-md p-1.5 text-text-muted hover:text-primary"
+                    onClick={() => setShowPassword(!showPassword)}
+                    aria-label={showPassword ? 'Fsheh fjalëkalimin' : 'Shfaq fjalëkalimin'}
+                  >
+                    {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                  </button>
+                }
               />
-              <button 
-                type="button" 
-                className="absolute right-3 top-[38px] text-text-muted hover:text-primary transition-colors"
-                onClick={() => setShowPassword(!showPassword)}
-              >
-                {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
-              </button>
             </div>
 
-            {/* Confirm Password */}
             <div className="relative">
-              <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-text-muted z-10" />
+              <Lock className="pointer-events-none absolute left-3 top-[38px] z-[1] h-5 w-5 text-text-muted sm:top-10" />
               <Input
                 {...register('confirmPassword')}
                 type={showConfirmPassword ? 'text' : 'password'}
                 id="confirmPassword"
                 label="Konfirmo fjalëkalimin"
                 placeholder="••••••••"
-                className="pl-10 pr-12"
+                className="pl-10"
                 error={errors.confirmPassword?.message}
+                endAdornment={
+                  <button
+                    type="button"
+                    className="rounded-md p-1.5 text-text-muted hover:text-primary"
+                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                    aria-label={showConfirmPassword ? 'Fsheh fjalëkalimin' : 'Shfaq fjalëkalimin'}
+                  >
+                    {showConfirmPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                  </button>
+                }
               />
-              <button 
-                type="button" 
-                className="absolute right-3 top-[38px] text-text-muted hover:text-primary transition-colors"
-                onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-              >
-                {showConfirmPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
-              </button>
             </div>
 
             <Button
@@ -240,8 +213,11 @@ const Register = () => {
         </Card>
 
         <div className="text-center">
-          <p className="text-text-muted">
-            Keni tashmë llogari? <Link to="/login" className="text-primary hover:text-primary-light font-medium transition-colors">Kyçuni këtu</Link>
+          <p className="text-text-muted text-sm sm:text-base">
+            Keni tashmë llogari?{' '}
+            <Link to="/login" className="text-primary hover:text-primary-light font-medium transition-colors">
+              Kyçuni këtu
+            </Link>
           </p>
         </div>
       </div>

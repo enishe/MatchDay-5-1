@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-
-const API = 'https://matchday-5-1.onrender.com/api';
+import { getApiBase } from '../lib/api';
 
 const FUSHAT = [
   { id: 1, emri: 'Fusha Prishtina 1', terrain: 'artificial_grass', cmimi: 60, lokacioni: 'Prishtinë' },
@@ -45,7 +44,7 @@ export default function BookingPage() {
 
     setDukeShtur(true);
     try {
-      const res = await fetch(`${API}/matches`, {
+      const res = await fetch(`${getApiBase()}/matches`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

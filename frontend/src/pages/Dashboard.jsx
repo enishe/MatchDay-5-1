@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-
-const API = 'https://matchday-5-1.onrender.com/api';
+import { getApiBase } from '../lib/api';
 const DITET = ['Hën', 'Mar', 'Mër', 'Enj', 'Pre', 'Sht', 'Die'];
 
 function sot() { return new Date(); }
@@ -18,8 +17,8 @@ export default function Dashboard() {
 
   useEffect(() => {
     Promise.all([
-      fetch(`${API}/matches/stats`).then(r => r.json()),
-      fetch(`${API}/matches`).then(r => r.json()),
+      fetch(`${getApiBase()}/matches/stats`).then(r => r.json()),
+      fetch(`${getApiBase()}/matches`).then(r => r.json()),
     ]).then(([s, m]) => {
       setStats(s);
       setMatches(Array.isArray(m) ? m : []);

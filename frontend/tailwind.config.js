@@ -38,9 +38,9 @@ export default {
           dark: '#166534', // Dark green text
         },
         border: {
-          DEFAULT: '#22c55e', // Green border
-          light: '#4ade80',
-          dark: '#16a34a',
+          DEFAULT: '#2f3d35',
+          light: '#3d5248',
+          dark: '#1e2922',
         },
         white: '#ffffff',
         black: '#000000',

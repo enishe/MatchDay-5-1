@@ -5,6 +5,12 @@ export default defineConfig({
   plugins: [react()],
   server: {
     open: true,
-    allowedHosts: ['vitrescible-eldon-amusedly.ngrok-free.dev']
-  }
+    allowedHosts: ['vitrescible-eldon-amusedly.ngrok-free.dev'],
+    proxy: {
+      '/api': {
+        target: 'http://localhost:5000',
+        changeOrigin: true,
+      },
+    },
+  },
 })

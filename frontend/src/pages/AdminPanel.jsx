@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-
-const API = 'https://matchday-5-1.onrender.com/api';
+import { getApiBase } from '../lib/api';
 
 export default function AdminPanel() {
   const [matches, setMatches] = useState([]);
@@ -14,8 +13,8 @@ export default function AdminPanel() {
   const fetchData = () => {
     setLoading(true);
     Promise.all([
-      fetch(`${API}/matches${filtri ? `?status=${filtri}` : ''}`).then(r => r.json()),
-      fetch(`${API}/matches/stats`).then(r => r.json()),
+      fetch(`${getApiBase()}/matches${filtri ? `?status=${filtri}` : ''}`).then(r => r.json()),
+      fetch(`${getApiBase()}/matches/stats`).then(r => r.json()),
     ]).then(([m, s]) => {
       setMatches(Array.isArray(m) ? m : []);
       setStats(s);
@@ -33,7 +32,7 @@ export default function AdminPanel() {
   const handleFshi = async (id) => {
     if (!window.confirm(`Fshi rezervimin #${id}?`)) return;
     try {
-      const res = await fetch(`${API}/matches/${id}`, { method: 'DELETE' });
+      const res = await fetch(`${getApiBase()}/matches/${id}`, { method: 'DELETE' });
       if (!res.ok) throw new Error('Gabim gjatë fshirjes.');
       tregoBust(`Rezervimi #${id} u fshi.`);
       fetchData();
@@ -42,7 +41,7 @@ export default function AdminPanel() {
 
   const handleNdrysho = async (id, status) => {
     try {
-      const res = await fetch(`${API}/matches/${id}`, {
+      const res = await fetch(`${getApiBase()}/matches/${id}`, {
         method: 'PUT', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status }),
       });

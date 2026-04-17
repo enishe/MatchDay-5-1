@@ -20,7 +20,7 @@
     --color-accent: #f59e0b;
     --color-text: #f0fdf4;
     --color-text-muted: #86efac;
-    --color-border: #22c55e;
+    --color-border: #2f3d35;
     --gradient-primary: linear-gradient(135deg, #10b981 0%, #059669 100%);
     --gradient-secondary: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
     --gradient-accent: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
@@ -98,7 +98,7 @@
   }
 
   .input-field {
-    @apply w-full px-4 py-3 bg-bg-light/50 border border-border rounded-lg text-text placeholder-text-muted focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all duration-300 backdrop-blur-sm;
+    @apply w-full px-4 py-3 bg-bg-light/50 border border-border rounded-xl text-text placeholder:text-text-muted/70 focus:outline-none focus:ring-2 focus:ring-primary/80 focus:border-primary/40 transition-all duration-300 backdrop-blur-sm;
   }
 
   .input-field:focus {
@@ -106,7 +106,7 @@
   }
 
   .card {
-    @apply bg-panel border border-border rounded-2xl p-6 backdrop-blur-sm shadow-xl;
+    @apply bg-panel border border-border rounded-2xl p-5 sm:p-6 backdrop-blur-sm shadow-xl;
   }
 
   .card-hover {
@@ -114,7 +114,7 @@
   }
 
   .glass-panel {
-    @apply bg-panel/60 backdrop-blur-md border border-border/50 rounded-2xl shadow-2xl;
+    @apply bg-panel/70 backdrop-blur-md border border-border rounded-xl shadow-2xl;
   }
 
   .gradient-text {
@@ -210,9 +210,13 @@
     @apply text-text-muted hover:text-text hover:bg-panel-light;
   }
 
-  /* Table styles */
+  /* Table styles — use with TableScroll for mobile */
   .table-container {
-    @apply overflow-x-auto rounded-lg border border-border;
+    @apply overflow-x-auto rounded-xl border border-border;
+  }
+
+  .table-scroll-inner {
+    @apply min-w-[640px];
   }
 
   .table {

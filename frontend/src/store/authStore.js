@@ -1,35 +1,39 @@
 import { create } from 'zustand';
-import { supabase } from '../lib/supabase';
+import { getApiBase } from '../lib/api';
 
-const API = 'https://matchday-5-1.onrender.com/api';
+function readStoredAuth() {
+  if (typeof window === 'undefined') {
+    return { user: null, token: null };
+  }
+  const token = localStorage.getItem('matchday_token');
+  const userRaw = localStorage.getItem('matchday_user');
+  if (token && userRaw) {
+    try {
+      return { user: JSON.parse(userRaw), token };
+    } catch {
+      localStorage.removeItem('matchday_token');
+      localStorage.removeItem('matchday_user');
+    }
+  }
+  return { user: null, token: null };
+}
 
 const useAuthStore = create((set, get) => ({
   user: null,
   token: null,
   isLoading: false,
   error: null,
+  authHydrated: false,
 
-  // Initialize auth state from localStorage
   initAuth: () => {
-    const token = localStorage.getItem('matchday_token');
-    const user = localStorage.getItem('matchday_user');
-    
-    if (token && user) {
-      try {
-        const parsedUser = JSON.parse(user);
-        set({ user: parsedUser, token });
-      } catch (error) {
-        console.error('Error parsing user data:', error);
-        localStorage.removeItem('matchday_token');
-        localStorage.removeItem('matchday_user');
-      }
-    }
+    const { user, token } = readStoredAuth();
+    set({ user, token, authHydrated: true });
   },
 
-  // Register new user
   register: async (userData) => {
     set({ isLoading: true, error: null });
-    
+    const API = getApiBase();
+
     try {
       const response = await fetch(`${API}/auth/register`, {
         method: 'POST',
@@ -45,30 +49,30 @@ const useAuthStore = create((set, get) => ({
         throw new Error(data.error || 'Registration failed');
       }
 
-      // Save to localStorage
       localStorage.setItem('matchday_token', data.token);
       localStorage.setItem('matchday_user', JSON.stringify(data.user));
 
-      set({ 
-        user: data.user, 
-        token: data.token, 
-        isLoading: false 
+      set({
+        user: data.user,
+        token: data.token,
+        isLoading: false,
+        authHydrated: true,
       });
 
       return data;
     } catch (error) {
-      set({ 
-        error: error.message, 
-        isLoading: false 
+      set({
+        error: error.message,
+        isLoading: false,
       });
       throw error;
     }
   },
 
-  // Login user
   login: async (email, password) => {
     set({ isLoading: true, error: null });
-    
+    const API = getApiBase();
+
     try {
       const response = await fetch(`${API}/auth/login`, {
         method: 'POST',
@@ -84,49 +88,49 @@ const useAuthStore = create((set, get) => ({
         throw new Error(data.error || 'Login failed');
       }
 
-      // Save to localStorage
       localStorage.setItem('matchday_token', data.token);
       localStorage.setItem('matchday_user', JSON.stringify(data.user));
 
-      set({ 
-        user: data.user, 
-        token: data.token, 
-        isLoading: false 
+      set({
+        user: data.user,
+        token: data.token,
+        isLoading: false,
+        authHydrated: true,
       });
 
       return data;
     } catch (error) {
-      set({ 
-        error: error.message, 
-        isLoading: false 
+      set({
+        error: error.message,
+        isLoading: false,
       });
       throw error;
     }
   },
 
-  // Logout user
   logout: () => {
     localStorage.removeItem('matchday_token');
     localStorage.removeItem('matchday_user');
-    set({ 
-      user: null, 
-      token: null, 
-      error: null 
+    set({
+      user: null,
+      token: null,
+      error: null,
+      authHydrated: true,
     });
   },
 
-  // Update user profile
   updateProfile: async (profileData) => {
     set({ isLoading: true, error: null });
-    
+    const API = getApiBase();
+
     try {
       const { token } = get();
-      
+
       const response = await fetch(`${API}/auth/profile`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
+          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify(profileData),
       });
@@ -137,32 +141,31 @@ const useAuthStore = create((set, get) => ({
         throw new Error(data.error || 'Profile update failed');
       }
 
-      // Update localStorage
       localStorage.setItem('matchday_user', JSON.stringify(data));
 
-      set({ 
-        user: data, 
-        isLoading: false 
+      set({
+        user: data,
+        isLoading: false,
       });
 
       return data;
     } catch (error) {
-      set({ 
-        error: error.message, 
-        isLoading: false 
+      set({
+        error: error.message,
+        isLoading: false,
       });
       throw error;
     }
   },
 
-  // Search users by username
   searchUsers: async (query) => {
+    const API = getApiBase();
     try {
       const { token } = get();
-      
+
       const response = await fetch(`${API}/auth/search?q=${encodeURIComponent(query)}`, {
         headers: {
-          'Authorization': `Bearer ${token}`,
+          Authorization: `Bearer ${token}`,
         },
       });
 
@@ -179,22 +182,17 @@ const useAuthStore = create((set, get) => ({
     }
   },
 
-  // Clear error
   clearError: () => set({ error: null }),
 
-  // Check if user has specific role
   hasRole: (role) => {
     const { user } = get();
     return user?.role === role;
   },
 
-  // Check if user is admin
   isAdmin: () => get().hasRole('admin'),
 
-  // Check if user is organizer
   isOrganizer: () => get().hasRole('organizer'),
 
-  // Check if user is participant
   isParticipant: () => get().hasRole('participant'),
 }));
 

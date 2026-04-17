@@ -34,25 +34,19 @@ const Login = () => {
   const onSubmit = async (data) => {
     try {
       clearError();
-      await login(data.email, data.password);
-      
-      // Kontrolli i rolit pas login te suksesshem
-      const storedUser = localStorage.getItem('matchday_user');
-      if (storedUser) {
-        const user = JSON.parse(storedUser);
-        if (user.role === 'admin') {
-          navigate('/admin/dashboard');
-        } else {
-          navigate('/player/fields');
-        }
+      const result = await login(data.email, data.password);
+      if (result?.user?.role === 'admin') {
+        navigate('/admin/dashboard', { replace: true });
+      } else {
+        navigate('/player/fields', { replace: true });
       }
     } catch (err) {
-      console.error("Login error:", err);
+      console.error('Login error:', err);
     }
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center gradient-bg py-12 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen flex items-center justify-center gradient-bg py-10 sm:py-12 px-3 sm:px-6 lg:px-8">
       <div className="max-w-md w-full space-y-8 animate-fade-in">
         <div className="text-center">
           <div className="flex justify-center mb-6">
@@ -60,25 +54,24 @@ const Login = () => {
               <Trophy className="h-12 w-12 text-primary" />
             </div>
           </div>
-          <h2 className="text-4xl font-heading font-bold gradient-text mb-2">
+          <h2 className="text-3xl sm:text-4xl font-heading font-bold gradient-text mb-2">
             MATCHDAY
           </h2>
-          <p className="text-text-muted">
-            Hyni për të vazhduar të luani
+          <p className="text-text-muted text-sm sm:text-base">
+            Hyni për të vazhduar
           </p>
         </div>
 
         <Card>
-          <form className="space-y-6" onSubmit={handleSubmit(onSubmit)}>
+          <form className="space-y-5 sm:space-y-6" onSubmit={handleSubmit(onSubmit)}>
             {error && (
               <div className="bg-red-500/10 border border-red-500/50 text-red-400 px-4 py-3 rounded-lg text-sm backdrop-blur-sm">
                 {error}
               </div>
             )}
 
-            {/* Email */}
             <div className="relative">
-              <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-text-muted z-10" />
+              <Mail className="pointer-events-none absolute left-3 top-[38px] z-[1] h-5 w-5 text-text-muted sm:top-10" />
               <Input
                 {...register('email')}
                 type="email"
@@ -90,25 +83,27 @@ const Login = () => {
               />
             </div>
 
-            {/* Password */}
             <div className="relative">
-              <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-text-muted z-10" />
+              <Lock className="pointer-events-none absolute left-3 top-[38px] z-[1] h-5 w-5 text-text-muted sm:top-10" />
               <Input
                 {...register('password')}
                 type={showPassword ? 'text' : 'password'}
                 id="password"
                 label="Fjalëkalimi"
                 placeholder="••••••••"
-                className="pl-10 pr-12"
+                className="pl-10"
                 error={errors.password?.message}
+                endAdornment={
+                  <button
+                    type="button"
+                    className="rounded-md p-1.5 text-text-muted hover:text-primary"
+                    onClick={() => setShowPassword(!showPassword)}
+                    aria-label={showPassword ? 'Fsheh fjalëkalimin' : 'Shfaq fjalëkalimin'}
+                  >
+                    {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                  </button>
+                }
               />
-              <button 
-                type="button" 
-                className="absolute right-3 top-[38px] text-text-muted hover:text-primary transition-colors"
-                onClick={() => setShowPassword(!showPassword)}
-              >
-                {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
-              </button>
             </div>
 
             <Button
@@ -124,8 +119,11 @@ const Login = () => {
         </Card>
 
         <div className="text-center">
-          <p className="text-text-muted">
-            Nuk keni llogari? <Link to="/register" className="text-primary hover:text-primary-light font-medium transition-colors">Regjistrohuni këtu</Link>
+          <p className="text-text-muted text-sm sm:text-base">
+            Nuk keni llogari?{' '}
+            <Link to="/register" className="text-primary hover:text-primary-light font-medium transition-colors">
+              Regjistrohuni këtu
+            </Link>
           </p>
         </div>
       </div>

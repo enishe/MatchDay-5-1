@@ -1,8 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { useEffect, lazy, Suspense } from 'react';
+import { lazy, Suspense } from 'react';
 import Navbar from './components/Layout/Navbar';
 import ProtectedRoute from './components/Auth/ProtectedRoute';
-import useAuthStore from './store/authStore';
 
 // Lazy load components for better performance
 const Login = lazy(() => import('./pages/Auth/Login'));
@@ -30,20 +29,13 @@ const LoadingSpinner = () => (
 );
 
 function App() {
-  const { initAuth } = useAuthStore();
-
-  useEffect(() => {
-    // Inicializon gjendjen e perdoruesit sa here qe rifreskohet faqja
-    initAuth();
-  }, [initAuth]);
-
   return (
     <BrowserRouter>
       <div className="min-h-screen bg-gradient-bg text-text font-body">
         {/* Navbar qendron lart ne cdo faqe */}
         <Navbar />
         
-        <main className="container mx-auto px-4 py-8">
+        <main className="container mx-auto max-w-7xl px-3 sm:px-4 lg:px-6 py-6 sm:py-8">
           <Suspense fallback={<LoadingSpinner />}>
             <Routes>
               {/* --- PUBLIC ROUTES --- */}

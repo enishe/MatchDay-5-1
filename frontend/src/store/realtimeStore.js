@@ -1,7 +1,6 @@
 import { create } from 'zustand';
 import { supabase } from '../lib/supabase';
-
-const API = 'https://matchday-5-1.onrender.com/api';
+import { getApiBase } from '../lib/api';
 
 const useRealtimeStore = create((set, get) => ({
   subscriptions: [],
@@ -216,7 +215,7 @@ const useRealtimeStore = create((set, get) => ({
   checkMatchConfirmation: async (bookingId) => {
     try {
       // Get match details to check player count
-      const response = await fetch(`${API}/matches/${bookingId}`, {
+      const response = await fetch(`${getApiBase()}/matches/${bookingId}`, {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('matchday_token')}`
         }
@@ -260,7 +259,7 @@ const useRealtimeStore = create((set, get) => ({
     if (!userId) return;
 
     try {
-      await fetch('/api/notifications/read', {
+      await fetch(`${getApiBase()}/notifications/read`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('matchday_token')}`,

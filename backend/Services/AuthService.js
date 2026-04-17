@@ -16,28 +16,36 @@ class AuthService {
 
     async register(userData) {
 
-        const { name, email, password, username, phone_number, bank_account, role = 'participant' } = userData;
+        const { name, email, password, username, phone_number, bank_account } = userData;
 
-        
+        const nameTrim = String(name || '').trim();
+        const emailNorm = String(email || '').trim().toLowerCase();
+        const usernameTrim = String(username || '').trim();
+        const phoneTrim = String(phone_number || '').trim();
+        const bankTrim = String(bank_account || '').trim();
 
-        // Validate required fields
-
-        if (!name || !email || !password || !username || !phone_number || !bank_account) {
-
+        if (!nameTrim || !emailNorm || !password || !usernameTrim || !phoneTrim || !bankTrim) {
             throw new Error('All fields are required');
-
         }
 
+        if (password.length < 6) {
+            throw new Error('Password must be at least 6 characters');
+        }
 
+        if (usernameTrim.length < 3) {
+            throw new Error('Username must be at least 3 characters');
+        }
 
-        // Check if user already exists
+        const emailRe = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRe.test(emailNorm)) {
+            throw new Error('Invalid email address');
+        }
+
+        const PUBLIC_REGISTER_ROLE = 'organizer';
 
         const existingUser = await pool.query(
-
-            'SELECT id FROM Users WHERE email = $1',
-
-            [email]
-
+            'SELECT id FROM Users WHERE LOWER(TRIM(email)) = $1',
+            [emailNorm]
         );
 
         
@@ -53,11 +61,8 @@ class AuthService {
         // Check if username already exists
 
         const existingUsername = await pool.query(
-
-            'SELECT id FROM UserProfiles WHERE username = $1',
-
-            [username]
-
+            'SELECT id FROM UserProfiles WHERE LOWER(username) = LOWER($1)',
+            [usernameTrim]
         );
 
         
@@ -93,11 +98,8 @@ class AuthService {
             const userResult = await client.query(
 
                 `INSERT INTO Users (name, email, password, role) 
-
                  VALUES ($1, $2, $3, $4) RETURNING id, name, email, role, created_at`,
-
-                [name, email, hashedPassword, role]
-
+                [nameTrim, emailNorm, hashedPassword, PUBLIC_REGISTER_ROLE]
             );
 
             
@@ -114,7 +116,7 @@ class AuthService {
 
                  VALUES ($1, $2, $3, $4)`,
 
-                [user.id, username, phone_number, bank_account]
+                [user.id, usernameTrim, phoneTrim, bankTrim]
 
             );
 
@@ -156,9 +158,9 @@ class AuthService {
 
                     role: user.role,
 
-                    username: username,
+                    username: usernameTrim,
 
-                    phone_number: phone_number
+                    phone_number: phoneTrim
 
                 },
 
@@ -194,9 +196,7 @@ class AuthService {
 
         }
 
-
-
-        // Get user with profile
+        const emailNorm = String(email).trim().toLowerCase();
 
         const result = await pool.query(
 
@@ -208,9 +208,9 @@ class AuthService {
 
              LEFT JOIN UserProfiles up ON u.id = up.user_id
 
-             WHERE u.email = $1`,
+             WHERE LOWER(TRIM(u.email)) = $1`,
 
-            [email]
+            [emailNorm]
 
         );
 

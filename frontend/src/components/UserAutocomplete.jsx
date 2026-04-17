@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Search, X, UserPlus } from 'lucide-react';
-
-const API = 'https://matchday-5-1.onrender.com/api';
+import { getApiBase } from '../lib/api';
 
 const UserAutocomplete = ({ onUserSelect, selectedUsers = [], maxUsers = 12 }) => {
   const [query, setQuery] = useState('');
@@ -19,7 +18,7 @@ const UserAutocomplete = ({ onUserSelect, selectedUsers = [], maxUsers = 12 }) =
       setIsLoading(true);
       try {
         const token = localStorage.getItem('matchday_token');
-        const response = await fetch(`${API}/search-users?q=${encodeURIComponent(query)}`, {
+        const response = await fetch(`${getApiBase()}/search-users?q=${encodeURIComponent(query)}`, {
           headers: {
             'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json'

@@ -8,7 +8,7 @@ const AutoCancelService = require('../Services/AutoCancelService');
 
 const EmailService = require('../Services/EmailService');
 
-const { authenticateToken, requireRole } = require('./authRoutes');
+const { authenticateToken, requireRole, requireCronSecret } = require('../middleware/auth');
 
 
 
@@ -188,7 +188,7 @@ router.get('/search-users', authenticateToken, async (req, res) => {
 
 // Process payment
 
-router.post('/payments/:id/process', authenticateToken, async (req, res) => {
+router.post('/payments/:id/process', authenticateToken, requireRole(['admin']), async (req, res) => {
 
     try {
 
@@ -258,7 +258,7 @@ router.put('/payments/:id/method', authenticateToken, async (req, res) => {
 
 // Auto-cancel matches (cron job endpoint)
 
-router.post('/auto-cancel', async (req, res) => {
+router.post('/auto-cancel', requireCronSecret, async (req, res) => {
 
     try {
 
