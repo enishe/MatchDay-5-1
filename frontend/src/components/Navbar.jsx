@@ -76,11 +76,13 @@ export default function Navbar() {
 
   return (
     <header className="navbar">
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+      <div className="navbar-start">
         <button
           type="button"
           className="navbar-toggle icon-btn"
           aria-label="Menu"
+          aria-expanded={menuOpen}
+          aria-controls="primary-navigation"
           onClick={() => setMenuOpen((o) => !o)}
         >
           {menuOpen ? <X size={22} /> : <Menu size={22} />}
@@ -90,7 +92,9 @@ export default function Navbar() {
         </NavLink>
       </div>
 
-      <nav className="navbar-nav navbar-nav-desktop">{links}</nav>
+      <nav id="primary-navigation" className={`navbar-nav${menuOpen ? ' open' : ''}`}>
+        {links}
+      </nav>
 
       <div className="navbar-actions">
         <button type="button" className="icon-btn" aria-label="Dark mode" onClick={onToggleTheme}>
@@ -125,8 +129,6 @@ export default function Navbar() {
           </div>
         </div>
       </div>
-
-      <nav className={`navbar-drawer${menuOpen ? ' open' : ''}`}>{links}</nav>
     </header>
   );
 }

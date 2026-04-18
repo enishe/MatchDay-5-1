@@ -128,6 +128,12 @@ a:hover {
   box-shadow: var(--shadow-sm);
 }
 
+.navbar-start {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
 .navbar-brand {
   font-weight: 700;
   font-size: 1.05rem;
@@ -238,27 +244,29 @@ a:hover {
 }
 
 @media (max-width: 768px) {
+  .navbar {
+    position: relative;
+  }
   .navbar-toggle {
     display: inline-flex;
   }
-  .navbar-nav-desktop {
+  .navbar-nav {
     display: none;
-  }
-  .navbar-drawer {
-    position: fixed;
-    inset: 0;
-    top: var(--navbar-height);
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
     background: var(--color-primary);
-    padding: 16px;
+    padding: 12px;
     flex-direction: column;
     align-items: stretch;
     gap: 4px;
-    display: none;
+    box-shadow: var(--shadow-sm);
   }
-  .navbar-drawer.open {
+  .navbar-nav.open {
     display: flex;
   }
-  .navbar-drawer .nav-link {
+  .navbar-nav .nav-link {
     padding: 14px 12px;
   }
 }
