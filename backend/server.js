@@ -62,7 +62,14 @@ app.use('/api/*', (req, res) => {
 async function bootstrap() {
   await ensureSchema();
   await seedMitrovicaFields();
-  await new AuthService().ensureAdminUser();
+  const authService = new AuthService();
+  try {
+    await authService.ensureAdminUser();
+    console.log('[startup] Admin check complete');
+  } catch (err) {
+    console.error('[startup] Admin check failed:', err?.message || err);
+    throw err;
+  }
 }
 
 bootstrap()

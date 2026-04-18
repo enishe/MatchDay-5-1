@@ -22,10 +22,10 @@ const STORAGE_USER = 'matchday_user';
 const STORAGE_TOKEN = 'matchday_token';
 const STORAGE_THEME = 'matchday_theme';
 
-const MSG_LOGIN_FAIL = 'Kyçja dështoi';
-const MSG_REGISTER_FAIL = 'Regjistrimi dështoi';
+const MSG_LOGIN_FAIL = 'Ky\u00e7ja d\u00ebshtoi';
+const MSG_REGISTER_FAIL = 'Regjistrimi d\u00ebshtoi';
 
-/** Lexon përgjigjen JSON ose kthen mesazh nga trupi jo-JSON (p.sh. HTML nga proxy). */
+/** Lexon p\u00ebrgjigjen JSON ose kthen mesazh nga trupi jo-JSON (p.sh. HTML nga proxy). */
 async function readJsonResponse(res) {
   const text = await res.text();
   let data = {};
@@ -188,7 +188,7 @@ export function AuthProvider({ children }) {
 export function useAuth() {
   const ctx = useContext(AuthContext);
   if (!ctx) {
-    throw new Error('useAuth duhet përdorur brenda AuthProvider');
+    throw new Error('useAuth duhet p\u00ebrdorur brenda AuthProvider');
   }
   return ctx;
 }

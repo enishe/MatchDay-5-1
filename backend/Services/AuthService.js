@@ -15,7 +15,7 @@ function splitName(full) {
   return { firstName: parts[0], lastName: parts.slice(1).join(' ') };
 }
 
-/** DB: participant → API/JWT: player */
+/** DB: participant -> API/JWT: player */
 function apiRole(dbRole) {
   if (dbRole === 'participant') return 'player';
   return dbRole;
@@ -59,20 +59,20 @@ class AuthService {
     const confirmPassword = userData.confirmPassword;
 
     if (!firstName || !lastName) {
-      throw new Error('Emri dhe mbiemri janë të detyrueshëm.');
+      throw new Error('Emri dhe mbiemri jan\u00eb t\u00eb detyruesh\u00ebm.');
     }
     if (!emailNorm) {
-      throw new Error('Email është i detyrueshëm.');
+      throw new Error('Email \u00ebsht\u00eb i detyruesh\u00ebm.');
     }
     const emailRe = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRe.test(emailNorm)) {
-      throw new Error('Formati i email-it nuk është i vlefshëm.');
+      throw new Error('Formati i email-it nuk \u00ebsht\u00eb i vlefsh\u00ebm.');
     }
     if (!password || String(password).length < 8) {
-      throw new Error('Fjalëkalimi duhet të ketë të paktën 8 karaktere.');
+      throw new Error('Fjal\u00ebkalimi duhet t\u00eb ket\u00eb t\u00eb pakt\u00ebn 8 karaktere.');
     }
     if (password !== confirmPassword) {
-      throw new Error('Fjalëkalimet nuk përputhen.');
+      throw new Error('Fjal\u00ebkalimet nuk p\u00ebrputhen.');
     }
 
     const existing = await pool.query(
@@ -80,7 +80,7 @@ class AuthService {
       [emailNorm]
     );
     if (existing.rows.length > 0) {
-      throw new Error('Ky email është tashmë i regjistruar.');
+      throw new Error('Ky email \u00ebsht\u00eb tashm\u00eb i regjistruar.');
     }
 
     const fullName = `${firstName} ${lastName}`.trim();
@@ -98,16 +98,18 @@ class AuthService {
       return { user: mapUserRow(row), token };
     } catch (e) {
       if (e && e.code === '23505') {
-        throw new Error('Ky email është tashmë i regjistruar.');
+        throw new Error('Ky email \u00ebsht\u00eb tashm\u00eb i regjistruar.');
       }
       console.error('[AuthService.register] DB:', e.message);
-      throw new Error('Regjistrimi dështoi. Kontrollo databazën ose provo përsëri.');
+      throw new Error(
+        'Regjistrimi d\u00ebshtoi. Kontrollo databaz\u00ebn ose provo p\u00ebrs\u00ebri.'
+      );
     }
   }
 
   async login(email, password) {
     if (!email || !password) {
-      throw new Error('Email dhe fjalëkalimi janë të detyrueshëm.');
+      throw new Error('Email dhe fjal\u00ebkalimi jan\u00eb t\u00eb detyruesh\u00ebm.');
     }
     const emailNorm = String(email).trim().toLowerCase();
     const result = await pool.query(
@@ -115,12 +117,12 @@ class AuthService {
       [emailNorm]
     );
     if (result.rows.length === 0) {
-      throw new Error('Email ose fjalëkalim i gabuar');
+      throw new Error('Email ose fjal\u00ebkalim i gabuar');
     }
     const row = result.rows[0];
     const ok = await bcrypt.compare(password, row.password);
     if (!ok) {
-      throw new Error('Email ose fjalëkalim i gabuar');
+      throw new Error('Email ose fjal\u00ebkalim i gabuar');
     }
     const token = this.generateToken(row);
     return { user: mapUserRow(row), token };
