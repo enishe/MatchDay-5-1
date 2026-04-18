@@ -20,8 +20,12 @@ function authenticateToken(req, res, next) {
 }
 
 function requireRole(roles) {
+    const allowed = new Set(roles);
+    if (allowed.has('participant')) {
+        allowed.add('player');
+    }
     return (req, res, next) => {
-        if (!roles.includes(req.user.role)) {
+        if (!allowed.has(req.user.role)) {
             return res.status(403).json({ error: 'Insufficient permissions' });
         }
         next();

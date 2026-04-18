@@ -19,7 +19,7 @@ export default function LoginPage() {
   const validate = () => {
     const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!re.test(String(email).trim())) return 'Email jo i vlefshëm.';
-    if (!password || password.length < 6) return 'Fjalëkalimi: minimum 6 karaktere.';
+    if (!password || password.length < 8) return 'Fjalëkalimi: minimum 8 karaktere.';
     return null;
   };
 

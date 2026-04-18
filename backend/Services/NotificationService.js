@@ -96,11 +96,10 @@ class NotificationService {
                     f.location,
                     u.name as user_name,
                     u.email,
-                    up.username
-                 FROM Bookings b
-                 JOIN Fields f ON b.field_id = f.id
-                 JOIN Users u ON b.organizer_id = u.id
-                 LEFT JOIN UserProfiles up ON u.id = up.user_id
+                    NULL::text as username
+                 FROM bookings b
+                 JOIN fields f ON b.field_id = f.id
+                 JOIN users u ON b.organizer_id = u.id
                  WHERE b.id = $1`,
                 [bookingId]
             );

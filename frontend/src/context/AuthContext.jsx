@@ -13,9 +13,8 @@ const STORAGE_USER = 'matchday_user';
 const STORAGE_TOKEN = 'matchday_token';
 const STORAGE_THEME = 'matchday_theme';
 
-/** Shqip me Unicode escapes (shmang mojibake n\u00ebse file ruhet me encoding tjet\u00ebr) */
-const MSG_LOGIN_FAIL = 'Ky\u00e7ja d\u00ebshtoi';
-const MSG_REGISTER_FAIL = 'Regjistrimi d\u00ebshtoi';
+const MSG_LOGIN_FAIL = 'Kyçja dështoi';
+const MSG_REGISTER_FAIL = 'Regjistrimi dështoi';
 
 function readStoredUser() {
   try {
@@ -41,11 +40,18 @@ export function AuthProvider({ children }) {
     setError(null);
     const base = getApiBase();
     try {
-      const res = await fetch(`${base}/auth/login`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json; charset=utf-8' },
-        body: JSON.stringify({ email, password }),
-      });
+      let res;
+      try {
+        res = await fetch(`${base}/auth/login`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json; charset=utf-8' },
+          body: JSON.stringify({ email, password }),
+        });
+      } catch {
+        const m = 'Nuk u arrit serveri. Kontrollo që backend-i të jetë i ndezur.';
+        setError(m);
+        throw new Error(m);
+      }
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
         const serverMsg =
@@ -63,8 +69,9 @@ export function AuthProvider({ children }) {
       setToken(data.token);
       return data;
     } catch (e) {
-      setError(e.message);
-      throw e;
+      const msg = e instanceof Error ? e.message : MSG_LOGIN_FAIL;
+      setError(msg);
+      throw e instanceof Error ? e : new Error(msg);
     } finally {
       setIsLoading(false);
     }
@@ -75,11 +82,18 @@ export function AuthProvider({ children }) {
     setError(null);
     const base = getApiBase();
     try {
-      const res = await fetch(`${base}/auth/register`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json; charset=utf-8' },
-        body: JSON.stringify(payload),
-      });
+      let res;
+      try {
+        res = await fetch(`${base}/auth/register`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json; charset=utf-8' },
+          body: JSON.stringify(payload),
+        });
+      } catch {
+        const m = 'Nuk u arrit serveri. Kontrollo që backend-i të jetë i ndezur.';
+        setError(m);
+        throw new Error(m);
+      }
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
         const serverMsg =
@@ -97,8 +111,9 @@ export function AuthProvider({ children }) {
       setToken(data.token);
       return data;
     } catch (e) {
-      setError(e.message);
-      throw e;
+      const msg = e instanceof Error ? e.message : MSG_REGISTER_FAIL;
+      setError(msg);
+      throw e instanceof Error ? e : new Error(msg);
     } finally {
       setIsLoading(false);
     }
@@ -110,6 +125,10 @@ export function AuthProvider({ children }) {
     setUser(null);
     setToken(null);
     setError(null);
+  }, []);
+
+  const refreshUser = useCallback(() => {
+    setUser(readStoredUser());
   }, []);
 
   const authHeader = useCallback(() => {
@@ -126,11 +145,12 @@ export function AuthProvider({ children }) {
       login,
       register,
       logout,
+      refreshUser,
       setError,
       authHeader,
       isAdmin: user?.role === 'admin',
     }),
-    [user, token, isLoading, error, login, register, logout, authHeader]
+    [user, token, isLoading, error, login, register, logout, refreshUser, authHeader]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
@@ -139,7 +159,7 @@ export function AuthProvider({ children }) {
 export function useAuth() {
   const ctx = useContext(AuthContext);
   if (!ctx) {
-    throw new Error('useAuth duhet p\u00ebrdorur brenda AuthProvider');
+    throw new Error('useAuth duhet përdorur brenda AuthProvider');
   }
   return ctx;
 }

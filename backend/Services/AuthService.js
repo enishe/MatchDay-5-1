@@ -1,579 +1,239 @@
 const bcrypt = require('bcryptjs');
-
 const jwt = require('jsonwebtoken');
-
 const pool = require('../config/db');
-
-
 
 const JWT_SECRET = process.env.JWT_SECRET || 'matchday-secret-key';
 
-
-
-class AuthService {
-
-    // Register new user
-
-    async register(userData) {
-
-        const { name, email, password, username, phone_number, bank_account } = userData;
-
-        const nameTrim = String(name || '').trim();
-        const emailNorm = String(email || '').trim().toLowerCase();
-        const usernameTrim = String(username || '').trim();
-        const phoneTrim = String(phone_number || '').trim();
-        const bankTrim = String(bank_account || '').trim();
-
-        if (!nameTrim || !emailNorm || !password || !usernameTrim || !phoneTrim || !bankTrim) {
-            throw new Error('All fields are required');
-        }
-
-        if (password.length < 6) {
-            throw new Error('Password must be at least 6 characters');
-        }
-
-        if (usernameTrim.length < 3) {
-            throw new Error('Username must be at least 3 characters');
-        }
-
-        const emailRe = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-        if (!emailRe.test(emailNorm)) {
-            throw new Error('Invalid email address');
-        }
-
-        const PUBLIC_REGISTER_ROLE = 'organizer';
-
-        const existingUser = await pool.query(
-            'SELECT id FROM Users WHERE LOWER(TRIM(email)) = $1',
-            [emailNorm]
-        );
-
-        
-
-        if (existingUser.rows.length > 0) {
-
-            throw new Error('User with this email already exists');
-
-        }
-
-
-
-        // Check if username already exists
-
-        const existingUsername = await pool.query(
-            'SELECT id FROM UserProfiles WHERE LOWER(username) = LOWER($1)',
-            [usernameTrim]
-        );
-
-        
-
-        if (existingUsername.rows.length > 0) {
-
-            throw new Error('Username already taken');
-
-        }
-
-
-
-        // Hash password
-
-        const saltRounds = 12;
-
-        const hashedPassword = await bcrypt.hash(password, saltRounds);
-
-
-
-        const client = await pool.connect();
-
-        
-
-        try {
-
-            await client.query('BEGIN');
-
-            
-
-            // Insert user
-
-            const userResult = await client.query(
-
-                `INSERT INTO Users (name, email, password, role) 
-                 VALUES ($1, $2, $3, $4) RETURNING id, name, email, role, created_at`,
-                [nameTrim, emailNorm, hashedPassword, PUBLIC_REGISTER_ROLE]
-            );
-
-            
-
-            const user = userResult.rows[0];
-
-            
-
-            // Insert user profile
-
-            await client.query(
-
-                `INSERT INTO UserProfiles (user_id, username, phone_number, bank_account) 
-
-                 VALUES ($1, $2, $3, $4)`,
-
-                [user.id, usernameTrim, phoneTrim, bankTrim]
-
-            );
-
-            
-
-            // Insert notification preferences
-
-            await client.query(
-
-                `INSERT INTO NotificationPreferences (user_id) 
-
-                 VALUES ($1)`,
-
-                [user.id]
-
-            );
-
-            
-
-            await client.query('COMMIT');
-
-            
-
-            // Generate JWT token
-
-            const token = this.generateToken(user);
-
-            
-
-            return {
-
-                user: {
-
-                    id: user.id,
-
-                    name: user.name,
-
-                    email: user.email,
-
-                    role: user.role,
-
-                    username: usernameTrim,
-
-                    phone_number: phoneTrim
-
-                },
-
-                token
-
-            };
-
-            
-
-        } catch (error) {
-
-            await client.query('ROLLBACK');
-
-            throw error;
-
-        } finally {
-
-            client.release();
-
-        }
-
-    }
-
-
-
-    // Login user
-
-    async login(email, password) {
-
-        if (!email || !password) {
-
-            throw new Error('Email and password are required');
-
-        }
-
-        const emailNorm = String(email).trim().toLowerCase();
-
-        console.log('[AuthService.login] attempt', { emailNorm });
-
-        const result = await pool.query(
-
-            `SELECT u.id, u.name, u.email, u.password, u.role, u.created_at,
-
-                    up.username, up.phone_number, up.bank_account
-
-             FROM Users u
-
-             LEFT JOIN UserProfiles up ON u.id = up.user_id
-
-             WHERE LOWER(TRIM(u.email)) = $1`,
-
-            [emailNorm]
-
-        );
-
-        console.log('[AuthService.login] rows', result.rows.length);
-
-        if (result.rows.length === 0) {
-
-            console.log('[AuthService.login] no user for email');
-
-            throw new Error('Invalid credentials');
-
-        }
-
-
-
-        const user = result.rows[0];
-
-        const hashPreview =
-            typeof user.password === 'string'
-                ? `${user.password.slice(0, 7)}…(len=${user.password.length})`
-                : String(user.password);
-
-        console.log('[AuthService.login] user id', user.id, 'hash preview', hashPreview);
-
-        
-
-        // Check password
-
-        const isPasswordValid = await bcrypt.compare(password, user.password);
-
-        console.log('[AuthService.login] bcrypt.compare', isPasswordValid);
-
-        
-
-        if (!isPasswordValid) {
-
-            console.log('[AuthService.login] password mismatch');
-
-            throw new Error('Invalid credentials');
-
-        }
-
-
-
-        // Generate JWT token
-
-        const token = this.generateToken(user);
-
-        
-
-        return {
-
-            user: {
-
-                id: user.id,
-
-                name: user.name,
-
-                email: user.email,
-
-                role: user.role,
-
-                username: user.username,
-
-                phone_number: user.phone_number
-
-            },
-
-            token
-
-        };
-
-    }
-
-
-
-    // Generate JWT token
-
-    generateToken(user) {
-
-        return jwt.sign(
-
-            { 
-
-                id: user.id, 
-
-                email: user.email, 
-
-                role: user.role 
-
-            },
-
-            JWT_SECRET,
-
-            { expiresIn: '7d' }
-
-        );
-
-    }
-
-
-
-    // Verify JWT token
-
-    verifyToken(token) {
-
-        try {
-
-            return jwt.verify(token, JWT_SECRET);
-
-        } catch (error) {
-
-            throw new Error('Invalid token');
-
-        }
-
-    }
-
-
-
-    // Get user by ID
-
-    async getUserById(userId) {
-
-        const result = await pool.query(
-
-            `SELECT u.id, u.name, u.email, u.role, u.created_at,
-
-                    up.username, up.phone_number, up.bank_account, up.avatar_url,
-
-                    up.preferred_position, up.skill_level
-
-             FROM Users u
-
-             LEFT JOIN UserProfiles up ON u.id = up.user_id
-
-             WHERE u.id = $1`,
-
-            [userId]
-
-        );
-
-
-
-        if (result.rows.length === 0) {
-
-            throw new Error('User not found');
-
-        }
-
-
-
-        const user = result.rows[0];
-
-        return {
-
-            id: user.id,
-
-            name: user.name,
-
-            email: user.email,
-
-            role: user.role,
-
-            username: user.username,
-
-            phone_number: user.phone_number,
-
-            bank_account: user.bank_account,
-
-            avatar_url: user.avatar_url,
-
-            preferred_position: user.preferred_position,
-
-            skill_level: user.skill_level
-
-        };
-
-    }
-
-
-
-    // Update user profile
-
-    async updateProfile(userId, profileData) {
-
-        const { name, username, phone_number, bank_account, avatar_url, preferred_position, skill_level } = profileData;
-
-        
-
-        const client = await pool.connect();
-
-        
-
-        try {
-
-            await client.query('BEGIN');
-
-            
-
-            // Update users table
-
-            if (name) {
-
-                await client.query(
-
-                    'UPDATE Users SET name = $1 WHERE id = $2',
-
-                    [name, userId]
-
-                );
-
-            }
-
-            
-
-            // Update user profile
-
-            const updateFields = [];
-
-            const updateValues = [];
-
-            let paramIndex = 1;
-
-            
-
-            if (username) {
-
-                updateFields.push(`username = $${paramIndex++}`);
-
-                updateValues.push(username);
-
-            }
-
-            if (phone_number) {
-
-                updateFields.push(`phone_number = $${paramIndex++}`);
-
-                updateValues.push(phone_number);
-
-            }
-
-            if (bank_account) {
-
-                updateFields.push(`bank_account = $${paramIndex++}`);
-
-                updateValues.push(bank_account);
-
-            }
-
-            if (avatar_url) {
-
-                updateFields.push(`avatar_url = $${paramIndex++}`);
-
-                updateValues.push(avatar_url);
-
-            }
-
-            if (preferred_position) {
-
-                updateFields.push(`preferred_position = $${paramIndex++}`);
-
-                updateValues.push(preferred_position);
-
-            }
-
-            if (skill_level) {
-
-                updateFields.push(`skill_level = $${paramIndex++}`);
-
-                updateValues.push(skill_level);
-
-            }
-
-            
-
-            if (updateFields.length > 0) {
-
-                updateValues.push(userId);
-
-                await client.query(
-
-                    `UPDATE UserProfiles SET ${updateFields.join(', ')} WHERE user_id = $${paramIndex}`,
-
-                    updateValues
-
-                );
-
-            }
-
-            
-
-            await client.query('COMMIT');
-
-            
-
-            return await this.getUserById(userId);
-
-            
-
-        } catch (error) {
-
-            await client.query('ROLLBACK');
-
-            throw error;
-
-        } finally {
-
-            client.release();
-
-        }
-
-    }
-
-
-
-    // Search users by username (for invitations)
-
-    async searchUsersByUsername(query, currentUserId) {
-
-        if (!query || query.length < 2) {
-
-            return [];
-
-        }
-
-
-
-        const result = await pool.query(
-
-            `SELECT u.id, u.name, up.username, up.skill_level, up.preferred_position
-
-             FROM Users u
-
-             JOIN UserProfiles up ON u.id = up.user_id
-
-             WHERE up.username ILIKE $1 
-
-               AND u.id != $2
-
-               AND u.role IN ('participant', 'organizer')
-
-               AND up.is_active = true
-
-             ORDER BY up.username
-
-             LIMIT 10`,
-
-            [`%${query}%`, currentUserId]
-
-        );
-
-
-
-        return result.rows;
-
-    }
-
+const ADMIN_EMAIL = 'admin@matchday.com';
+const ADMIN_PASSWORD = 'MatchDay@Admin2026!';
+
+function splitName(full) {
+  const t = String(full || '').trim();
+  if (!t) return { firstName: '', lastName: '' };
+  const parts = t.split(/\s+/);
+  if (parts.length === 1) return { firstName: parts[0], lastName: '' };
+  return { firstName: parts[0], lastName: parts.slice(1).join(' ') };
 }
 
+/** DB: participant → API/JWT: player */
+function apiRole(dbRole) {
+  if (dbRole === 'participant') return 'player';
+  return dbRole;
+}
 
+function mapUserRow(row) {
+  const { firstName, lastName } = splitName(row.name);
+  return {
+    id: row.id,
+    firstName,
+    lastName,
+    name: row.name,
+    email: row.email,
+    role: apiRole(row.role),
+    phone: row.phone ?? null,
+    bank_account: row.bank_account ?? null,
+    avatar_url: row.avatar_url ?? null,
+    preferred_field_id: row.preferred_field_id ?? null,
+  };
+}
+
+class AuthService {
+  generateToken(row) {
+    const role = apiRole(row.role);
+    return jwt.sign({ id: row.id, email: row.email, role }, JWT_SECRET, { expiresIn: '7d' });
+  }
+
+  verifyToken(token) {
+    try {
+      return jwt.verify(token, JWT_SECRET);
+    } catch {
+      throw new Error('Invalid token');
+    }
+  }
+
+  async register(userData) {
+    const firstName = String(userData.firstName || '').trim();
+    const lastName = String(userData.lastName || '').trim();
+    const emailNorm = String(userData.email || '').trim().toLowerCase();
+    const password = userData.password;
+    const confirmPassword = userData.confirmPassword;
+
+    if (!firstName || !lastName) {
+      throw new Error('Emri dhe mbiemri janë të detyrueshëm.');
+    }
+    if (!emailNorm) {
+      throw new Error('Email është i detyrueshëm.');
+    }
+    const emailRe = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRe.test(emailNorm)) {
+      throw new Error('Formati i email-it nuk është i vlefshëm.');
+    }
+    if (!password || String(password).length < 8) {
+      throw new Error('Fjalëkalimi duhet të ketë të paktën 8 karaktere.');
+    }
+    if (password !== confirmPassword) {
+      throw new Error('Fjalëkalimet nuk përputhen.');
+    }
+
+    const existing = await pool.query(
+      'SELECT id FROM users WHERE LOWER(TRIM(email)) = $1',
+      [emailNorm]
+    );
+    if (existing.rows.length > 0) {
+      throw new Error('Ky email është tashmë i regjistruar.');
+    }
+
+    const fullName = `${firstName} ${lastName}`.trim();
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    const ins = await pool.query(
+      `INSERT INTO users (name, email, password, role)
+       VALUES ($1, $2, $3, 'participant')
+       RETURNING id, name, email, role, created_at`,
+      [fullName, emailNorm, hashedPassword]
+    );
+    const row = ins.rows[0];
+    const token = this.generateToken(row);
+    return { user: mapUserRow(row), token };
+  }
+
+  async login(email, password) {
+    if (!email || !password) {
+      throw new Error('Email dhe fjalëkalimi janë të detyrueshëm.');
+    }
+    const emailNorm = String(email).trim().toLowerCase();
+    const result = await pool.query(
+      'SELECT id, name, email, password, role, created_at, phone, bank_account, avatar_url, preferred_field_id FROM users WHERE LOWER(TRIM(email)) = $1',
+      [emailNorm]
+    );
+    if (result.rows.length === 0) {
+      throw new Error('Email ose fjalëkalim i gabuar');
+    }
+    const row = result.rows[0];
+    const ok = await bcrypt.compare(password, row.password);
+    if (!ok) {
+      throw new Error('Email ose fjalëkalim i gabuar');
+    }
+    const token = this.generateToken(row);
+    return { user: mapUserRow(row), token };
+  }
+
+  async getUserById(userId) {
+    const result = await pool.query(
+      `SELECT id, name, email, role, created_at,
+              phone, bank_account, avatar_url, preferred_field_id
+       FROM users WHERE id = $1`,
+      [userId]
+    );
+    if (result.rows.length === 0) {
+      throw new Error('User not found');
+    }
+    const u = mapUserRow(result.rows[0]);
+    const stats = await this.getUserMatchStats(userId);
+    return { ...u, stats };
+  }
+
+  async getUserMatchStats(userId) {
+    const totalR = await pool.query(
+      `SELECT COUNT(*)::int AS c FROM bookings WHERE organizer_id = $1`,
+      [userId]
+    );
+    const monthR = await pool.query(
+      `SELECT COUNT(*)::int AS c FROM bookings
+       WHERE organizer_id = $1
+         AND start_time >= date_trunc('month', CURRENT_TIMESTAMP)
+         AND start_time < date_trunc('month', CURRENT_TIMESTAMP) + INTERVAL '1 month'`,
+      [userId]
+    );
+    return {
+      matches_total: totalR.rows[0]?.c ?? 0,
+      matches_this_month: monthR.rows[0]?.c ?? 0,
+    };
+  }
+
+  async updateProfile(userId, profileData) {
+    const { firstName, lastName, phone, bank_account, avatar_url, preferred_field_id } = profileData;
+    const updates = [];
+    const vals = [];
+    let i = 1;
+
+    if (firstName != null || lastName != null) {
+      const cur = await pool.query('SELECT name FROM users WHERE id = $1', [userId]);
+      const { firstName: fn0, lastName: ln0 } = splitName(cur.rows[0]?.name);
+      const fn = firstName != null ? String(firstName).trim() : fn0;
+      const ln = lastName != null ? String(lastName).trim() : ln0;
+      const full = `${fn} ${ln}`.trim();
+      if (full) {
+        updates.push(`name = $${i++}`);
+        vals.push(full);
+      }
+    }
+    if (phone !== undefined) {
+      updates.push(`phone = $${i++}`);
+      vals.push(phone === '' || phone == null ? null : String(phone).trim());
+    }
+    if (bank_account !== undefined) {
+      updates.push(`bank_account = $${i++}`);
+      vals.push(bank_account === '' || bank_account == null ? null : String(bank_account).trim());
+    }
+    if (avatar_url !== undefined) {
+      updates.push(`avatar_url = $${i++}`);
+      vals.push(avatar_url === '' || avatar_url == null ? null : String(avatar_url).trim());
+    }
+    if (preferred_field_id !== undefined) {
+      const pid = preferred_field_id === '' || preferred_field_id == null ? null : parseInt(preferred_field_id, 10);
+      updates.push(`preferred_field_id = $${i++}`);
+      vals.push(Number.isNaN(pid) ? null : pid);
+    }
+
+    if (updates.length > 0) {
+      vals.push(userId);
+      await pool.query(`UPDATE users SET ${updates.join(', ')} WHERE id = $${i}`, vals);
+    }
+    return this.getUserById(userId);
+  }
+
+  async searchUsers(query, currentUserId) {
+    const q = String(query || '').trim();
+    if (q.length < 2) return [];
+    const like = `%${q.toLowerCase()}%`;
+    const result = await pool.query(
+      `SELECT id, name, email, role FROM users
+       WHERE id <> $1
+         AND (
+           LOWER(email) LIKE $2
+           OR LOWER(name) LIKE $2
+         )
+       ORDER BY name
+       LIMIT 20`,
+      [currentUserId, like]
+    );
+    return result.rows.map((row) => mapUserRow(row));
+  }
+
+  async ensureAdminUser() {
+    const hash = await bcrypt.hash(ADMIN_PASSWORD, 10);
+    const adminExists = await pool.query('SELECT id FROM users WHERE LOWER(TRIM(email)) = $1', [ADMIN_EMAIL]);
+    if (adminExists.rows.length === 0) {
+      await pool.query(
+        `INSERT INTO users (name, email, password, role)
+         VALUES ($1, $2, $3, 'admin')`,
+        ['Admin MatchDay', ADMIN_EMAIL, hash]
+      );
+      console.log('[seed] Admin user created:', ADMIN_EMAIL);
+    } else {
+      const syncPw =
+        process.env.NODE_ENV !== 'production' || process.env.SYNC_ADMIN_PASSWORD === '1';
+      if (syncPw) {
+        await pool.query(
+          `UPDATE users SET password = $1, role = 'admin', name = COALESCE(NULLIF(TRIM(name), ''), 'Admin MatchDay')
+           WHERE LOWER(TRIM(email)) = $2`,
+          [hash, ADMIN_EMAIL]
+        );
+        console.log('[seed] Admin credentials synced:', ADMIN_EMAIL);
+      }
+    }
+  }
+}
 
 module.exports = AuthService;
-

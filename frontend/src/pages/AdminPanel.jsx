@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { apiFetch } from '../lib/api';
 import { useAuth } from '../context/AuthContext';
 
@@ -19,14 +19,22 @@ function statusLabel(status) {
 export default function AdminPanel() {
   const { token } = useAuth();
   const navigate = useNavigate();
-  const [tab, setTab] = useState('bookings');
+  const [searchParams] = useSearchParams();
+  const tabFromUrl = searchParams.get('tab');
+  const [tab, setTab] = useState(tabFromUrl === 'users' ? 'users' : 'bookings');
   const [matches, setMatches] = useState([]);
   const [stats, setStats] = useState(null);
   const [fields, setFields] = useState([]);
   const [shoes, setShoes] = useState([]);
+  const [users, setUsers] = useState([]);
   const [filtri, setFiltri] = useState('');
   const [loading, setLoading] = useState(true);
   const [mesazhi, setMesazhi] = useState(null);
+
+  useEffect(() => {
+    const t = searchParams.get('tab');
+    if (t === 'users' || t === 'bookings' || t === 'fields' || t === 'inventory') setTab(t);
+  }, [searchParams]);
 
   const tregoBust = useCallback((tekst, lloji = 'sukses') => {
     setMesazhi({ tekst, lloji });
@@ -55,13 +63,18 @@ export default function AdminPanel() {
     return apiFetch('/shoes/inventory', { token }).then((s) => setShoes(Array.isArray(s) ? s : []));
   }, [token]);
 
+  const fetchUsers = useCallback(() => {
+    if (!token) return;
+    return apiFetch('/admin/users', { token }).then((u) => setUsers(Array.isArray(u) ? u : []));
+  }, [token]);
+
   useEffect(() => {
     if (!token) return;
     setLoading(true);
-    Promise.all([fetchBookings(), fetchFields(), fetchShoes()])
+    Promise.all([fetchBookings(), fetchFields(), fetchShoes(), fetchUsers()])
       .catch(() => tregoBust('Gabim gjatë ngarkimit.', 'error'))
       .finally(() => setLoading(false));
-  }, [token, fetchBookings, fetchFields, fetchShoes, tregoBust]);
+  }, [token, fetchBookings, fetchFields, fetchShoes, fetchUsers, tregoBust]);
 
   const handleFshi = async (id) => {
     if (!window.confirm(`Fshi rezervimin #${id}?`)) return;
@@ -122,6 +135,9 @@ export default function AdminPanel() {
         </button>
         <button type="button" className={`tab${tab === 'inventory' ? ' tab--active' : ''}`} onClick={() => setTab('inventory')}>
           Inventari
+        </button>
+        <button type="button" className={`tab${tab === 'users' ? ' tab--active' : ''}`} onClick={() => setTab('users')}>
+          Lojtarët
         </button>
       </div>
 
@@ -233,6 +249,41 @@ export default function AdminPanel() {
               </div>
             ))}
           </div>
+        </div>
+      )}
+
+      {tab === 'users' && (
+        <div className="card">
+          <h2 className="card-title">Të gjithë lojtarët e regjistruar</h2>
+          {users.length === 0 && <p style={{ color: 'var(--text-muted)' }}>Nuk ka përdorues.</p>}
+          {users.length > 0 && (
+            <div className="table-wrap">
+              <table className="table">
+                <thead>
+                  <tr>
+                    <th>ID</th>
+                    <th>Emri</th>
+                    <th>Email</th>
+                    <th>Roli</th>
+                    <th>Data</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {users.map((u) => (
+                    <tr key={u.id}>
+                      <td>#{u.id}</td>
+                      <td>{u.name}</td>
+                      <td>{u.email}</td>
+                      <td>
+                        <span className="badge badge-pending">{u.role}</span>
+                      </td>
+                      <td>{u.created_at ? new Date(u.created_at).toLocaleString('sq-AL') : '—'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
       )}
 

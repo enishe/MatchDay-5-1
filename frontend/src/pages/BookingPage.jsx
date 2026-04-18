@@ -1,9 +1,12 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { apiFetch } from '../lib/api';
 import { useAuth } from '../context/AuthContext';
 
-const ORET = ['08:00', '09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00', '17:00', '18:00', '19:00', '20:00', '21:00'];
+const ORET = [
+  '08:00', '09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00', '17:00', '18:00', '19:00', '20:00', '21:00',
+  '22:00',
+];
 
 function terrainLabel(t) {
   if (t === 'indoor_hall') return 'Sallë Futsali';
@@ -14,6 +17,7 @@ function terrainLabel(t) {
 export default function BookingPage() {
   const { token } = useAuth();
   const navigate = useNavigate();
+  const [params] = useSearchParams();
 
   const [fields, setFields] = useState([]);
   const [terreni, setTerreni] = useState('');
@@ -32,6 +36,15 @@ export default function BookingPage() {
     setMesazhi({ tekst, lloji });
     setTimeout(() => setMesazhi(null), 5000);
   }, []);
+
+  useEffect(() => {
+    const fid = params.get('fieldId');
+    const d = params.get('date');
+    const t = params.get('time');
+    if (fid) setFushaId(fid);
+    if (d) setData(d);
+    if (t) setOra(t);
+  }, [params]);
 
   useEffect(() => {
     if (!token) return;

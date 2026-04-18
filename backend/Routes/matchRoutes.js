@@ -137,7 +137,7 @@ router.get('/my-matches', authenticateToken, async (req, res) => {
 router.post(
     '/matches',
     authenticateToken,
-    requireRole(['organizer', 'admin']),
+    requireRole(['organizer', 'admin', 'participant']),
     async (req, res) => {
         try {
             const payload = {
@@ -198,6 +198,87 @@ router.get('/bookings/availability', authenticateToken, async (req, res) => {
         res.json({ occupiedHours: [...occupiedHours].sort((a, b) => a - b) });
     } catch (error) {
         console.error('Availability error:', error);
+        res.status(400).json({ error: error.message });
+    }
+});
+
+router.get('/fields/availability', authenticateToken, async (req, res) => {
+    try {
+        const date = req.query.date;
+        if (!date) {
+            return res.status(400).json({ error: 'date është e detyrueshme' });
+        }
+        const fieldsR = await pool.query(
+            `SELECT id, name FROM fields WHERE is_active = true ORDER BY id`
+        );
+        const bookR = await pool.query(
+            `SELECT b.field_id, b.start_time, b.end_time, u.name AS organizer_name
+             FROM bookings b
+             JOIN users u ON u.id = b.organizer_id
+             WHERE b.status != 'canceled'
+               AND (b.start_time::date = $1::date OR b.end_time::date = $1::date)`,
+            [date]
+        );
+        const hours = [];
+        for (let h = 8; h <= 22; h += 1) {
+            hours.push(`${String(h).padStart(2, '0')}:00`);
+        }
+        function shortOrganizer(name) {
+            const p = String(name || '').trim().split(/\s+/).filter(Boolean);
+            if (p.length === 0) return 'Lojtar';
+            if (p.length === 1) return p[0];
+            return `${p[0]} ${p[p.length - 1].charAt(0).toUpperCase()}.`;
+        }
+        function slotForHour(fieldId, hourStr) {
+            const hour = parseInt(hourStr.split(':')[0], 10);
+            const slotStart = new Date(`${date}T${String(hour).padStart(2, '0')}:00:00`);
+            const slotEnd = new Date(slotStart.getTime() + 60 * 60 * 1000);
+            for (const row of bookR.rows) {
+                if (row.field_id !== fieldId) continue;
+                const bs = new Date(row.start_time);
+                const be = new Date(row.end_time);
+                if (bs < slotEnd && be > slotStart) {
+                    return {
+                        available: false,
+                        bookedBy: shortOrganizer(row.organizer_name),
+                    };
+                }
+            }
+            return { available: true };
+        }
+        const fields = fieldsR.rows.map((f) => ({
+            id: f.id,
+            name: f.name,
+            slots: hours.map((time) => {
+                const s = slotForHour(f.id, time);
+                return s.available ? { time, available: true } : { time, available: false, bookedBy: s.bookedBy };
+            }),
+        }));
+        res.setHeader('Content-Type', 'application/json; charset=utf-8');
+        res.json({ fields });
+    } catch (error) {
+        console.error('Fields availability error:', error);
+        res.status(400).json({ error: error.message });
+    }
+});
+
+router.get('/admin/users', authenticateToken, requireRole(['admin']), async (req, res) => {
+    try {
+        const r = await pool.query(
+            `SELECT id, name, email, role, created_at FROM users ORDER BY id ASC`
+        );
+        res.setHeader('Content-Type', 'application/json; charset=utf-8');
+        res.json(
+            r.rows.map((row) => ({
+                id: row.id,
+                name: row.name,
+                email: row.email,
+                role: row.role === 'participant' ? 'player' : row.role,
+                created_at: row.created_at,
+            }))
+        );
+    } catch (error) {
+        console.error('Admin users error:', error);
         res.status(400).json({ error: error.message });
     }
 });
@@ -273,7 +354,7 @@ router.get('/shoes/inventory', authenticateToken, async (req, res) => {
 
 router.get('/search-users', authenticateToken, async (req, res) => {
     try {
-        const users = await authService.searchUsersByUsername(req.query.q, req.user.id);
+        const users = await authService.searchUsers(req.query.q, req.user.id);
         res.json(users);
     } catch (error) {
         console.error('Search users error:', error);

@@ -2,7 +2,10 @@ const express = require('express');
 const cors = require('cors');
 const path = require('path');
 const { router: authRouter } = require('./Routes/authRoutes');
+const { router: friendsRouter } = require('./Routes/friendsRoutes');
 const matchRouter = require('./Routes/matchRoutes');
+const { ensureSchema, seedMitrovicaFields } = require('./config/ensureSchema');
+const AuthService = require('./Services/AuthService');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -21,6 +24,7 @@ app.get('/health', (req, res) => {
 
 // Routes
 app.use('/api/auth', authRouter);
+app.use('/api/friends', friendsRouter);
 app.use('/api', matchRouter);
 
 // Root endpoint - serve frontend
@@ -55,10 +59,22 @@ app.use('/api/*', (req, res) => {
   res.status(404).json({ error: 'API endpoint not found' });
 });
 
-// Start server
-app.listen(PORT, () => {
-  console.log(`MATCHDAY server running on port ${PORT}`);
-  console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
-});
+async function bootstrap() {
+  await ensureSchema();
+  await seedMitrovicaFields();
+  await new AuthService().ensureAdminUser();
+}
+
+bootstrap()
+  .then(() => {
+    app.listen(PORT, () => {
+      console.log(`MATCHDAY server running on port ${PORT}`);
+      console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
+    });
+  })
+  .catch((err) => {
+    console.error('Bootstrap failed:', err);
+    process.exit(1);
+  });
 
 module.exports = app;

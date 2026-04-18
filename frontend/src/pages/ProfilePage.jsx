@@ -1,0 +1,162 @@
+import { useCallback, useEffect, useState } from 'react';
+import { apiFetch } from '../lib/api';
+import { useAuth } from '../context/AuthContext';
+
+export default function ProfilePage() {
+  const { token, user, refreshUser } = useAuth();
+  const [profile, setProfile] = useState(null);
+  const [fields, setFields] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [msg, setMsg] = useState(null);
+
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
+  const [phone, setPhone] = useState('');
+  const [bank, setBank] = useState('');
+  const [avatar, setAvatar] = useState('');
+  const [prefField, setPrefField] = useState('');
+
+  const load = useCallback(() => {
+    if (!token) return;
+    setLoading(true);
+    Promise.all([apiFetch('/auth/profile', { token }), apiFetch('/fields', { token })])
+      .then(([p, f]) => {
+        setProfile(p);
+        setFields(Array.isArray(f) ? f : []);
+        setFirstName(p.firstName || '');
+        setLastName(p.lastName || '');
+        setPhone(p.phone || '');
+        setBank(p.bank_account || '');
+        setAvatar(p.avatar_url || '');
+        setPrefField(p.preferred_field_id != null ? String(p.preferred_field_id) : '');
+      })
+      .catch(() => setMsg({ type: 'err', text: 'Nuk u ngarkua profili.' }))
+      .finally(() => setLoading(false));
+  }, [token]);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  const onSave = async (e) => {
+    e.preventDefault();
+    if (!token) return;
+    setSaving(true);
+    setMsg(null);
+    try {
+      const body = {
+        firstName: firstName.trim(),
+        lastName: lastName.trim(),
+        phone: phone.trim(),
+        bank_account: bank.trim(),
+        avatar_url: avatar.trim(),
+        preferred_field_id: prefField === '' ? null : parseInt(prefField, 10),
+      };
+      const updated = await apiFetch('/auth/profile', { token, method: 'PUT', body });
+      setProfile(updated);
+      const raw = localStorage.getItem('matchday_user');
+      const prev = raw ? JSON.parse(raw) : {};
+      localStorage.setItem(
+        'matchday_user',
+        JSON.stringify({
+          ...prev,
+          ...updated,
+          name: updated.name,
+        })
+      );
+      refreshUser();
+      setMsg({ type: 'ok', text: 'Profili u ruajt.' });
+    } catch (err) {
+      setMsg({ type: 'err', text: err.message || 'Ruajtja dështoi.' });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="page">
+        <div className="spinner" />
+        <p style={{ textAlign: 'center', color: 'var(--text-muted)' }}>Duke ngarkuar…</p>
+      </div>
+    );
+  }
+
+  const stats = profile?.stats || { matches_total: 0, matches_this_month: 0 };
+
+  return (
+    <div className="page">
+      <h1 className="page-title">Profili im</h1>
+      <p className="page-subtitle">Të dhëna personale dhe preferenca</p>
+
+      {msg && <div className={`feedback feedback-${msg.type === 'err' ? 'error' : 'success'}`}>{msg.text}</div>}
+
+      <div className="card" style={{ marginBottom: 16 }}>
+        <div className="card-title">Statistika</div>
+        <p style={{ margin: 0, color: 'var(--text-secondary)' }}>
+          Ndeshje totale (si organizator): <strong>{stats.matches_total}</strong>
+        </p>
+        <p style={{ margin: '8px 0 0', color: 'var(--text-secondary)' }}>
+          Ndeshje këtë muaj: <strong>{stats.matches_this_month}</strong>
+        </p>
+      </div>
+
+      <form className="card" onSubmit={onSave}>
+        <div className="card-title">Ndrysho të dhënat</div>
+        <div className="form-group">
+          <label className="label" htmlFor="fn">
+            Emri
+          </label>
+          <input id="fn" className="input" value={firstName} onChange={(e) => setFirstName(e.target.value)} />
+        </div>
+        <div className="form-group">
+          <label className="label" htmlFor="ln">
+            Mbiemri
+          </label>
+          <input id="ln" className="input" value={lastName} onChange={(e) => setLastName(e.target.value)} />
+        </div>
+        <div className="form-group">
+          <label className="label" htmlFor="em">
+            Email (vetëm lexim)
+          </label>
+          <input id="em" className="input" value={profile?.email || user?.email || ''} disabled readOnly />
+        </div>
+        <div className="form-group">
+          <label className="label" htmlFor="ph">
+            Telefoni (opsional)
+          </label>
+          <input id="ph" className="input" value={phone} onChange={(e) => setPhone(e.target.value)} />
+        </div>
+        <div className="form-group">
+          <label className="label" htmlFor="bk">
+            Numri i llogarisë bankare (opsional)
+          </label>
+          <input id="bk" className="input" value={bank} onChange={(e) => setBank(e.target.value)} />
+        </div>
+        <div className="form-group">
+          <label className="label" htmlFor="av">
+            URL e fotos së profilit (opsional)
+          </label>
+          <input id="av" className="input" value={avatar} onChange={(e) => setAvatar(e.target.value)} placeholder="https://..." />
+        </div>
+        <div className="form-group">
+          <label className="label" htmlFor="pf">
+            Fusha e preferuar (Mitrovicë)
+          </label>
+          <select id="pf" className="input" value={prefField} onChange={(e) => setPrefField(e.target.value)}>
+            <option value="">— Zgjidh —</option>
+            {fields.map((f) => (
+              <option key={f.id} value={String(f.id)}>
+                {f.name}
+              </option>
+            ))}
+          </select>
+        </div>
+        <button type="submit" className="btn btn-accent" disabled={saving}>
+          {saving ? 'Duke ruajtur…' : 'Ruaj ndryshimet'}
+        </button>
+      </form>
+    </div>
+  );
+}

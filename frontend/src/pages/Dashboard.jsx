@@ -22,6 +22,30 @@ function isSameDay(a, b) {
   return new Date(a).toDateString() === new Date(b).toDateString();
 }
 
+function statsFromMatches(matches) {
+  const arr = Array.isArray(matches) ? matches : [];
+  if (arr.length === 0) {
+    return {
+      total: 0,
+      mesatare: 0,
+      totali_cmimit: 0,
+      pending: 0,
+      confirmed: 0,
+      canceled: 0,
+    };
+  }
+  const cmimet = arr.map((m) => parseFloat(m.total_price || 0));
+  const shuma = cmimet.reduce((a, b) => a + b, 0);
+  return {
+    total: arr.length,
+    mesatare: parseFloat((shuma / cmimet.length).toFixed(2)),
+    totali_cmimit: parseFloat(shuma.toFixed(2)),
+    pending: arr.filter((m) => m.status === 'pending').length,
+    confirmed: arr.filter((m) => m.status === 'confirmed').length,
+    canceled: arr.filter((m) => m.status === 'canceled').length,
+  };
+}
+
 export default function Dashboard() {
   const { token, isAdmin } = useAuth();
   const [stats, setStats] = useState(null);
@@ -34,14 +58,20 @@ export default function Dashboard() {
     if (!token) return;
     let cancelled = false;
     setLoading(true);
-    Promise.all([
-      apiFetch('/matches/stats', { token }),
-      apiFetch('/matches', { token }),
-    ])
-      .then(([s, m]) => {
+    const req = isAdmin
+      ? Promise.all([apiFetch('/matches/stats', { token }), apiFetch('/matches', { token })]).then(([s, m]) => ({
+          stats: s,
+          matches: Array.isArray(m) ? m : [],
+        }))
+      : apiFetch('/my-matches', { token }).then((m) => {
+          const list = Array.isArray(m) ? m : [];
+          return { stats: statsFromMatches(list), matches: list };
+        });
+    req
+      .then(({ stats: s, matches: m }) => {
         if (cancelled) return;
         setStats(s);
-        setMatches(Array.isArray(m) ? m : []);
+        setMatches(m);
         setError(null);
       })
       .catch((e) => {
@@ -53,7 +83,7 @@ export default function Dashboard() {
     return () => {
       cancelled = true;
     };
-  }, [token]);
+  }, [token, isAdmin]);
 
   const fillim = useMemo(() => {
     const d = new Date();
@@ -102,10 +132,28 @@ export default function Dashboard() {
     { label: 'Ndeshjet Sot', vlera: ndeshjeSot, accent: '#8e44ad' },
   ];
 
+  const playerActions = [
+    { label: 'Rezervo fushë', path: '/booking', accent: 'var(--color-accent)' },
+    { label: 'Patika me qira', path: '/equipment', accent: '#3498db' },
+    { label: 'Kalendari', path: '/calendar', accent: '#9b59b6' },
+    { label: 'Friends', path: '/friends', accent: '#e67e22' },
+    { label: 'Profili im', path: '/profile', accent: '#1abc9c' },
+  ];
+
+  const adminExtras = [
+    { label: 'Të gjitha rezervimet', desc: 'Menaxho rezervimet', path: '/admin' },
+    { label: 'Statistika & fusha', desc: 'Paneli i plotë admin', path: '/admin' },
+    { label: 'Lojtarët', desc: 'Lista e përdoruesve', path: '/admin?tab=users' },
+  ];
+
   return (
     <div className="page">
       <h1 className="page-title">Dashboard</h1>
-      <p className="page-subtitle">Mirë se erdhe në MatchDay 5+1 — Smart Split aktiv</p>
+      <p className="page-subtitle">
+        {isAdmin
+          ? 'Pamje administrator — të gjitha rezervimet dhe statistikat'
+          : 'Pamje lojtari — rezervimet e tua dhe veprime të shpejta'}
+      </p>
 
       <div className="stat-grid-4">
         {statKartat.map((k) => (
@@ -116,7 +164,53 @@ export default function Dashboard() {
         ))}
       </div>
 
-      <div className="stat-grid-3">
+      <div className="card" style={{ marginTop: 16 }}>
+        <div className="card-title">Veprime të shpejta</div>
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))',
+            gap: 12,
+          }}
+        >
+          {playerActions.map((a) => (
+            <button
+              key={a.path + a.label}
+              type="button"
+              className="btn btn-ghost"
+              style={{
+                flexDirection: 'column',
+                alignItems: 'flex-start',
+                textAlign: 'left',
+                borderLeft: `4px solid ${a.accent}`,
+                padding: '14px 16px',
+                height: 'auto',
+              }}
+              onClick={() => navigate(a.path)}
+            >
+              <span style={{ fontWeight: 700 }}>{a.label}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {isAdmin && (
+        <div className="card" style={{ marginTop: 16 }}>
+          <div className="card-title">Veprime administratori</div>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
+            {adminExtras.map((x) => (
+              <button key={x.label} type="button" className="btn btn-accent" onClick={() => navigate(x.path)}>
+                {x.label}
+              </button>
+            ))}
+          </div>
+          <p style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 10, marginBottom: 0 }}>
+            Në panelin admin menaxhoni rezervimet, fushat, inventarin dhe lojtarët.
+          </p>
+        </div>
+      )}
+
+      <div className="stat-grid-3" style={{ marginTop: 16 }}>
         {[
           { label: 'Në Pritje', n: stats?.pending, c: 'var(--color-warning)' },
           { label: 'Konfirmuara', n: stats?.confirmed, c: 'var(--color-accent)' },
@@ -141,9 +235,9 @@ export default function Dashboard() {
         ))}
       </div>
 
-      <div className="grid-2-col">
+      <div className="grid-2-col" style={{ marginTop: 16 }}>
         <div className="card">
-          <div className="card-title">Java Aktuale</div>
+          <div className="card-title">Java aktuale</div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 4, marginBottom: 8 }}>
             {DITET.map((d, i) => {
               const data = new Date(fillim);
@@ -189,7 +283,7 @@ export default function Dashboard() {
         <div className="card">
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
             <h2 className="card-title" style={{ marginBottom: 0 }}>
-              Ndeshjet e Fundit
+              {isAdmin ? 'Ndeshjet e fundit (të gjitha)' : 'Ndeshjet e mia'}
             </h2>
             <button type="button" className="btn btn-ghost" style={{ fontSize: 12, padding: '5px 12px' }} onClick={() => navigate('/booking')}>
               + Rezervo
@@ -243,23 +337,6 @@ export default function Dashboard() {
               </tbody>
             </table>
           </div>
-        </div>
-      </div>
-
-      <div className="card" style={{ marginTop: 4 }}>
-        <div className="card-title">Veprime të Shpejta</div>
-        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-          <button type="button" className="btn btn-accent" onClick={() => navigate('/booking')}>
-            Rezervo Termin
-          </button>
-          <button type="button" className="btn btn-ghost" onClick={() => navigate('/equipment')}>
-            Shiko Pajisjet
-          </button>
-          {isAdmin && (
-            <button type="button" className="btn btn-ghost" onClick={() => navigate('/admin')}>
-              Panel Admin
-            </button>
-          )}
         </div>
       </div>
     </div>

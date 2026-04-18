@@ -3,6 +3,14 @@ import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { LogOut, Menu, Moon, Sun, X } from 'lucide-react';
 import { getStoredTheme, toggleTheme, useAuth } from '../context/AuthContext';
 
+function displayName(user) {
+  if (!user) return '';
+  if (user.name) return user.name;
+  const fn = user.firstName || '';
+  const ln = user.lastName || '';
+  return `${fn} ${ln}`.trim() || user.email || '';
+}
+
 function initials(name) {
   if (!name || typeof name !== 'string') return '?';
   const p = name.trim().split(/\s+/);
@@ -49,6 +57,15 @@ export default function Navbar() {
       <NavLink to="/equipment" className={navClass}>
         Pajisjet
       </NavLink>
+      <NavLink to="/calendar" className={navClass}>
+        Kalendari
+      </NavLink>
+      <NavLink to="/friends" className={navClass}>
+        Friends
+      </NavLink>
+      <NavLink to="/profile" className={navClass}>
+        Profili
+      </NavLink>
       {isAdmin && (
         <NavLink to="/admin" className={navClass}>
           Admin
@@ -87,11 +104,11 @@ export default function Navbar() {
             aria-haspopup="true"
             onClick={() => setUserOpen((o) => !o)}
           >
-            {initials(user?.name)}
+            {initials(displayName(user))}
           </button>
           <div className={`user-dropdown${userOpen ? ' open' : ''}`}>
             <div style={{ padding: '8px 12px', fontSize: 12, color: 'var(--text-muted)' }}>
-              {user?.name}
+              {displayName(user)}
             </div>
             <button
               type="button"

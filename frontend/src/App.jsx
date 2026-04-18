@@ -9,6 +9,9 @@ import BookingPage from './pages/BookingPage';
 import MatchDetail from './pages/MatchDetail';
 import Equipment from './pages/Equipment';
 import AdminPanel from './pages/AdminPanel';
+import CalendarPage from './pages/CalendarPage';
+import FriendsPage from './pages/FriendsPage';
+import ProfilePage from './pages/ProfilePage';
 
 function AppShell({ children }) {
   const location = useLocation();
@@ -65,6 +68,30 @@ export default function App() {
             element={
               <ProtectedRoute>
                 <Equipment />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/calendar"
+            element={
+              <ProtectedRoute>
+                <CalendarPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/friends"
+            element={
+              <ProtectedRoute>
+                <FriendsPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/profile"
+            element={
+              <ProtectedRoute>
+                <ProfilePage />
               </ProtectedRoute>
             }
           />

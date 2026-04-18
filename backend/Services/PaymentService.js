@@ -253,15 +253,14 @@ class PaymentService {
                 pp.paid_at,
                 pp.refunded_at,
                 u.name as user_name,
-                up.username as user_username,
+                NULL::text as user_username,
                 si.size as shoe_size,
                 si.rent_price as shoe_rent_price
-             FROM PlayerPayments pp
-             JOIN Users u ON pp.user_id = u.id
-             LEFT JOIN UserProfiles up ON u.id = up.user_id
-             LEFT JOIN ShoesInventory si ON pp.shoe_id = si.id
+             FROM playerpayments pp
+             JOIN users u ON pp.user_id = u.id
+             LEFT JOIN shoesinventory si ON pp.shoe_id = si.id
              WHERE pp.booking_id = $1
-             ORDER BY pp.created_at`,
+             ORDER BY pp.id`,
             [bookingId]
         );
         

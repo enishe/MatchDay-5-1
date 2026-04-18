@@ -1,8 +1,8 @@
 /**
- * Base URL for REST API (no trailing slash).
- * Dev: leave unset → same-origin `/api` (Vite proxy → http://localhost:5000/api).
- * Prod: set VITE_API_URL to the API origin, e.g. https://your-host.com or http://localhost:5000
- *      (this helper ensures the path always ends with `/api` to match Express `app.use('/api', …)`).
+ * Bazë URL për API (pa slash në fund).
+ * Development: http://localhost:5000/api
+ * Production: vendos VITE_API_URL me origjinën e Render-it (p.sh. https://matchday-api.onrender.com)
+ *             — path-i përfundon gjithmonë me /api.
  */
 export function getApiBase() {
   const raw = import.meta.env.VITE_API_URL;
@@ -11,7 +11,7 @@ export function getApiBase() {
     try {
       const url = new URL(trimmed);
       const path = (url.pathname || '/').replace(/\/+$/, '') || '/';
-      if (path === '/' ) {
+      if (path === '/') {
         url.pathname = '/api';
       }
       return `${url.origin}${url.pathname}`.replace(/\/+$/, '') || `${url.origin}/api`;
@@ -21,6 +21,9 @@ export function getApiBase() {
       }
       return trimmed;
     }
+  }
+  if (import.meta.env.DEV) {
+    return 'http://localhost:5000/api';
   }
   return '/api';
 }
@@ -34,15 +37,23 @@ export async function apiFetch(path, options = {}) {
   const p = path.startsWith('/') ? path : `/${path}`;
   const h = { ...headers };
   if (token) h.Authorization = `Bearer ${token}`;
-  if (body !== undefined && body !== null && !h['Content-Type']) {
+  if (body !== undefined && body != null && !h['Content-Type']) {
     h['Content-Type'] = 'application/json; charset=utf-8';
   }
-  const res = await fetch(`${getApiBase()}${p}`, {
-    method,
-    headers: h,
-    body: body !== undefined && body !== null ? JSON.stringify(body) : undefined,
-  });
+  let res;
+  try {
+    res = await fetch(`${getApiBase()}${p}`, {
+      method,
+      headers: h,
+      body: body !== undefined && body != null ? JSON.stringify(body) : undefined,
+    });
+  } catch {
+    throw new Error('Nuk u arrit serveri. Kontrollo lidhjen.');
+  }
   const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(data.error || `Gabim ${res.status}`);
+  if (!res.ok) {
+    const msg = typeof data.error === 'string' && data.error.trim() !== '' ? data.error : `Gabim ${res.status}`;
+    throw new Error(msg);
+  }
   return data;
 }
