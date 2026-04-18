@@ -86,15 +86,23 @@ class AuthService {
     const fullName = `${firstName} ${lastName}`.trim();
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    const ins = await pool.query(
-      `INSERT INTO users (name, email, password, role)
-       VALUES ($1, $2, $3, 'participant')
-       RETURNING id, name, email, role, created_at`,
-      [fullName, emailNorm, hashedPassword]
-    );
-    const row = ins.rows[0];
-    const token = this.generateToken(row);
-    return { user: mapUserRow(row), token };
+    try {
+      const ins = await pool.query(
+        `INSERT INTO users (name, email, password, role)
+         VALUES ($1, $2, $3, 'participant')
+         RETURNING id, name, email, role, created_at`,
+        [fullName, emailNorm, hashedPassword]
+      );
+      const row = ins.rows[0];
+      const token = this.generateToken(row);
+      return { user: mapUserRow(row), token };
+    } catch (e) {
+      if (e && e.code === '23505') {
+        throw new Error('Ky email është tashmë i regjistruar.');
+      }
+      console.error('[AuthService.register] DB:', e.message);
+      throw new Error('Regjistrimi dështoi. Kontrollo databazën ose provo përsëri.');
+    }
   }
 
   async login(email, password) {
@@ -103,7 +111,7 @@ class AuthService {
     }
     const emailNorm = String(email).trim().toLowerCase();
     const result = await pool.query(
-      'SELECT id, name, email, password, role, created_at, phone, bank_account, avatar_url, preferred_field_id FROM users WHERE LOWER(TRIM(email)) = $1',
+      'SELECT id, name, email, password, role, created_at FROM users WHERE LOWER(TRIM(email)) = $1',
       [emailNorm]
     );
     if (result.rows.length === 0) {
@@ -119,12 +127,16 @@ class AuthService {
   }
 
   async getUserById(userId) {
-    const result = await pool.query(
-      `SELECT id, name, email, role, created_at,
-              phone, bank_account, avatar_url, preferred_field_id
-       FROM users WHERE id = $1`,
-      [userId]
-    );
+    const result = await pool
+      .query(
+        `SELECT id, name, email, role, created_at,
+                phone, bank_account, avatar_url, preferred_field_id
+         FROM users WHERE id = $1`,
+        [userId]
+      )
+      .catch(() =>
+        pool.query(`SELECT id, name, email, role, created_at FROM users WHERE id = $1`, [userId])
+      );
     if (result.rows.length === 0) {
       throw new Error('User not found');
     }

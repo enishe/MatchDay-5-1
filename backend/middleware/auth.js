@@ -7,6 +7,7 @@ function authenticateToken(req, res, next) {
     const token = authHeader && authHeader.split(' ')[1];
 
     if (!token) {
+        res.setHeader('Content-Type', 'application/json; charset=utf-8');
         return res.status(401).json({ error: 'Access token required' });
     }
 
@@ -15,6 +16,7 @@ function authenticateToken(req, res, next) {
         req.user = decoded;
         next();
     } catch {
+        res.setHeader('Content-Type', 'application/json; charset=utf-8');
         return res.status(403).json({ error: 'Invalid or expired token' });
     }
 }
@@ -26,6 +28,7 @@ function requireRole(roles) {
     }
     return (req, res, next) => {
         if (!allowed.has(req.user.role)) {
+            res.setHeader('Content-Type', 'application/json; charset=utf-8');
             return res.status(403).json({ error: 'Insufficient permissions' });
         }
         next();

@@ -1,6 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { Search, X, UserPlus } from 'lucide-react';
-import { getApiBase } from '../lib/api';
+import { getApiBase, parseResponseJson } from '../lib/api';
+
+function userLabel(u) {
+  if (!u) return '';
+  if (u.name) return u.name;
+  if (u.firstName || u.lastName) return `${u.firstName || ''} ${u.lastName || ''}`.trim();
+  return u.email || `ID ${u.id}`;
+}
 
 const UserAutocomplete = ({ onUserSelect, selectedUsers = [], maxUsers = 12 }) => {
   const [query, setQuery] = useState('');
@@ -26,10 +33,10 @@ const UserAutocomplete = ({ onUserSelect, selectedUsers = [], maxUsers = 12 }) =
         });
 
         if (response.ok) {
-          const data = await response.json();
-          // Filter out already selected users
-          const filtered = data.filter(user => 
-            !selectedUsers.some(selected => selected.id === user.id)
+          const data = await parseResponseJson(response);
+          const list = Array.isArray(data) ? data : [];
+          const filtered = list.filter(
+            (user) => !selectedUsers.some((selected) => selected.id === user.id)
           );
           setSuggestions(filtered);
         }
@@ -69,7 +76,7 @@ const UserAutocomplete = ({ onUserSelect, selectedUsers = [], maxUsers = 12 }) =
               key={user.id}
               className="flex items-center gap-2 bg-primary text-text px-3 py-1.5 rounded-full text-sm"
             >
-              <span className="font-medium">@{user.username}</span>
+              <span className="font-medium">{userLabel(user)}</span>
               <button
                 type="button"
                 onClick={() => handleRemoveUser(user.id)}
@@ -121,8 +128,8 @@ const UserAutocomplete = ({ onUserSelect, selectedUsers = [], maxUsers = 12 }) =
               className="w-full px-4 py-3 text-left hover:bg-primary/50 transition-colors flex items-center gap-3"
             >
               <div className="flex-1">
-                <div className="font-medium text-text">@{user.username}</div>
-                <div className="text-sm text-text/70">{user.name}</div>
+                <div className="font-medium text-text">{userLabel(user)}</div>
+                <div className="text-sm text-text/70">{user.email || ''}</div>
               </div>
               <UserPlus className="h-4 w-4 text-accent" />
             </button>

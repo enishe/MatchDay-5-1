@@ -1,8 +1,7 @@
 /**
  * Bazë URL për API (pa slash në fund).
- * Development: http://localhost:5000/api
- * Production: vendos VITE_API_URL me origjinën e Render-it (p.sh. https://matchday-api.onrender.com)
- *             — path-i përfundon gjithmonë me /api.
+ * Parazgjedhja: `/api` (e njëjtë origjinë) — në dev Vite e proxy-n te porti 5000 (shiko vite.config.js).
+ * Në prod me frontend të ndarë nga API, vendos VITE_API_URL (p.sh. https://api-xxx.onrender.com ose .../api).
  */
 export function getApiBase() {
   const raw = import.meta.env.VITE_API_URL;
@@ -22,9 +21,6 @@ export function getApiBase() {
       return trimmed;
     }
   }
-  if (import.meta.env.DEV) {
-    return 'http://localhost:5000/api';
-  }
   return '/api';
 }
 
@@ -32,6 +28,16 @@ export function getApiBase() {
  * @param {string} path - rrugë relative pas /api (p.sh. "/matches" ose "matches")
  * @param {{ token?: string, method?: string, body?: unknown, headers?: Record<string,string> }} [options]
  */
+/** Përdoret edhe nga authStore për të njëjtën sjellje si apiFetch. */
+export async function parseResponseJson(res) {
+  const text = await res.text();
+  try {
+    return text && text.trim() ? JSON.parse(text) : {};
+  } catch {
+    return { _nonJson: text };
+  }
+}
+
 export async function apiFetch(path, options = {}) {
   const { token, method = 'GET', body, headers = {} } = options;
   const p = path.startsWith('/') ? path : `/${path}`;
@@ -48,12 +54,21 @@ export async function apiFetch(path, options = {}) {
       body: body !== undefined && body != null ? JSON.stringify(body) : undefined,
     });
   } catch {
-    throw new Error('Nuk u arrit serveri. Kontrollo lidhjen.');
+    throw new Error('Nuk u arrit serveri. Kontrollo që API të jetë e ndezur.');
   }
-  const data = await res.json().catch(() => ({}));
+  const data = await parseResponseJson(res);
   if (!res.ok) {
-    const msg = typeof data.error === 'string' && data.error.trim() !== '' ? data.error : `Gabim ${res.status}`;
+    const raw = data._nonJson;
+    const msg =
+      typeof data.error === 'string' && data.error.trim() !== ''
+        ? data.error
+        : typeof raw === 'string' && raw.trim() && !raw.trimStart().startsWith('<')
+          ? raw.trim().slice(0, 200)
+          : `Gabim ${res.status}`;
     throw new Error(msg);
+  }
+  if (data._nonJson !== undefined) {
+    throw new Error('Përgjigje e pavlefshme nga serveri.');
   }
   return data;
 }

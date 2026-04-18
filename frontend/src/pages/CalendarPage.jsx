@@ -8,6 +8,15 @@ const ORET = [
   '21:00', '22:00',
 ];
 
+function parseLocalHourSlot(dateStr, hourLabel) {
+  return new Date(`${dateStr}T${hourLabel}:00`);
+}
+
+/** Interval fiks 1-orësh i kaluar për datën e zgjedhur (vetëm “sot” praktikisht). */
+function isSlotStartInPast(dateStr, hourLabel) {
+  return parseLocalHourSlot(dateStr, hourLabel).getTime() <= Date.now();
+}
+
 function startOfWeekMonday(d) {
   const x = new Date(d);
   const day = x.getDay();
@@ -64,15 +73,17 @@ export default function CalendarPage() {
 
   const fields = data?.fields || [];
 
-  const onSlotClick = (fieldId, time, available) => {
-    if (!available) return;
+  const onSlotClick = (fieldId, time, bookable) => {
+    if (!bookable) return;
     navigate(`/booking?fieldId=${fieldId}&date=${encodeURIComponent(selectedDate)}&time=${encodeURIComponent(time)}`);
   };
 
   return (
     <div className="page">
       <h1 className="page-title">Kalendari</h1>
-      <p className="page-subtitle">Java aktuale — fushat sipas orës (e gjelbër = lirë, e kuqe = zënë)</p>
+      <p className="page-subtitle">
+        Orët janë intervale fikse 1-orëshe. E gjelbër = i lirë për atë orë; e kuqe = i zënë; gri = orë e kaluar (sot).
+      </p>
 
       <div className="card" style={{ marginBottom: 16 }}>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, alignItems: 'center' }}>
@@ -128,25 +139,33 @@ export default function CalendarPage() {
                     {fields.map((f) => {
                       const slot = (f.slots || []).find((s) => s.time === time);
                       const available = slot?.available !== false;
+                      const past = isSlotStartInPast(selectedDate, time);
+                      const bookable = available && !past;
                       return (
                         <td key={`${f.id}-${time}`} style={{ padding: 4 }}>
                           <button
                             type="button"
-                            onClick={() => onSlotClick(f.id, time, available)}
-                            disabled={!available}
-                            title={available ? 'Rezervo' : slot?.bookedBy || 'Zënë'}
+                            onClick={() => onSlotClick(f.id, time, bookable)}
+                            disabled={!bookable}
+                            title={
+                              bookable ? 'Rezervo' : past ? 'Kaluar' : slot?.bookedBy || 'Zënë'
+                            }
                             style={{
                               width: '100%',
                               minHeight: 36,
                               borderRadius: 6,
                               border: '1px solid var(--border-color)',
-                              cursor: available ? 'pointer' : 'not-allowed',
-                              background: available ? 'rgba(39, 174, 96, 0.25)' : 'rgba(192, 57, 43, 0.35)',
+                              cursor: bookable ? 'pointer' : 'not-allowed',
+                              background: bookable
+                                ? 'rgba(39, 174, 96, 0.25)'
+                                : past
+                                  ? 'rgba(127, 140, 141, 0.35)'
+                                  : 'rgba(192, 57, 43, 0.35)',
                               color: 'var(--text-primary)',
                               fontSize: 11,
                             }}
                           >
-                            {available ? 'Lirë' : slot?.bookedBy || 'Zënë'}
+                            {bookable ? 'Lirë' : past ? 'Kaluar' : slot?.bookedBy || 'Zënë'}
                           </button>
                         </td>
                       );

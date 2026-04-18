@@ -8,6 +8,16 @@ const ORET = [
   '22:00',
 ];
 
+/** Fillim lokal i intervalit fiks 1-orësh (p.sh. data + "15:00"). */
+function parseLocalHourSlot(dateStr, hourLabel) {
+  return new Date(`${dateStr}T${hourLabel}:00`);
+}
+
+/** True nëse intervali fillon në të kaluarën (p.sh. sot 10:00 kur ora tani është 11:00). */
+function isSlotStartInPast(dateStr, hourLabel) {
+  return parseLocalHourSlot(dateStr, hourLabel).getTime() <= Date.now();
+}
+
 function terrainLabel(t) {
   if (t === 'indoor_hall') return 'Sallë Futsali';
   if (t === 'artificial_grass') return 'Bar Artificial';
@@ -45,6 +55,12 @@ export default function BookingPage() {
     if (d) setData(d);
     if (t) setOra(t);
   }, [params]);
+
+  /** Nëse vjen nga kalendari me orë tashmë të kaluar (p.sh. sot), hiqe zgjedhjen. */
+  useEffect(() => {
+    if (!data || !ora) return;
+    if (isSlotStartInPast(data, ora)) setOra('');
+  }, [data, ora]);
 
   useEffect(() => {
     if (!token) return;
@@ -114,14 +130,18 @@ export default function BookingPage() {
     return occupiedHours.includes(h);
   };
 
+  const hourBlocked = (hourLabel) => hourOccupied(hourLabel) || (data && isSlotStartInPast(data, hourLabel));
+
   const handleRezervim = async (e) => {
     e.preventDefault();
     if (!fushaId) return tregoBust('Zgjidhni një fushë.', 'error');
     if (!data) return tregoBust('Zgjidhni datën.', 'error');
     if (!ora) return tregoBust('Zgjidhni orën.', 'error');
     if (slotConflict) return tregoBust('Orari është i zënë.', 'error');
+    if (hourOccupied(ora)) return tregoBust('Kjo orë është e zënë sipas kalendarit.', 'error');
+    if (isSlotStartInPast(data, ora)) return tregoBust('Kjo orë është tashmë e kaluar. Zgjidhni një interval në të ardhmen.', 'error');
 
-    const startTime = new Date(`${data}T${ora}:00`);
+    const startTime = parseLocalHourSlot(data, ora);
     const endTime = new Date(startTime.getTime() + 60 * 60 * 1000);
     if (startTime <= new Date()) return tregoBust('Koha duhet të jetë në të ardhmen.', 'error');
 
@@ -170,12 +190,15 @@ export default function BookingPage() {
     transition: 'all 0.15s',
   });
 
-  const formComplete = fushaId && data && ora && !slotConflict && !hourOccupied(ora);
+  const formComplete = fushaId && data && ora && !slotConflict && !hourBlocked(ora);
 
   return (
     <div className="page">
       <h1 className="page-title">Rezervo Termin</h1>
-      <p className="page-subtitle">Zgjidh fushën, datën dhe orën — Smart Split automatik</p>
+      <p className="page-subtitle">
+        Terminet janë me orë të plotë (p.sh. 15:00–16:00). Zgjidh datën dhe cilën orë të lirë dëshiron — mund ta konfirmosh kur të jesh
+        online; mjafton që ajo orë të mos jetë e zënë.
+      </p>
 
       {mesazhi && (
         <div className={`feedback feedback-${mesazhi.lloji === 'error' ? 'error' : 'success'}`}>{mesazhi.tekst}</div>
@@ -246,19 +269,26 @@ export default function BookingPage() {
                 <div className="hour-grid">
                   {ORET.map((o) => {
                     const occ = hourOccupied(o);
+                    const past = data && isSlotStartInPast(data, o);
+                    const blocked = occ || past;
                     const active = ora === o;
                     return (
                       <button
                         key={o}
                         type="button"
-                        disabled={occ}
-                        className={`hour-slot${active ? ' hour-slot--active' : ''}${occ ? ' hour-slot--disabled' : ''}`}
-                        onClick={() => !occ && setOra(o)}
+                        disabled={blocked}
+                        className={`hour-slot${active ? ' hour-slot--active' : ''}${blocked ? ' hour-slot--disabled' : ''}`}
+                        onClick={() => !blocked && setOra(o)}
                       >
                         {o}
                         {occ && (
                           <span className="badge badge-canceled" style={{ display: 'block', marginTop: 4, fontSize: 9 }}>
                             E zënë
+                          </span>
+                        )}
+                        {!occ && past && (
+                          <span className="badge badge-canceled" style={{ display: 'block', marginTop: 4, fontSize: 9 }}>
+                            Kaluar
                           </span>
                         )}
                       </button>

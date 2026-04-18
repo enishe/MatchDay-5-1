@@ -222,16 +222,25 @@ const useRealtimeStore = create((set, get) => ({
       });
 
       if (response.ok) {
-        const match = await response.json();
-        
-        // If 12 players have accepted, show confirmation
-        if (match.accepted_players >= 12) {
+        const data = await response.json();
+        const accepted =
+          data?.progress && typeof data.progress.paid === 'number'
+            ? data.progress.paid
+            : Number(data?.accepted_players || 0);
+        const total =
+          data?.progress && typeof data.progress.total === 'number'
+            ? data.progress.total
+            : 12;
+        const fieldName = data?.match?.field_name || data?.field_name || 'fushë';
+
+        // Konfirmim kur plotësohet numri i lojtarëve.
+        if (accepted >= total) {
           set(state => ({
             notifications: [
               {
                 type: 'confirmation',
                 subject: '✅ Ndeshja u konfirmua!',
-                body: `Ndeshja në ${match.field_name} është konfirmuar!`,
+                body: `Ndeshja në ${fieldName} është konfirmuar!`,
                 created_at: new Date().toISOString()
               },
               ...state.notifications
@@ -263,7 +272,7 @@ const useRealtimeStore = create((set, get) => ({
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('matchday_token')}`,
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json; charset=utf-8'
         }
       });
 

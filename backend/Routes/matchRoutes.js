@@ -24,7 +24,9 @@ function fieldLabel(terrain) {
 }
 
 async function loadFieldsMap() {
-    const r = await pool.query('SELECT id, name, location, terrain_type, price_per_hour, is_active FROM Fields ORDER BY id');
+    const r = await pool.query(
+        'SELECT id, name, location, terrain_type, price_per_hour, is_active FROM fields ORDER BY id'
+    );
     const map = {};
     for (const row of r.rows) map[row.id] = row;
     return map;
@@ -79,12 +81,37 @@ function buildPlayersFromPayments(payments, booking) {
     return list.slice(0, 12);
 }
 
+/** Krahasim i sigurt ID (JWT mund të kthejë numër ose string). */
+function sameUserId(a, b) {
+    return Number(a) === Number(b);
+}
+
 async function assertMatchAccess(booking, user) {
     if (user.role === 'admin') return;
-    if (booking.organizer_id === user.id) return;
+    if (sameUserId(booking.organizer_id, user.id)) return;
     const err = new Error('Nuk keni akses në këtë ndeshje.');
     err.status = 403;
     throw err;
+}
+
+/**
+ * Orët lokale 8–22 të zëna, e njëjta logjikë mbivendosjeje si në BookingPage / kalendar.
+ */
+function occupiedLocalHoursFromBookings(dateStr, timeRows) {
+    const occupied = new Set();
+    for (let H = 8; H <= 22; H += 1) {
+        const slotStart = new Date(`${dateStr}T${String(H).padStart(2, '0')}:00:00`);
+        const slotEnd = new Date(slotStart.getTime() + 60 * 60 * 1000);
+        for (const row of timeRows) {
+            const bs = new Date(row.start_time);
+            const be = new Date(row.end_time);
+            if (bs < slotEnd && be > slotStart) {
+                occupied.add(H);
+                break;
+            }
+        }
+    }
+    return [...occupied].sort((a, b) => a - b);
 }
 
 // ─── Stats & list (before /matches/:id) ──────────────────────────────────────
@@ -118,8 +145,8 @@ router.get('/matches', authenticateToken, async (req, res) => {
 router.get('/my-matches', authenticateToken, async (req, res) => {
     try {
         const { status } = req.query;
-        const values = [req.user.id];
-        let q = `SELECT b.* FROM Bookings b WHERE b.organizer_id = $1`;
+        const values = [Number(req.user.id)];
+        let q = `SELECT b.* FROM bookings b WHERE b.organizer_id = $1`;
         if (status) {
             values.push(status);
             q += ` AND b.status = $2`;
@@ -140,12 +167,20 @@ router.post(
     requireRole(['organizer', 'admin', 'participant']),
     async (req, res) => {
         try {
+            const fieldId = parseInt(req.body.fieldId, 10);
+            const totalPrice = parseFloat(req.body.totalPrice);
+            if (!Number.isFinite(fieldId) || fieldId <= 0) {
+                return res.status(400).json({ error: 'Zgjidhni një fushë të vlefshme.' });
+            }
+            if (!Number.isFinite(totalPrice) || totalPrice <= 0) {
+                return res.status(400).json({ error: 'Çmimi total duhet të jetë mbi 0.' });
+            }
             const payload = {
-                fieldId: parseInt(req.body.fieldId, 10),
+                fieldId,
                 startTime: req.body.startTime,
                 endTime: req.body.endTime,
-                totalPrice: parseFloat(req.body.totalPrice),
-                organizerId: req.user.id,
+                totalPrice,
+                organizerId: Number(req.user.id),
             };
             const created = await matchService.shtoNdeshje(payload);
             const fieldMap = await loadFieldsMap();
@@ -181,21 +216,13 @@ router.get('/bookings/availability', authenticateToken, async (req, res) => {
             return res.status(400).json({ error: 'fieldId dhe date janë të detyrueshme' });
         }
         const result = await pool.query(
-            `SELECT start_time, end_time FROM Bookings
+            `SELECT start_time, end_time FROM bookings
              WHERE field_id = $1 AND status != 'canceled'
                AND (start_time::date = $2::date OR end_time::date = $2::date)`,
             [fieldId, date]
         );
-        const occupiedHours = new Set();
-        for (const row of result.rows) {
-            let t = new Date(row.start_time);
-            const end = new Date(row.end_time);
-            while (t < end) {
-                occupiedHours.add(t.getHours());
-                t = new Date(t.getTime() + 60 * 60 * 1000);
-            }
-        }
-        res.json({ occupiedHours: [...occupiedHours].sort((a, b) => a - b) });
+        const occupiedHours = occupiedLocalHoursFromBookings(date, result.rows);
+        res.json({ occupiedHours });
     } catch (error) {
         console.error('Availability error:', error);
         res.status(400).json({ error: error.message });
@@ -286,7 +313,7 @@ router.get('/admin/users', authenticateToken, requireRole(['admin']), async (req
 router.get('/fields', authenticateToken, async (req, res) => {
     try {
         const r = await pool.query(
-            'SELECT id, name, location, terrain_type, price_per_hour, is_active FROM Fields ORDER BY id'
+            'SELECT id, name, location, terrain_type, price_per_hour, is_active FROM fields ORDER BY id'
         );
         res.json(
             r.rows.map((row) => ({
@@ -313,21 +340,13 @@ router.get('/fields/:id/slots', authenticateToken, async (req, res) => {
         req.query.date = date;
         const fieldId = parseInt(req.params.id, 10);
         const result = await pool.query(
-            `SELECT start_time, end_time FROM Bookings
+            `SELECT start_time, end_time FROM bookings
              WHERE field_id = $1 AND status != 'canceled'
                AND (start_time::date = $2::date OR end_time::date = $2::date)`,
             [fieldId, date]
         );
-        const occupiedHours = new Set();
-        for (const row of result.rows) {
-            let t = new Date(row.start_time);
-            const end = new Date(row.end_time);
-            while (t < end) {
-                occupiedHours.add(t.getHours());
-                t = new Date(t.getTime() + 60 * 60 * 1000);
-            }
-        }
-        res.json({ occupiedHours: [...occupiedHours].sort((a, b) => a - b) });
+        const occupiedHours = occupiedLocalHoursFromBookings(date, result.rows);
+        res.json({ occupiedHours });
     } catch (error) {
         console.error('Slots error:', error);
         res.status(400).json({ error: error.message });
@@ -382,8 +401,8 @@ router.get('/matches/:id', authenticateToken, async (req, res) => {
 
         const r = await pool.query(
             `SELECT b.*, f.name AS field_name, f.location, f.terrain_type
-             FROM Bookings b
-             JOIN Fields f ON f.id = b.field_id
+             FROM bookings b
+             JOIN fields f ON f.id = b.field_id
              WHERE b.id = $1`,
             [req.params.id]
         );
@@ -431,7 +450,7 @@ router.put('/matches/:id', authenticateToken, async (req, res) => {
         if (!status) return res.status(400).json({ error: 'status është i detyrueshëm' });
         const booking = await matchService.gjejSipasId(req.params.id);
         const isAdmin = req.user.role === 'admin';
-        const isOwner = booking.organizer_id === req.user.id;
+        const isOwner = sameUserId(booking.organizer_id, req.user.id);
         if (!isAdmin && !(isOwner && status === 'confirmed')) {
             return res.status(403).json({ error: 'Nuk keni leje për këtë veprim' });
         }
@@ -457,8 +476,8 @@ router.delete('/matches/:id', authenticateToken, requireRole(['admin']), async (
 router.post('/matches/:id/cancel', authenticateToken, async (req, res) => {
     try {
         const booking = await matchService.gjejSipasId(req.params.id);
-        if (req.user.role !== 'admin' && booking.organizer_id !== req.user.id) {
-            return res.status(403).json({ error: 'Forbidden' });
+        if (req.user.role !== 'admin' && !sameUserId(booking.organizer_id, req.user.id)) {
+            return res.status(403).json({ error: 'Nuk keni leje për këtë veprim' });
         }
         const result = await matchService.perditesoStatusin(req.params.id, 'canceled');
         res.json(result);
@@ -510,6 +529,20 @@ router.post('/auto-cancel', requireCronSecret, async (req, res) => {
     } catch (error) {
         console.error('Auto cancel error:', error);
         res.status(500).json({ error: error.message });
+    }
+});
+
+router.post('/notifications/read', authenticateToken, async (req, res) => {
+    try {
+        await pool.query(
+            `UPDATE notifications SET is_sent = true WHERE user_id = $1 AND is_sent = false`,
+            [Number(req.user.id)]
+        );
+        res.setHeader('Content-Type', 'application/json; charset=utf-8');
+        res.json({ ok: true });
+    } catch (error) {
+        console.error('Notifications read error:', error);
+        res.status(400).json({ error: error.message });
     }
 });
 

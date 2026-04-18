@@ -6,6 +6,15 @@ import React, {
   useState,
 } from 'react';
 import { getApiBase } from '../lib/api';
+import useAuthStore from '../store/authStore';
+
+function syncZustandAuth() {
+  try {
+    useAuthStore.getState().initAuth();
+  } catch {
+    /* zustand opsionale */
+  }
+}
 
 const AuthContext = createContext(null);
 
@@ -15,6 +24,18 @@ const STORAGE_THEME = 'matchday_theme';
 
 const MSG_LOGIN_FAIL = 'Kyçja dështoi';
 const MSG_REGISTER_FAIL = 'Regjistrimi dështoi';
+
+/** Lexon përgjigjen JSON ose kthen mesazh nga trupi jo-JSON (p.sh. HTML nga proxy). */
+async function readJsonResponse(res) {
+  const text = await res.text();
+  let data = {};
+  try {
+    data = text && text.trim() ? JSON.parse(text) : {};
+  } catch {
+    return { data: {}, raw: text };
+  }
+  return { data, raw: text };
+}
 
 function readStoredUser() {
   try {
@@ -48,16 +69,18 @@ export function AuthProvider({ children }) {
           body: JSON.stringify({ email, password }),
         });
       } catch {
-        const m = 'Nuk u arrit serveri. Kontrollo që backend-i të jetë i ndezur.';
+        const m = 'Nuk u arrit serveri. Nis backend-in (port 5000) dhe rifresko faqen.';
         setError(m);
         throw new Error(m);
       }
-      const data = await res.json().catch(() => ({}));
+      const { data, raw } = await readJsonResponse(res);
       if (!res.ok) {
         const serverMsg =
           typeof data.error === 'string' && data.error.trim() !== ''
             ? data.error
-            : MSG_LOGIN_FAIL;
+            : raw && raw.trim().length > 0 && !raw.trimStart().startsWith('<')
+              ? raw.trim().slice(0, 200)
+              : MSG_LOGIN_FAIL;
         throw new Error(serverMsg);
       }
       if (!data.token || !data.user) {
@@ -67,6 +90,7 @@ export function AuthProvider({ children }) {
       localStorage.setItem(STORAGE_TOKEN, data.token);
       setUser(data.user);
       setToken(data.token);
+      syncZustandAuth();
       return data;
     } catch (e) {
       const msg = e instanceof Error ? e.message : MSG_LOGIN_FAIL;
@@ -90,16 +114,18 @@ export function AuthProvider({ children }) {
           body: JSON.stringify(payload),
         });
       } catch {
-        const m = 'Nuk u arrit serveri. Kontrollo që backend-i të jetë i ndezur.';
+        const m = 'Nuk u arrit serveri. Nis backend-in (port 5000) dhe rifresko faqen.';
         setError(m);
         throw new Error(m);
       }
-      const data = await res.json().catch(() => ({}));
+      const { data, raw } = await readJsonResponse(res);
       if (!res.ok) {
         const serverMsg =
           typeof data.error === 'string' && data.error.trim() !== ''
             ? data.error
-            : MSG_REGISTER_FAIL;
+            : raw && raw.trim().length > 0 && !raw.trimStart().startsWith('<')
+              ? raw.trim().slice(0, 200)
+              : MSG_REGISTER_FAIL;
         throw new Error(serverMsg);
       }
       if (!data.token || !data.user) {
@@ -109,6 +135,7 @@ export function AuthProvider({ children }) {
       localStorage.setItem(STORAGE_TOKEN, data.token);
       setUser(data.user);
       setToken(data.token);
+      syncZustandAuth();
       return data;
     } catch (e) {
       const msg = e instanceof Error ? e.message : MSG_REGISTER_FAIL;
@@ -125,10 +152,12 @@ export function AuthProvider({ children }) {
     setUser(null);
     setToken(null);
     setError(null);
+    syncZustandAuth();
   }, []);
 
   const refreshUser = useCallback(() => {
     setUser(readStoredUser());
+    syncZustandAuth();
   }, []);
 
   const authHeader = useCallback(() => {

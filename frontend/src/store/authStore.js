@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { getApiBase } from '../lib/api';
+import { getApiBase, parseResponseJson } from '../lib/api';
 
 function readStoredAuth() {
   if (typeof window === 'undefined') {
@@ -38,15 +38,22 @@ const useAuthStore = create((set, get) => ({
       const response = await fetch(`${API}/auth/register`, {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
+          'Content-Type': 'application/json; charset=utf-8',
         },
         body: JSON.stringify(userData),
       });
 
-      const data = await response.json();
+      const data = await parseResponseJson(response);
 
       if (!response.ok) {
-        throw new Error(data.error || 'Registration failed');
+        const raw = data._nonJson;
+        throw new Error(
+          typeof data.error === 'string' && data.error.trim()
+            ? data.error
+            : typeof raw === 'string' && raw.trim() && !raw.trimStart().startsWith('<')
+              ? raw.trim().slice(0, 200)
+              : 'Regjistrimi dështoi'
+        );
       }
 
       localStorage.setItem('matchday_token', data.token);
@@ -77,15 +84,22 @@ const useAuthStore = create((set, get) => ({
       const response = await fetch(`${API}/auth/login`, {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
+          'Content-Type': 'application/json; charset=utf-8',
         },
         body: JSON.stringify({ email, password }),
       });
 
-      const data = await response.json();
+      const data = await parseResponseJson(response);
 
       if (!response.ok) {
-        throw new Error(data.error || 'Login failed');
+        const raw = data._nonJson;
+        throw new Error(
+          typeof data.error === 'string' && data.error.trim()
+            ? data.error
+            : typeof raw === 'string' && raw.trim() && !raw.trimStart().startsWith('<')
+              ? raw.trim().slice(0, 200)
+              : 'Kyçja dështoi'
+        );
       }
 
       localStorage.setItem('matchday_token', data.token);
@@ -129,16 +143,23 @@ const useAuthStore = create((set, get) => ({
       const response = await fetch(`${API}/auth/profile`, {
         method: 'PUT',
         headers: {
-          'Content-Type': 'application/json',
+          'Content-Type': 'application/json; charset=utf-8',
           Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify(profileData),
       });
 
-      const data = await response.json();
+      const data = await parseResponseJson(response);
 
       if (!response.ok) {
-        throw new Error(data.error || 'Profile update failed');
+        const raw = data._nonJson;
+        throw new Error(
+          typeof data.error === 'string' && data.error.trim()
+            ? data.error
+            : typeof raw === 'string' && raw.trim() && !raw.trimStart().startsWith('<')
+              ? raw.trim().slice(0, 200)
+              : 'Përditësimi dështoi'
+        );
       }
 
       localStorage.setItem('matchday_user', JSON.stringify(data));
@@ -169,10 +190,17 @@ const useAuthStore = create((set, get) => ({
         },
       });
 
-      const data = await response.json();
+      const data = await parseResponseJson(response);
 
       if (!response.ok) {
-        throw new Error(data.error || 'Search failed');
+        const raw = data._nonJson;
+        throw new Error(
+          typeof data.error === 'string' && data.error.trim()
+            ? data.error
+            : typeof raw === 'string' && raw.trim() && !raw.trimStart().startsWith('<')
+              ? raw.trim().slice(0, 200)
+              : 'Kërkimi dështoi'
+        );
       }
 
       return data;
@@ -193,7 +221,10 @@ const useAuthStore = create((set, get) => ({
 
   isOrganizer: () => get().hasRole('organizer'),
 
-  isParticipant: () => get().hasRole('participant'),
+  isParticipant: () => {
+    const { user } = get();
+    return user?.role === 'participant' || user?.role === 'player';
+  },
 }));
 
 export default useAuthStore;

@@ -11,21 +11,21 @@ const app = express();
 const PORT = process.env.PORT || 5000;
 
 // Middleware
-app.use(cors());
-app.use(express.json());
-
-// Serve static files from frontend dist folder
-app.use(express.static(path.join(__dirname, '../frontend/dist')));
+app.use(cors({ origin: true, credentials: false }));
+app.use(express.json({ limit: '1mb' }));
 
 // Health check endpoint for Render
 app.get('/health', (req, res) => {
   res.json({ status: 'ok', message: 'MATCHDAY backend is running' });
 });
 
-// Routes
+// API routes para static — shmang përplasje me skedarë në dist
 app.use('/api/auth', authRouter);
 app.use('/api/friends', friendsRouter);
 app.use('/api', matchRouter);
+
+// Serve static files from frontend dist folder
+app.use(express.static(path.join(__dirname, '../frontend/dist')));
 
 // Root endpoint - serve frontend
 app.get('/', (req, res) => {

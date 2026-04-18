@@ -21,7 +21,13 @@ const ProtectedRoute = ({ children, requiredRole = null }) => {
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
-  if (requiredRole && user.role !== requiredRole) {
+  const roleOk =
+    !requiredRole ||
+    user.role === requiredRole ||
+    (requiredRole === 'participant' && user.role === 'player') ||
+    (requiredRole === 'player' && user.role === 'participant');
+
+  if (!roleOk) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-bg">
         <div className="text-center px-4">

@@ -14,7 +14,7 @@ async function ensureSchema() {
     'ALTER TABLE users ADD COLUMN IF NOT EXISTS phone VARCHAR(40)',
     'ALTER TABLE users ADD COLUMN IF NOT EXISTS bank_account VARCHAR(80)',
     'ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_url VARCHAR(500)',
-    'ALTER TABLE users ADD COLUMN IF NOT EXISTS preferred_field_id INTEGER REFERENCES fields(id)',
+    'ALTER TABLE users ADD COLUMN IF NOT EXISTS preferred_field_id INTEGER',
   ];
   for (const sql of alters) {
     try {

@@ -249,7 +249,7 @@ class PaymentService {
                 pp.rental_fee,
                 pp.total_amount,
                 pp.status,
-                pp.payment_method,
+                NULL::varchar(20) AS payment_method,
                 pp.paid_at,
                 pp.refunded_at,
                 u.name as user_name,

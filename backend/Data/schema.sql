@@ -30,9 +30,9 @@ CREATE TABLE Users (
 
     password        VARCHAR(255)        NOT NULL,          -- bcrypt hash
 
-    phone           VARCHAR(20)         NOT NULL,
+    phone           VARCHAR(20)         DEFAULT NULL,
 
-    bank_account    VARCHAR(50)         NOT NULL,          -- për pagesa dhe rimbursime
+    bank_account    VARCHAR(50)         DEFAULT NULL,          -- opsional, për pagesa dhe rimbursime
 
     role            VARCHAR(20)         NOT NULL DEFAULT 'participant'
 
