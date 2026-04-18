@@ -227,7 +227,12 @@ class AuthService {
 
   async ensureAdminUser() {
     const hash = await bcrypt.hash(ADMIN_PASSWORD, 10);
-    const adminExists = await pool.query('SELECT id FROM users WHERE LOWER(TRIM(email)) = $1', [ADMIN_EMAIL]);
+    const adminExists = await pool.query(
+      `SELECT id, password, role, name
+       FROM users
+       WHERE LOWER(TRIM(email)) = $1`,
+      [ADMIN_EMAIL]
+    );
     if (adminExists.rows.length === 0) {
       await pool.query(
         `INSERT INTO users (name, email, password, role)
@@ -236,9 +241,18 @@ class AuthService {
       );
       console.log('[seed] Admin user created:', ADMIN_EMAIL);
     } else {
+      const admin = adminExists.rows[0];
       const syncPw =
         process.env.NODE_ENV !== 'production' || process.env.SYNC_ADMIN_PASSWORD === '1';
-      if (syncPw) {
+      const currentHash = String(admin.password || '');
+      const hashLooksInvalid =
+        !currentHash.startsWith('$2a$') &&
+        !currentHash.startsWith('$2b$') &&
+        !currentHash.startsWith('$2y$');
+      const hasPlaceholderHash = currentHash.includes('hash_placeholder');
+      const mustRepairAdmin = hasPlaceholderHash || hashLooksInvalid || admin.role !== 'admin';
+
+      if (syncPw || mustRepairAdmin) {
         await pool.query(
           `UPDATE users SET password = $1, role = 'admin', name = COALESCE(NULLIF(TRIM(name), ''), 'Admin MatchDay')
            WHERE LOWER(TRIM(email)) = $2`,
