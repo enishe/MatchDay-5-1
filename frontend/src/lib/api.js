@@ -21,6 +21,14 @@ export function getApiBase() {
       return trimmed;
     }
   }
+  // Dev fallback: kur frontend hapet në localhost pa proxy aktiv,
+  // dërgo API thirrjet direkt te backend-i në portin 5000.
+  if (typeof window !== 'undefined') {
+    const host = window.location.hostname;
+    if (host === 'localhost' || host === '127.0.0.1') {
+      return 'http://localhost:5000/api';
+    }
+  }
   return '/api';
 }
 
