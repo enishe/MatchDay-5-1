@@ -71,3 +71,7 @@ Kodi që funksionon vetëm në kompjuterin tënd nuk është i gatshëm. Me `.en
 1. **Nuk ka autentikim** — `organizerId` është ende hardcoded si `1`. Pa login/register, sistemi nuk mund të funksionojë me shumë përdorues.
 2. **Lojtarët janë mock data** — `LOJTARET_MOCK` në `MatchDetail.jsx` nuk është e lidhur me database. Smart Split shfaqet vizualisht por nuk reflekton të dhëna reale.
 3. **Testet janë të kufizuara** — mbulohet vetëm `MatchService`. Routes dhe Repository nuk testohen — mund të prishen pa u vënë re.
+### Limitations teknike
+
+- Kontrolli i konfliktit me SELECT para INSERT nuk garanton 100% konsistencë në raste concurrency (nëse dy kërkesa vijnë në të njëjtën kohë).
+- Në një sistem production, kjo duhet të zgjidhet me database constraints ose transactions (p.sh. unique index mbi intervale kohore ose locking).
