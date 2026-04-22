@@ -33,6 +33,8 @@ function mapUserRow(row) {
     phone: row.phone ?? null,
     bank_account: row.bank_account ?? null,
     avatar_url: row.avatar_url ?? null,
+    nickname: row.nickname ?? null,
+    profile_photo_url: row.profile_photo_url ?? null,
     preferred_field_id: row.preferred_field_id ?? null,
   };
 }
@@ -132,7 +134,7 @@ class AuthService {
     const result = await pool
       .query(
         `SELECT id, name, email, role, created_at,
-                phone, bank_account, avatar_url, preferred_field_id
+                phone, bank_account, avatar_url, preferred_field_id, nickname, profile_photo_url
          FROM users WHERE id = $1`,
         [userId]
       )
@@ -140,7 +142,7 @@ class AuthService {
         pool.query(`SELECT id, name, email, role, created_at FROM users WHERE id = $1`, [userId])
       );
     if (result.rows.length === 0) {
-      throw new Error('User not found');
+      throw new Error('Përdoruesi nuk u gjet.');
     }
     const u = mapUserRow(result.rows[0]);
     const stats = await this.getUserMatchStats(userId);
@@ -166,7 +168,7 @@ class AuthService {
   }
 
   async updateProfile(userId, profileData) {
-    const { firstName, lastName, phone, bank_account, avatar_url, preferred_field_id } = profileData;
+    const { firstName, lastName, phone, bank_account, avatar_url, preferred_field_id, nickname, profile_photo_url } = profileData;
     const updates = [];
     const vals = [];
     let i = 1;
@@ -194,6 +196,18 @@ class AuthService {
       updates.push(`avatar_url = $${i++}`);
       vals.push(avatar_url === '' || avatar_url == null ? null : String(avatar_url).trim());
     }
+    if (profile_photo_url !== undefined) {
+      updates.push(`profile_photo_url = $${i++}`);
+      vals.push(profile_photo_url === '' || profile_photo_url == null ? null : String(profile_photo_url).trim());
+    }
+    if (nickname !== undefined) {
+      const nick = nickname === '' || nickname == null ? null : String(nickname).trim();
+      if (nick && nick.length < 3) {
+        throw new Error('Nickname duhet të ketë të paktën 3 karaktere.');
+      }
+      updates.push(`nickname = $${i++}`);
+      vals.push(nick);
+    }
     if (preferred_field_id !== undefined) {
       const pid = preferred_field_id === '' || preferred_field_id == null ? null : parseInt(preferred_field_id, 10);
       updates.push(`preferred_field_id = $${i++}`);
@@ -202,7 +216,14 @@ class AuthService {
 
     if (updates.length > 0) {
       vals.push(userId);
-      await pool.query(`UPDATE users SET ${updates.join(', ')} WHERE id = $${i}`, vals);
+      try {
+        await pool.query(`UPDATE users SET ${updates.join(', ')} WHERE id = $${i}`, vals);
+      } catch (err) {
+        if (err?.code === '23505') {
+          throw new Error('Ky nickname është i zënë');
+        }
+        throw err;
+      }
     }
     return this.getUserById(userId);
   }

@@ -47,7 +47,7 @@ function statsFromMatches(matches) {
 }
 
 export default function Dashboard() {
-  const { token, isAdmin } = useAuth();
+  const { token } = useAuth();
   const [stats, setStats] = useState(null);
   const [matches, setMatches] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -58,15 +58,10 @@ export default function Dashboard() {
     if (!token) return;
     let cancelled = false;
     setLoading(true);
-    const req = isAdmin
-      ? Promise.all([apiFetch('/matches/stats', { token }), apiFetch('/matches', { token })]).then(([s, m]) => ({
-          stats: s,
-          matches: Array.isArray(m) ? m : [],
-        }))
-      : apiFetch('/my-matches', { token }).then((m) => {
-          const list = Array.isArray(m) ? m : [];
-          return { stats: statsFromMatches(list), matches: list };
-        });
+    const req = apiFetch('/my-matches', { token }).then((m) => {
+      const list = Array.isArray(m) ? m : [];
+      return { stats: statsFromMatches(list), matches: list };
+    });
     req
       .then(({ stats: s, matches: m }) => {
         if (cancelled) return;
@@ -83,7 +78,7 @@ export default function Dashboard() {
     return () => {
       cancelled = true;
     };
-  }, [token, isAdmin]);
+  }, [token]);
 
   const fillim = useMemo(() => {
     const d = new Date();
@@ -104,10 +99,7 @@ export default function Dashboard() {
     });
   }, [matches, fillim]);
 
-  const ndeshjeSot = useMemo(
-    () => matches.filter((m) => isSameDay(m.start_time, sot())).length,
-    [matches]
-  );
+  const ndeshjeKeteJave = javaMatches.length;
 
   if (loading) {
     return (
@@ -126,34 +118,22 @@ export default function Dashboard() {
   }
 
   const statKartat = [
-    { label: 'Gjithsej Ndeshje', vlera: stats?.total ?? 0, accent: '#1a1a2e' },
-    { label: 'Të Ardhura Totale', vlera: `${stats?.totali_cmimit ?? 0}€`, accent: '#1565c0' },
-    { label: 'Çmimi Mesatar', vlera: `${stats?.mesatare ?? 0}€`, accent: '#27ae60' },
-    { label: 'Ndeshjet Sot', vlera: ndeshjeSot, accent: '#8e44ad' },
+    { label: 'Ndeshjet e mia gjithsej', vlera: stats?.total ?? 0, accent: '#1a1a2e' },
+    { label: 'Ndeshjet e mia këtë javë', vlera: ndeshjeKeteJave, accent: '#27ae60' },
   ];
 
   const playerActions = [
     { label: 'Rezervo fushë', path: '/booking', accent: 'var(--color-accent)' },
     { label: 'Patika me qira', path: '/equipment', accent: '#3498db' },
     { label: 'Kalendari', path: '/calendar', accent: '#9b59b6' },
-    { label: 'Friends', path: '/friends', accent: '#e67e22' },
+    { label: 'Miqtë', path: '/friends', accent: '#e67e22' },
     { label: 'Profili im', path: '/profile', accent: '#1abc9c' },
-  ];
-
-  const adminExtras = [
-    { label: 'Të gjitha rezervimet', desc: 'Menaxho rezervimet', path: '/admin' },
-    { label: 'Statistika & fusha', desc: 'Paneli i plotë admin', path: '/admin' },
-    { label: 'Lojtarët', desc: 'Lista e përdoruesve', path: '/admin?tab=users' },
   ];
 
   return (
     <div className="page">
       <h1 className="page-title">Dashboard</h1>
-      <p className="page-subtitle">
-        {isAdmin
-          ? 'Pamje administrator — të gjitha rezervimet dhe statistikat'
-          : 'Pamje lojtari — rezervimet e tua dhe veprime të shpejta'}
-      </p>
+      <p className="page-subtitle">Pamje lojtari — statistikat e tua personale</p>
 
       <div className="stat-grid-4">
         {statKartat.map((k) => (
@@ -194,46 +174,7 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {isAdmin && (
-        <div className="card" style={{ marginTop: 16 }}>
-          <div className="card-title">Veprime administratori</div>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
-            {adminExtras.map((x) => (
-              <button key={x.label} type="button" className="btn btn-accent" onClick={() => navigate(x.path)}>
-                {x.label}
-              </button>
-            ))}
-          </div>
-          <p style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 10, marginBottom: 0 }}>
-            Në panelin admin menaxhoni rezervimet, fushat, inventarin dhe lojtarët.
-          </p>
-        </div>
-      )}
-
-      <div className="stat-grid-3" style={{ marginTop: 16 }}>
-        {[
-          { label: 'Në Pritje', n: stats?.pending, c: 'var(--color-warning)' },
-          { label: 'Konfirmuara', n: stats?.confirmed, c: 'var(--color-accent)' },
-          { label: 'Anuluara', n: stats?.canceled, c: 'var(--color-danger)' },
-        ].map((st) => (
-          <div
-            key={st.label}
-            style={{
-              background: 'var(--bg-card)',
-              border: `1px solid var(--border-color)`,
-              borderRadius: 'var(--radius-md)',
-              padding: '12px 16px',
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-              borderLeft: `4px solid ${st.c}`,
-            }}
-          >
-            <span style={{ fontSize: 13, color: st.c, fontWeight: 600 }}>{st.label}</span>
-            <span style={{ fontSize: 24, fontWeight: 700, color: st.c }}>{st.n ?? 0}</span>
-          </div>
-        ))}
-      </div>
+      
 
       <div className="grid-2-col" style={{ marginTop: 16 }}>
         <div className="card">
@@ -283,7 +224,7 @@ export default function Dashboard() {
         <div className="card">
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
             <h2 className="card-title" style={{ marginBottom: 0 }}>
-              {isAdmin ? 'Ndeshjet e fundit (të gjitha)' : 'Ndeshjet e mia'}
+              Ndeshjet e mia
             </h2>
             <button type="button" className="btn btn-ghost" style={{ fontSize: 12, padding: '5px 12px' }} onClick={() => navigate('/booking')}>
               + Rezervo

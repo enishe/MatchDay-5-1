@@ -15,6 +15,7 @@ export default function ProfilePage() {
   const [phone, setPhone] = useState('');
   const [bank, setBank] = useState('');
   const [avatar, setAvatar] = useState('');
+  const [nickname, setNickname] = useState('');
   const [prefField, setPrefField] = useState('');
 
   const load = useCallback(() => {
@@ -29,6 +30,7 @@ export default function ProfilePage() {
         setPhone(p.phone || '');
         setBank(p.bank_account || '');
         setAvatar(p.avatar_url || '');
+        setNickname(p.nickname || '');
         setPrefField(p.preferred_field_id != null ? String(p.preferred_field_id) : '');
       })
       .catch(() => setMsg({ type: 'err', text: 'Nuk u ngarkua profili.' }))
@@ -51,6 +53,8 @@ export default function ProfilePage() {
         phone: phone.trim(),
         bank_account: bank.trim(),
         avatar_url: avatar.trim(),
+        nickname: nickname.trim(),
+        profile_photo_url: avatar.trim(),
         preferred_field_id: prefField === '' ? null : parseInt(prefField, 10),
       };
       const updated = await apiFetch('/auth/profile', { token, method: 'PUT', body });
@@ -135,10 +139,37 @@ export default function ProfilePage() {
           <input id="bk" className="input" value={bank} onChange={(e) => setBank(e.target.value)} />
         </div>
         <div className="form-group">
+          <label className="label" htmlFor="nk">
+            Nickname unik
+          </label>
+          <input id="nk" className="input" value={nickname} onChange={(e) => setNickname(e.target.value)} />
+        </div>
+        <div className="form-group">
           <label className="label" htmlFor="av">
             URL e fotos së profilit (opsional)
           </label>
           <input id="av" className="input" value={avatar} onChange={(e) => setAvatar(e.target.value)} placeholder="https://..." />
+        </div>
+        <div className="form-group">
+          <label className="label" htmlFor="avf">
+            Ose ngarko foto
+          </label>
+          <input
+            id="avf"
+            className="input"
+            type="file"
+            accept="image/*"
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              if (!file) return;
+              const reader = new FileReader();
+              reader.onload = () => {
+                const result = typeof reader.result === 'string' ? reader.result : '';
+                setAvatar(result);
+              };
+              reader.readAsDataURL(file);
+            }}
+          />
         </div>
         <div className="form-group">
           <label className="label" htmlFor="pf">

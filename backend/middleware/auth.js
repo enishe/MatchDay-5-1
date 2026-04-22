@@ -8,7 +8,7 @@ function authenticateToken(req, res, next) {
 
     if (!token) {
         res.setHeader('Content-Type', 'application/json; charset=utf-8');
-        return res.status(401).json({ error: 'Access token required' });
+        return res.status(401).json({ error: 'Kërkohet token i qasjes.' });
     }
 
     try {
@@ -17,7 +17,7 @@ function authenticateToken(req, res, next) {
         next();
     } catch {
         res.setHeader('Content-Type', 'application/json; charset=utf-8');
-        return res.status(403).json({ error: 'Invalid or expired token' });
+        return res.status(403).json({ error: 'Token i pavlefshëm ose i skaduar.' });
     }
 }
 
@@ -29,7 +29,7 @@ function requireRole(roles) {
     return (req, res, next) => {
         if (!allowed.has(req.user.role)) {
             res.setHeader('Content-Type', 'application/json; charset=utf-8');
-            return res.status(403).json({ error: 'Insufficient permissions' });
+            return res.status(403).json({ error: 'Nuk keni leje të mjaftueshme.' });
         }
         next();
     };

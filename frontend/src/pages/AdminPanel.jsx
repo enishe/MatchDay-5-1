@@ -25,9 +25,10 @@ export default function AdminPanel() {
   const [matches, setMatches] = useState([]);
   const [stats, setStats] = useState(null);
   const [fields, setFields] = useState([]);
-  const [shoes, setShoes] = useState([]);
   const [users, setUsers] = useState([]);
+  const [inventoryByField, setInventoryByField] = useState([]);
   const [filtri, setFiltri] = useState('');
+  const [fieldForm, setFieldForm] = useState({ name: '', location: '', terrain_type: 'artificial_grass', price_per_hour: '', courts_count: '' });
   const [loading, setLoading] = useState(true);
   const [mesazhi, setMesazhi] = useState(null);
 
@@ -60,7 +61,7 @@ export default function AdminPanel() {
 
   const fetchShoes = useCallback(() => {
     if (!token) return;
-    return apiFetch('/shoes/inventory', { token }).then((s) => setShoes(Array.isArray(s) ? s : []));
+    return apiFetch('/fields/inventory', { token }).then((s) => setInventoryByField(Array.isArray(s) ? s : []));
   }, [token]);
 
   const fetchUsers = useCallback(() => {
@@ -97,16 +98,58 @@ export default function AdminPanel() {
     }
   };
 
-  const inventoryBySize = shoes.reduce((acc, row) => {
-    const sz = row.size;
-    if (!acc[sz]) acc[sz] = { size: sz, total: 0, available: 0, conditions: [] };
-    acc[sz].total += 1;
-    if (row.available) acc[sz].available += 1;
-    acc[sz].conditions.push(row.condition);
-    return acc;
-  }, {});
+  const handleCreateField = async (e) => {
+    e.preventDefault();
+    const errors = [];
+    if (!fieldForm.name.trim()) errors.push('Emri i fushës është i detyrueshëm.');
+    if (!fieldForm.location.trim()) errors.push('Lokacioni është i detyrueshëm.');
+    if (!fieldForm.price_per_hour || Number(fieldForm.price_per_hour) <= 0) errors.push('Çmimi duhet të jetë pozitiv.');
+    if (!fieldForm.courts_count || Number(fieldForm.courts_count) <= 0) errors.push('Numri i fushave duhet të jetë pozitiv.');
+    if (errors.length) return tregoBust(errors.join(' '), 'error');
+    try {
+      await apiFetch('/fields', { token, method: 'POST', body: { ...fieldForm, price_per_hour: Number(fieldForm.price_per_hour), courts_count: Number(fieldForm.courts_count) } });
+      setFieldForm({ name: '', location: '', terrain_type: 'artificial_grass', price_per_hour: '', courts_count: '' });
+      tregoBust('Fusha u krijua.');
+      fetchFields();
+      fetchShoes();
+    } catch (e2) {
+      tregoBust(e2.message, 'error');
+    }
+  };
 
-  const inventoryRows = Object.values(inventoryBySize).sort((a, b) => a.size - b.size);
+  const handleUpdateField = async (f) => {
+    try {
+      await apiFetch(`/fields/${f.id}`, { token, method: 'PUT', body: { price_per_hour: Number(f.price_per_hour), courts_count: Number(f.courts_count) } });
+      tregoBust('Fusha u përditësua.');
+      fetchFields();
+    } catch (e2) {
+      tregoBust(e2.message, 'error');
+    }
+  };
+
+  const handleDeactivateField = async (id) => {
+    try {
+      await apiFetch(`/fields/${id}`, { token, method: 'DELETE' });
+      tregoBust('Fusha u çaktivizua.');
+      fetchFields();
+    } catch (e2) {
+      tregoBust(e2.message, 'error');
+    }
+  };
+
+  const handleInventoryQty = async (fieldId, shoeSize, quantity, rentPrice) => {
+    try {
+      await apiFetch(`/fields/${fieldId}/shoes`, {
+        token,
+        method: 'PUT',
+        body: { inventory: [{ shoe_size: shoeSize, quantity_available: Number(quantity), rent_price: Number(rentPrice) }] },
+      });
+      tregoBust('Inventari u përditësua.');
+      fetchShoes();
+    } catch (e2) {
+      tregoBust(e2.message, 'error');
+    }
+  };
 
   const statCards = stats
     ? [
@@ -165,9 +208,6 @@ export default function AdminPanel() {
                 <option value="confirmed">Konfirmuara</option>
                 <option value="canceled">Anuluara</option>
               </select>
-              <button type="button" className="btn btn-accent" onClick={() => navigate('/booking')}>
-                + Rezervim i ri
-              </button>
             </div>
 
             {loading && <p style={{ color: 'var(--text-muted)' }}>Duke ngarkuar…</p>}
@@ -232,6 +272,17 @@ export default function AdminPanel() {
       {tab === 'fields' && (
         <div className="card">
           <h2 className="card-title">Fushat</h2>
+          <form onSubmit={handleCreateField} style={{ display: 'grid', gridTemplateColumns: 'repeat(5, minmax(120px, 1fr))', gap: 8, marginBottom: 12 }}>
+            <input className="input" placeholder="Emri" value={fieldForm.name} onChange={(e) => setFieldForm((p) => ({ ...p, name: e.target.value }))} />
+            <input className="input" placeholder="Lokacioni" value={fieldForm.location} onChange={(e) => setFieldForm((p) => ({ ...p, location: e.target.value }))} />
+            <select className="input" value={fieldForm.terrain_type} onChange={(e) => setFieldForm((p) => ({ ...p, terrain_type: e.target.value }))}>
+              <option value="artificial_grass">Bar artificial</option>
+              <option value="indoor_hall">Sallë e mbyllur</option>
+            </select>
+            <input className="input" type="number" placeholder="Çmimi/orë" value={fieldForm.price_per_hour} onChange={(e) => setFieldForm((p) => ({ ...p, price_per_hour: e.target.value }))} />
+            <input className="input" type="number" placeholder="Numri i fushave" value={fieldForm.courts_count} onChange={(e) => setFieldForm((p) => ({ ...p, courts_count: e.target.value }))} />
+            <button type="submit" className="btn btn-accent">Shto fushë</button>
+          </form>
           {fields.length === 0 && <p style={{ color: 'var(--text-muted)' }}>Nuk ka fusha.</p>}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 12 }}>
             {fields.map((f) => (
@@ -243,9 +294,14 @@ export default function AdminPanel() {
                   </span>
                 </div>
                 <p style={{ fontSize: 13, color: 'var(--text-secondary)', margin: '8px 0 0' }}>
-                  {f.terrain_label} · {f.price_per_hour}€/orë
+                  {f.terrain_type} · {f.price_per_hour}€/orë · {f.courts_count || 1} fusha
                 </p>
                 <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: '4px 0 0' }}>{f.location || '—'}</p>
+                <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+                  <input className="input" type="number" defaultValue={f.price_per_hour} onBlur={(e) => handleUpdateField({ ...f, price_per_hour: e.target.value, courts_count: f.courts_count || 1 })} />
+                  <input className="input" type="number" defaultValue={f.courts_count || 1} onBlur={(e) => handleUpdateField({ ...f, price_per_hour: f.price_per_hour, courts_count: e.target.value })} />
+                </div>
+                {f.is_active && <button type="button" className="btn btn-danger" style={{ marginTop: 8 }} onClick={() => handleDeactivateField(f.id)}>Çaktivizo</button>}
               </div>
             ))}
           </div>
@@ -265,6 +321,7 @@ export default function AdminPanel() {
                     <th>Emri</th>
                     <th>Email</th>
                     <th>Roli</th>
+                    <th>Rezervime</th>
                     <th>Data</th>
                   </tr>
                 </thead>
@@ -277,6 +334,7 @@ export default function AdminPanel() {
                       <td>
                         <span className="badge badge-pending">{u.role}</span>
                       </td>
+                      <td>{u.total_bookings || 0}</td>
                       <td>{u.created_at ? new Date(u.created_at).toLocaleString('sq-AL') : '—'}</td>
                     </tr>
                   ))}
@@ -290,39 +348,35 @@ export default function AdminPanel() {
       {tab === 'inventory' && (
         <div className="card">
           <h2 className="card-title">Inventari patikave</h2>
-          {inventoryRows.length === 0 && <p style={{ color: 'var(--text-muted)' }}>Nuk ka të dhëna.</p>}
-          {inventoryRows.length > 0 && (
-            <div className="table-wrap">
-              <table className="table">
-                <thead>
-                  <tr>
-                    <th>Madhësia</th>
-                    <th>Palët totale</th>
-                    <th>Disponueshme</th>
-                    <th>Gjendja</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {inventoryRows.map((r) => {
-                    const poor = r.conditions.filter((c) => c === 'poor').length;
-                    const fair = r.conditions.filter((c) => c === 'fair').length;
-                    const gj =
-                      poor > r.total / 2 ? 'Keq' : fair > 0 ? 'Mesatare' : 'Mirë';
-                    return (
-                      <tr key={r.size}>
+          {inventoryByField.length === 0 && <p style={{ color: 'var(--text-muted)' }}>Nuk ka të dhëna.</p>}
+          {inventoryByField.map((group) => (
+            <div key={group.field_id} style={{ marginBottom: 16 }}>
+              <h3 style={{ marginBottom: 8 }}>{group.field_name} — {group.location}</h3>
+              <div className="table-wrap">
+                <table className="table">
+                  <thead>
+                    <tr><th>Madhësia</th><th>Sasia</th><th>Çmimi</th></tr>
+                  </thead>
+                  <tbody>
+                    {group.inventory.map((r) => (
+                      <tr key={r.shoe_size}>
+                        <td>{r.shoe_size}</td>
                         <td>
-                          <strong>{r.size}</strong>
+                          <input
+                            className="input"
+                            type="number"
+                            defaultValue={r.quantity_available}
+                            onBlur={(e) => handleInventoryQty(group.field_id, r.shoe_size, e.target.value, r.rent_price)}
+                          />
                         </td>
-                        <td>{r.total}</td>
-                        <td>{r.available}</td>
-                        <td>{gj}</td>
+                        <td>{Number(r.rent_price).toFixed(2)}€</td>
                       </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
-          )}
+          ))}
         </div>
       )}
     </div>

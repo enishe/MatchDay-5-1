@@ -3,24 +3,17 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { apiFetch } from '../lib/api';
 import { useAuth } from '../context/AuthContext';
 
-const ORET = [
-  '08:00', '09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00', '17:00', '18:00', '19:00', '20:00', '21:00',
-  '22:00',
-];
+const ORET = ['08:00', '09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00', '17:00', '18:00', '19:00', '20:00', '21:00', '22:00'];
 
-/** Fillim lokal i intervalit fiks 1-orësh (p.sh. data + "15:00"). */
 function parseLocalHourSlot(dateStr, hourLabel) {
   return new Date(`${dateStr}T${hourLabel}:00`);
 }
-
-/** True nëse intervali fillon në të kaluarën (p.sh. sot 10:00 kur ora tani është 11:00). */
 function isSlotStartInPast(dateStr, hourLabel) {
   return parseLocalHourSlot(dateStr, hourLabel).getTime() <= Date.now();
 }
-
 function terrainLabel(t) {
-  if (t === 'indoor_hall') return 'Sallë Futsali';
-  if (t === 'artificial_grass') return 'Bar Artificial';
+  if (t === 'indoor_hall') return 'Sallë e mbyllur';
+  if (t === 'artificial_grass') return 'Bar artificial';
   return t || '—';
 }
 
@@ -28,18 +21,17 @@ export default function BookingPage() {
   const { token } = useAuth();
   const navigate = useNavigate();
   const [params] = useSearchParams();
-
   const [fields, setFields] = useState([]);
   const [terreni, setTerreni] = useState('');
   const [fushaId, setFushaId] = useState('');
   const [data, setData] = useState('');
   const [ora, setOra] = useState('');
+  const [courtNumber, setCourtNumber] = useState('');
   const [patika, setPatika] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState('cash');
   const [loadingFields, setLoadingFields] = useState(true);
-  const [occupiedHours, setOccupiedHours] = useState([]);
-  const [slotConflict, setSlotConflict] = useState(false);
-  const [duke_shtuar, setDukeShtur] = useState(false);
+  const [availabilityByHour, setAvailabilityByHour] = useState({});
+  const [dukeShtuar, setDukeShtuar] = useState(false);
   const [mesazhi, setMesazhi] = useState(null);
 
   const tregoBust = useCallback((tekst, lloji = 'sukses') => {
@@ -50,357 +42,152 @@ export default function BookingPage() {
   useEffect(() => {
     const fid = params.get('fieldId');
     const d = params.get('date');
-    const t = params.get('time');
     if (fid) setFushaId(fid);
     if (d) setData(d);
-    if (t) setOra(t);
   }, [params]);
-
-  /** Nëse vjen nga kalendari me orë tashmë të kaluar (p.sh. sot), hiqe zgjedhjen. */
-  useEffect(() => {
-    if (!data || !ora) return;
-    if (isSlotStartInPast(data, ora)) setOra('');
-  }, [data, ora]);
 
   useEffect(() => {
     if (!token) return;
     setLoadingFields(true);
-    apiFetch('/fields', { token })
-      .then((rows) => setFields(Array.isArray(rows) ? rows : []))
+    apiFetch('/fields')
+      .then((rows) => setFields(Array.isArray(rows) ? rows.filter((f) => f.is_active) : []))
       .catch(() => tregoBust('Nuk u ngarkuan fushat.', 'error'))
       .finally(() => setLoadingFields(false));
   }, [token, tregoBust]);
 
-  const fushat = useMemo(() => {
-    if (!terreni) return fields;
-    return fields.filter((f) => f.terrain_type === terreni);
-  }, [fields, terreni]);
-
-  const fusha = useMemo(() => fushat.find((f) => f.id === parseInt(fushaId, 10)), [fushat, fushaId]);
-  const cmimi = fusha ? fusha.price_per_hour : 0;
-  const splitPreview = parseFloat((cmimi / 12).toFixed(2));
+  const fushat = useMemo(() => (terreni ? fields.filter((f) => f.terrain_type === terreni) : fields), [fields, terreni]);
+  const fusha = useMemo(() => fushat.find((f) => String(f.id) === String(fushaId)), [fushat, fushaId]);
+  const cmimi = Number(fusha?.price_per_hour || 0);
+  const splitPreview = Number((cmimi / 12).toFixed(2));
   const totalLojtar = patika ? splitPreview + 2 : splitPreview;
 
   useEffect(() => {
-    if (!token || !fushaId || !data) {
-      setOccupiedHours([]);
+    if (!fushaId || !data) {
+      setAvailabilityByHour({});
+      setCourtNumber('');
       return;
     }
     let cancelled = false;
-    const q = new URLSearchParams({ fieldId: fushaId, date: data }).toString();
-    apiFetch(`/bookings/availability?${q}`, { token })
-      .then((res) => {
-        if (!cancelled) setOccupiedHours(res.occupiedHours || []);
+    Promise.all(
+      ORET.map(async (h) => {
+        const start = parseLocalHourSlot(data, h);
+        const end = new Date(start.getTime() + 60 * 60 * 1000);
+        const r = await apiFetch(`/fields/${fushaId}/availability?start=${encodeURIComponent(start.toISOString())}&end=${encodeURIComponent(end.toISOString())}`);
+        return [h, r];
       })
-      .catch(() => {
-        if (!cancelled) setOccupiedHours([]);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [token, fushaId, data]);
-
-  useEffect(() => {
-    if (!token || !fushaId || !data || !ora) {
-      setSlotConflict(false);
-      return;
-    }
-    const startTime = new Date(`${data}T${ora}:00`);
-    const endTime = new Date(startTime.getTime() + 60 * 60 * 1000);
-    let cancelled = false;
-    const q = new URLSearchParams({
-      fieldId: fushaId,
-      start: startTime.toISOString(),
-      end: endTime.toISOString(),
-    }).toString();
-    apiFetch(`/bookings/check?${q}`, { token })
-      .then((res) => {
-        if (!cancelled) setSlotConflict(res.available === false);
+    )
+      .then((rows) => {
+        if (cancelled) return;
+        const next = {};
+        rows.forEach(([h, r]) => { next[h] = r; });
+        setAvailabilityByHour(next);
       })
-      .catch(() => {
-        if (!cancelled) setSlotConflict(true);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [token, fushaId, data, ora]);
+      .catch(() => !cancelled && setAvailabilityByHour({}));
+    return () => { cancelled = true; };
+  }, [fushaId, data]);
 
-  const hourOccupied = (hourLabel) => {
-    const h = parseInt(hourLabel.split(':')[0], 10);
-    return occupiedHours.includes(h);
-  };
-
-  const hourBlocked = (hourLabel) => hourOccupied(hourLabel) || (data && isSlotStartInPast(data, hourLabel));
+  const hourOccupied = (hour) => (availabilityByHour[hour]?.available_courts || []).length === 0;
+  const hourBlocked = (hour) => hourOccupied(hour) || (data && isSlotStartInPast(data, hour));
+  const chosenHourAvailability = ora ? availabilityByHour[ora] : null;
+  const courtTaken = ora && courtNumber && chosenHourAvailability && !(chosenHourAvailability.available_courts || []).includes(Number(courtNumber));
+  const formComplete = fushaId && data && ora && courtNumber && !courtTaken && !hourBlocked(ora);
 
   const handleRezervim = async (e) => {
     e.preventDefault();
-    if (!fushaId) return tregoBust('Zgjidhni një fushë.', 'error');
-    if (!data) return tregoBust('Zgjidhni datën.', 'error');
-    if (!ora) return tregoBust('Zgjidhni orën.', 'error');
-    if (slotConflict) return tregoBust('Orari është i zënë.', 'error');
-    if (hourOccupied(ora)) return tregoBust('Kjo orë është e zënë sipas kalendarit.', 'error');
-    if (isSlotStartInPast(data, ora)) return tregoBust('Kjo orë është tashmë e kaluar. Zgjidhni një interval në të ardhmen.', 'error');
-
-    const startTime = parseLocalHourSlot(data, ora);
-    const endTime = new Date(startTime.getTime() + 60 * 60 * 1000);
-    if (startTime <= new Date()) return tregoBust('Koha duhet të jetë në të ardhmen.', 'error');
-
-    setDukeShtur(true);
+    if (!formComplete) return tregoBust('Plotëso të gjitha fushat e detyrueshme.', 'error');
+    const start = parseLocalHourSlot(data, ora);
+    const end = new Date(start.getTime() + 60 * 60 * 1000);
+    setDukeShtuar(true);
     try {
       const d = await apiFetch('/matches', {
         token,
         method: 'POST',
         body: {
-          fieldId: parseInt(fushaId, 10),
-          startTime: startTime.toISOString(),
-          endTime: endTime.toISOString(),
+          fieldId: Number(fushaId),
+          startTime: start.toISOString(),
+          endTime: end.toISOString(),
           totalPrice: cmimi,
+          court_number: Number(courtNumber),
           payment_method: paymentMethod,
           shoe_rental: patika,
         },
       });
-      tregoBust(`Termini u rezervua! Smart Split: ${d.price_per_player}€/lojtar.`, 'sukses');
-      setTimeout(() => navigate(`/match/${d.id}`), 1200);
+      const shoesInfo = patika ? 'Me patika.' : 'Pa patika.';
+      tregoBust(`Rezervimi u krijua. ${paymentMethod === 'cash' ? `Për pagesë cash: ${shoesInfo}` : 'Pagesë me kartelë.'}`);
+      setTimeout(() => navigate(`/match/${d.id}`), 900);
     } catch (err) {
-      tregoBust(err.message || 'Gabim', 'error');
+      tregoBust(err.message || 'Ndodhi një gabim.', 'error');
     } finally {
-      setDukeShtur(false);
+      setDukeShtuar(false);
     }
   };
 
-  const terrainBtn = (active) => ({
-    flex: 1,
-    padding: '12px 6px',
-    borderRadius: 'var(--radius-sm)',
-    background: active ? 'var(--color-primary)' : 'var(--bg-secondary)',
-    color: active ? '#fff' : 'var(--text-secondary)',
-    border: active ? '2px solid var(--color-accent)' : '1px solid var(--border-color)',
-    fontWeight: active ? 600 : 400,
-    fontSize: 13,
-    cursor: 'pointer',
-    transition: 'all 0.15s',
-  });
-
-  const fushaCard = (active) => ({
-    padding: 14,
-    borderRadius: 'var(--radius-sm)',
-    background: active ? 'var(--color-accent-light)' : 'var(--bg-secondary)',
-    border: active ? '2px solid var(--color-accent)' : '1px solid var(--border-color)',
-    cursor: 'pointer',
-    transition: 'all 0.15s',
-  });
-
-  const formComplete = fushaId && data && ora && !slotConflict && !hourBlocked(ora);
-
   return (
     <div className="page">
-      <h1 className="page-title">Rezervo Termin</h1>
-      <p className="page-subtitle">
-        Terminet janë me orë të plotë (p.sh. 15:00–16:00). Zgjidh datën dhe cilën orë të lirë dëshiron — mund ta konfirmosh kur të jesh
-        online; mjafton që ajo orë të mos jetë e zënë.
-      </p>
-
-      {mesazhi && (
-        <div className={`feedback feedback-${mesazhi.lloji === 'error' ? 'error' : 'success'}`}>{mesazhi.tekst}</div>
-      )}
-
+      <h1 className="page-title">Rezervo</h1>
+      {mesazhi && <div className={`feedback feedback-${mesazhi.lloji === 'error' ? 'error' : 'success'}`}>{mesazhi.tekst}</div>}
       <form onSubmit={handleRezervim}>
         <div className="booking-grid">
           <div>
             <div className="card">
               <div className="card-title">Hapi 1 — Lloji i terrenit</div>
-              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                <button type="button" style={terrainBtn(terreni === '')} onClick={() => setTerreni('')}>
-                  Të gjitha
-                </button>
-                <button type="button" style={terrainBtn(terreni === 'artificial_grass')} onClick={() => setTerreni('artificial_grass')}>
-                  Bar Artificial
-                </button>
-                <button type="button" style={terrainBtn(terreni === 'indoor_hall')} onClick={() => setTerreni('indoor_hall')}>
-                  Sallë Futsali
-                </button>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button type="button" className={`btn ${terreni === '' ? 'btn-primary' : 'btn-ghost'}`} onClick={() => setTerreni('')}>Të gjitha</button>
+                <button type="button" className={`btn ${terreni === 'artificial_grass' ? 'btn-primary' : 'btn-ghost'}`} onClick={() => setTerreni('artificial_grass')}>Bar artificial</button>
+                <button type="button" className={`btn ${terreni === 'indoor_hall' ? 'btn-primary' : 'btn-ghost'}`} onClick={() => setTerreni('indoor_hall')}>Sallë e mbyllur</button>
               </div>
             </div>
-
             <div className="card">
-              <div className="card-title">Hapi 2 — Zgjidh fushën</div>
-              {loadingFields && <p style={{ color: 'var(--text-muted)' }}>Duke ngarkuar fushat…</p>}
-              {!loadingFields && fushat.length === 0 && (
-                <p style={{ color: 'var(--text-muted)' }}>Nuk ka fusha për këtë filtrim.</p>
+              <div className="card-title">Hapi 2 — Zgjidh lokacionin</div>
+              {loadingFields ? <div className="spinner" /> : (
+                <select className="input" value={fushaId} onChange={(e) => { setFushaId(e.target.value); setOra(''); setCourtNumber(''); }}>
+                  <option value="">— Zgjidh fushën —</option>
+                  {fushat.map((f) => <option key={f.id} value={f.id}>{f.name} — {f.location} — {terrainLabel(f.terrain_type)} — {f.price_per_hour}€/orë</option>)}
+                </select>
               )}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                {fushat.map((f) => (
-                  <div
-                    key={f.id}
-                    role="button"
-                    tabIndex={0}
-                    style={fushaCard(parseInt(fushaId, 10) === f.id)}
-                    onClick={() => setFushaId(String(f.id))}
-                    onKeyDown={(e) => e.key === 'Enter' && setFushaId(String(f.id))}
-                  >
-                    <div style={{ fontWeight: 600, fontSize: 14 }}>
-                      Field #{f.id} — {f.name}
-                    </div>
-                    <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 3 }}>
-                      {f.location || '—'} · {terrainLabel(f.terrain_type)} · {f.price_per_hour}€/orë
-                    </div>
-                  </div>
-                ))}
-              </div>
             </div>
-
             <div className="card">
-              <div className="card-title">Hapi 3 — Zgjidh datën</div>
-              <input
-                className="input"
-                type="date"
-                value={data}
-                onChange={(e) => {
-                  setData(e.target.value);
-                  setOra('');
-                }}
-                min={new Date().toISOString().split('T')[0]}
-              />
+              <div className="card-title">Hapi 3 — Data</div>
+              <input className="input" type="date" value={data} onChange={(e) => { setData(e.target.value); setOra(''); setCourtNumber(''); }} min={new Date().toISOString().split('T')[0]} />
             </div>
-
             {data && (
               <div className="card">
-                <div className="card-title">Hapi 4 — Zgjidh orën</div>
+                <div className="card-title">Hapi 4 — Ora dhe fushat e lira</div>
                 <div className="hour-grid">
-                  {ORET.map((o) => {
-                    const occ = hourOccupied(o);
-                    const past = data && isSlotStartInPast(data, o);
-                    const blocked = occ || past;
-                    const active = ora === o;
-                    return (
-                      <button
-                        key={o}
-                        type="button"
-                        disabled={blocked}
-                        className={`hour-slot${active ? ' hour-slot--active' : ''}${blocked ? ' hour-slot--disabled' : ''}`}
-                        onClick={() => !blocked && setOra(o)}
-                      >
-                        {o}
-                        {occ && (
-                          <span className="badge badge-canceled" style={{ display: 'block', marginTop: 4, fontSize: 9 }}>
-                            E zënë
-                          </span>
-                        )}
-                        {!occ && past && (
-                          <span className="badge badge-canceled" style={{ display: 'block', marginTop: 4, fontSize: 9 }}>
-                            Kaluar
-                          </span>
-                        )}
-                      </button>
-                    );
+                  {ORET.map((h) => {
+                    const blocked = hourBlocked(h);
+                    return <button key={h} type="button" className={`hour-slot${ora === h ? ' hour-slot--active' : ''}${blocked ? ' hour-slot--disabled' : ''}`} disabled={blocked} onClick={() => { setOra(h); setCourtNumber(''); }}>{h}</button>;
                   })}
                 </div>
-                {slotConflict && ora && (
-                  <p className="feedback feedback-error" style={{ marginTop: 12, marginBottom: 0 }}>
-                    Intervali përket një rezervimi tjetër. Zgjidhni orë tjetër.
-                  </p>
+                {ora && chosenHourAvailability && (
+                  <div style={{ marginTop: 12 }}>
+                    <div className="label">Zgjidh fushën (court)</div>
+                    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                      {Array.from({ length: Number(chosenHourAvailability.total_courts || 0) }).map((_, i) => {
+                        const nr = i + 1;
+                        const free = (chosenHourAvailability.available_courts || []).includes(nr);
+                        return <button key={nr} type="button" className={`btn ${String(nr) === String(courtNumber) ? 'btn-primary' : 'btn-ghost'}`} disabled={!free} onClick={() => setCourtNumber(String(nr))}>{nr}</button>;
+                      })}
+                    </div>
+                  </div>
                 )}
               </div>
             )}
           </div>
-
           <div className="summary-sticky">
             <div className="card">
-              <div className="card-title">Përmbledhja</div>
-              {!fusha ? (
-                <p style={{ color: 'var(--text-muted)', fontSize: 14 }}>Zgjidhni fushën…</p>
-              ) : (
-                <>
-                  <div style={{ fontSize: 14, color: 'var(--text-secondary)', marginBottom: 16 }}>
-                    <div style={{ marginBottom: 6 }}>
-                      <strong style={{ color: 'var(--text-primary)' }}>{fusha.name}</strong>
-                    </div>
-                    <div>{terrainLabel(fusha.terrain_type)}</div>
-                    {data && (
-                      <div style={{ marginTop: 4 }}>
-                        Data: <strong>{data}</strong>
-                      </div>
-                    )}
-                    {ora && (
-                      <div>
-                        Ora:{' '}
-                        <strong>
-                          {ora} – {String((parseInt(ora.split(':')[0], 10) + 1) % 24).padStart(2, '0')}:00
-                        </strong>
-                      </div>
-                    )}
-                  </div>
-
-                  <div
-                    style={{
-                      background: 'var(--color-accent-light)',
-                      border: '1px solid rgba(39,174,96,0.35)',
-                      borderRadius: 'var(--radius-md)',
-                      padding: 12,
-                      marginBottom: 14,
-                    }}
-                  >
-                    <div style={{ fontSize: 11, color: 'var(--color-accent-hover)', marginBottom: 4, fontWeight: 600 }}>
-                      SMART SPLIT PREVIEW
-                    </div>
-                    <div style={{ fontSize: 20, fontWeight: 700, color: 'var(--color-accent)' }}>{splitPreview}€/lojtar</div>
-                    <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 2 }}>
-                      {cmimi}€ ÷ 12 = {splitPreview.toFixed(2)}€/lojtar
-                    </div>
-                  </div>
-
-                  <div style={{ background: 'var(--bg-secondary)', borderRadius: 'var(--radius-md)', padding: 12, marginBottom: 16 }}>
-                    <label style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer' }}>
-                      <input type="checkbox" checked={patika} onChange={(e) => setPatika(e.target.checked)} />
-                      <div>
-                        <div style={{ fontSize: 13, fontWeight: 600 }}>Patika (+2€ vetëm për ty)</div>
-                        <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>Shtohet në faturën tënde personale</div>
-                      </div>
-                    </label>
-                  </div>
-
-                  <div style={{ marginBottom: 16 }}>
-                    <div className="label">Metoda e pagesës</div>
-                    <div style={{ display: 'flex', gap: 8 }}>
-                      <button
-                        type="button"
-                        className={`btn ${paymentMethod === 'cash' ? 'btn-primary' : 'btn-ghost'}`}
-                        style={{ flex: 1 }}
-                        onClick={() => setPaymentMethod('cash')}
-                      >
-                        Cash
-                      </button>
-                      <button
-                        type="button"
-                        className={`btn ${paymentMethod === 'card' ? 'btn-primary' : 'btn-ghost'}`}
-                        style={{ flex: 1 }}
-                        onClick={() => setPaymentMethod('card')}
-                      >
-                        Card
-                      </button>
-                    </div>
-                  </div>
-
-                  <div style={{ borderTop: '1px solid var(--border-color)', paddingTop: 12, marginBottom: 14 }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, marginBottom: 6 }}>
-                      <span style={{ color: 'var(--text-secondary)' }}>Çmimi i fushës</span>
-                      <span>{cmimi}€</span>
-                    </div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13 }}>
-                      <span style={{ color: 'var(--text-secondary)' }}>Totali yt</span>
-                      <span style={{ color: 'var(--color-accent)', fontWeight: 700 }}>{totalLojtar.toFixed(2)}€</span>
-                    </div>
-                  </div>
-                </>
-              )}
-
-              <button
-                type="submit"
-                className="btn btn-accent"
-                style={{ width: '100%', justifyContent: 'center' }}
-                disabled={duke_shtuar || !formComplete}
-              >
-                {duke_shtuar ? 'Duke rezervuar…' : 'Konfirmo Rezervimin'}
+              <div className="card-title">Hapi 5-8 — Përmbledhja</div>
+              <p style={{ color: 'var(--text-secondary)' }}>Smart Split: <strong>{splitPreview}€</strong> ({cmimi}€ / 12)</p>
+              <label style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
+                <input type="checkbox" checked={patika} onChange={(e) => setPatika(e.target.checked)} /> Patika (+2€)
+              </label>
+              <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
+                <button type="button" className={`btn ${paymentMethod === 'cash' ? 'btn-primary' : 'btn-ghost'}`} onClick={() => setPaymentMethod('cash')}>Para në dorë</button>
+                <button type="button" className={`btn ${paymentMethod === 'card' ? 'btn-primary' : 'btn-ghost'}`} onClick={() => setPaymentMethod('card')}>Kartelë</button>
+              </div>
+              <p style={{ color: 'var(--text-secondary)' }}>Totali yt: <strong>{totalLojtar.toFixed(2)}€</strong></p>
+              <button type="submit" className="btn btn-accent" style={{ width: '100%' }} disabled={!formComplete || dukeShtuar}>
+                {dukeShtuar ? 'Duke rezervuar…' : 'Konfirmo'}
               </button>
             </div>
           </div>

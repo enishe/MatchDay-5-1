@@ -4,6 +4,7 @@ const path = require('path');
 const { router: authRouter } = require('./Routes/authRoutes');
 const { router: friendsRouter } = require('./Routes/friendsRoutes');
 const matchRouter = require('./Routes/matchRoutes');
+const fieldRoutes = require('./Routes/fieldRoutes');
 const { ensureSchema, seedMitrovicaFields } = require('./config/ensureSchema');
 const AuthService = require('./Services/AuthService');
 
@@ -22,6 +23,7 @@ app.get('/health', (req, res) => {
 // API routes para static — shmang përplasje me skedarë në dist
 app.use('/api/auth', authRouter);
 app.use('/api/friends', friendsRouter);
+app.use('/api', fieldRoutes);
 app.use('/api', matchRouter);
 
 // Serve static files from frontend dist folder
@@ -49,14 +51,14 @@ app.use((err, req, res, next) => {
   const isDevelopment = process.env.NODE_ENV !== 'production';
   
   res.status(err.status || 500).json({
-    error: isDevelopment ? err.message : 'Internal server error',
+    error: isDevelopment ? err.message : 'Gabim i brendshëm në server.',
     ...(isDevelopment && { stack: err.stack })
   });
 });
 
 // 404 handler for API routes
 app.use('/api/*', (req, res) => {
-  res.status(404).json({ error: 'API endpoint not found' });
+  res.status(404).json({ error: 'Endpoint-i i API-së nuk u gjet.' });
 });
 
 async function bootstrap() {

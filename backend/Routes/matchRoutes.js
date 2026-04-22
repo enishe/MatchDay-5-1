@@ -25,7 +25,7 @@ function fieldLabel(terrain) {
 
 async function loadFieldsMap() {
     const r = await pool.query(
-        'SELECT id, name, location, terrain_type, price_per_hour, is_active FROM fields ORDER BY id'
+        'SELECT id, name, location, terrain_type, price_per_hour, courts_count, is_active FROM fields ORDER BY id'
     );
     const map = {};
     for (const row of r.rows) map[row.id] = row;
@@ -47,6 +47,8 @@ function mapBookingRow(row, fieldMap) {
         price_per_player: parseFloat(row.price_per_player),
         status: row.status,
         organizer_id: row.organizer_id,
+        court_number: row.court_number ?? null,
+        payment_method: row.payment_method || 'cash',
         smart_split: `${parseFloat(row.total_price)}€ ÷ 12`,
     };
 }
@@ -182,7 +184,52 @@ router.post(
                 totalPrice,
                 organizerId: Number(req.user.id),
             };
-            const created = await matchService.shtoNdeshje(payload);
+            const startTime = new Date(payload.startTime);
+            const endTime = new Date(payload.endTime);
+            const courtNumber = Number(req.body.court_number);
+            const paymentMethod = req.body.payment_method === 'card' ? 'card' : 'cash';
+            if (!Number.isFinite(startTime.getTime()) || !Number.isFinite(endTime.getTime()) || startTime >= endTime) {
+                return res.status(400).json({ error: 'Intervali i kohës nuk është i vlefshëm.' });
+            }
+            if (!Number.isInteger(courtNumber) || courtNumber <= 0) {
+                return res.status(400).json({ error: 'Duhet të zgjidhni numrin e fushës.' });
+            }
+            const fieldR = await pool.query(
+                `SELECT id, courts_count
+                 FROM fields
+                 WHERE id = $1 AND is_active = TRUE`,
+                [fieldId]
+            );
+            if (fieldR.rows.length === 0) {
+                return res.status(404).json({ error: 'Fusha nuk ekziston ose është joaktive.' });
+            }
+            const totalCourts = Number(fieldR.rows[0].courts_count || 1);
+            if (courtNumber > totalCourts) {
+                return res.status(400).json({ error: 'Numri i fushës është jashtë intervalit të lejuar.' });
+            }
+            const conflict = await pool.query(
+                `SELECT 1
+                 FROM bookings
+                 WHERE field_id = $1
+                   AND court_number = $2
+                   AND status <> 'canceled'
+                   AND start_time < $4::timestamp
+                   AND end_time > $3::timestamp
+                 LIMIT 1`,
+                [fieldId, courtNumber, startTime.toISOString(), endTime.toISOString()]
+            );
+            if (conflict.rows.length > 0) {
+                return res.status(409).json({ error: 'Kjo fushë është e zënë në këtë orar.' });
+            }
+
+            const pricePerPlayer = parseFloat((totalPrice / 12).toFixed(2));
+            const inserted = await pool.query(
+                `INSERT INTO bookings (field_id, organizer_id, start_time, end_time, total_price, price_per_player, status, court_number, payment_method)
+                 VALUES ($1, $2, $3, $4, $5, $6, 'pending', $7, $8)
+                 RETURNING *`,
+                [fieldId, Number(req.user.id), startTime.toISOString(), endTime.toISOString(), totalPrice, pricePerPlayer, courtNumber, paymentMethod]
+            );
+            const created = inserted.rows[0];
             const fieldMap = await loadFieldsMap();
             res.status(201).json(mapBookingRow(created, fieldMap));
         } catch (error) {
@@ -292,7 +339,11 @@ router.get('/fields/availability', authenticateToken, async (req, res) => {
 router.get('/admin/users', authenticateToken, requireRole(['admin']), async (req, res) => {
     try {
         const r = await pool.query(
-            `SELECT id, name, email, role, created_at FROM users ORDER BY id ASC`
+            `SELECT u.id, u.name, u.email, u.role, u.created_at, COUNT(b.id)::int AS total_bookings
+             FROM users u
+             LEFT JOIN bookings b ON b.organizer_id = u.id
+             GROUP BY u.id, u.name, u.email, u.role, u.created_at
+             ORDER BY u.id ASC`
         );
         res.setHeader('Content-Type', 'application/json; charset=utf-8');
         res.json(
@@ -302,6 +353,7 @@ router.get('/admin/users', authenticateToken, requireRole(['admin']), async (req
                 email: row.email,
                 role: row.role === 'participant' ? 'player' : row.role,
                 created_at: row.created_at,
+                total_bookings: row.total_bookings || 0,
             }))
         );
     } catch (error) {

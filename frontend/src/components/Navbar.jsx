@@ -61,7 +61,7 @@ export default function Navbar() {
         Kalendari
       </NavLink>
       <NavLink to="/friends" className={navClass}>
-        Friends
+        Miqtë
       </NavLink>
       <NavLink to="/profile" className={navClass}>
         Profili
