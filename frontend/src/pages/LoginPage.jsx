@@ -14,7 +14,7 @@ export default function LoginPage() {
   const [show, setShow] = useState(false);
   const [localError, setLocalError] = useState(null);
 
-  if (user) return <Navigate to={from} replace />;
+  if (user) return <Navigate to={user.role === 'admin' ? '/admin/dashboard' : from} replace />;
 
   const validate = () => {
     const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -29,8 +29,8 @@ export default function LoginPage() {
     const v = validate();
     if (v) return setLocalError(v);
     try {
-      await login(String(email).trim(), password);
-      navigate('/dashboard', { replace: true });
+      const result = await login(String(email).trim(), password);
+      navigate(result?.user?.role === 'admin' ? '/admin/dashboard' : '/dashboard', { replace: true });
     } catch (err) {
       setLocalError(err.message || 'Kyçja dështoi.');
     }

@@ -362,6 +362,96 @@ router.get('/admin/users', authenticateToken, requireRole(['admin']), async (req
     }
 });
 
+router.get('/admin/stats', authenticateToken, requireRole(['admin']), async (req, res) => {
+    try {
+        const result = await pool.query(
+            `SELECT
+                COALESCE(SUM(CASE WHEN b.status = 'confirmed' THEN b.total_price ELSE 0 END), 0)::numeric AS total_revenue,
+                COALESCE(SUM(CASE WHEN b.status = 'confirmed' AND b.start_time::date = CURRENT_DATE THEN b.total_price ELSE 0 END), 0)::numeric AS today_revenue,
+                COALESCE(SUM(CASE WHEN b.status = 'confirmed' AND b.start_time >= date_trunc('week', NOW()) AND b.start_time < date_trunc('week', NOW()) + INTERVAL '7 day' THEN b.total_price ELSE 0 END), 0)::numeric AS week_revenue,
+                COUNT(b.id)::int AS total_bookings,
+                COUNT(CASE WHEN b.status = 'pending' THEN 1 END)::int AS pending_bookings
+             FROM bookings b`
+        );
+        const fieldsR = await pool.query(
+            `SELECT COUNT(*)::int AS total_fields
+             FROM fields
+             WHERE is_active = TRUE`
+        );
+        const playersR = await pool.query(
+            `SELECT COUNT(*)::int AS total_players
+             FROM users
+             WHERE role IN ('participant', 'player')`
+        );
+        const row = result.rows[0] || {};
+        res.json({
+            total_revenue: Number(row.total_revenue || 0),
+            today_revenue: Number(row.today_revenue || 0),
+            week_revenue: Number(row.week_revenue || 0),
+            total_bookings: Number(row.total_bookings || 0),
+            total_fields: Number(fieldsR.rows[0]?.total_fields || 0),
+            total_players: Number(playersR.rows[0]?.total_players || 0),
+            pending_bookings: Number(row.pending_bookings || 0),
+        });
+    } catch (error) {
+        console.error('Admin stats error:', error);
+        res.status(400).json({ error: 'Nuk u lexuan statistikat e adminit.' });
+    }
+});
+
+router.get('/admin/today-bookings', authenticateToken, requireRole(['admin']), async (req, res) => {
+    try {
+        const result = await pool.query(
+            `SELECT
+                f.id AS field_id,
+                f.name AS field_name,
+                f.location,
+                f.courts_count,
+                b.id AS booking_id,
+                b.court_number,
+                b.start_time,
+                b.end_time,
+                b.total_price
+             FROM fields f
+             LEFT JOIN bookings b
+               ON b.field_id = f.id
+              AND b.status = 'confirmed'
+              AND b.start_time::date = CURRENT_DATE
+             WHERE f.is_active = TRUE
+             ORDER BY f.id ASC, b.start_time ASC`
+        );
+        const grouped = {};
+        for (const row of result.rows) {
+            if (!grouped[row.field_id]) {
+                grouped[row.field_id] = {
+                    field_id: row.field_id,
+                    field_name: row.field_name,
+                    location: row.location,
+                    courts_count: Number(row.courts_count || 1),
+                    confirmed_bookings_today: 0,
+                    revenue_today: 0,
+                    bookings: [],
+                };
+            }
+            if (row.booking_id) {
+                grouped[row.field_id].confirmed_bookings_today += 1;
+                grouped[row.field_id].revenue_today += Number(row.total_price || 0);
+                grouped[row.field_id].bookings.push({
+                    booking_id: row.booking_id,
+                    court_number: row.court_number,
+                    start_time: row.start_time,
+                    end_time: row.end_time,
+                    total_price: Number(row.total_price || 0),
+                });
+            }
+        }
+        res.json(Object.values(grouped));
+    } catch (error) {
+        console.error('Admin today bookings error:', error);
+        res.status(400).json({ error: 'Nuk u lexuan rezervimet e sotme.' });
+    }
+});
+
 router.get('/fields', authenticateToken, async (req, res) => {
     try {
         const r = await pool.query(

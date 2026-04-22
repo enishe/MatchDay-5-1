@@ -48,28 +48,45 @@ export default function Navbar() {
 
   const links = (
     <>
-      <NavLink to="/dashboard" className={navClass} end>
-        Dashboard
-      </NavLink>
-      <NavLink to="/booking" className={navClass}>
-        Rezervo
-      </NavLink>
-      <NavLink to="/equipment" className={navClass}>
-        Pajisjet
-      </NavLink>
-      <NavLink to="/calendar" className={navClass}>
-        Kalendari
-      </NavLink>
-      <NavLink to="/friends" className={navClass}>
-        Miqtë
-      </NavLink>
-      <NavLink to="/profile" className={navClass}>
-        Profili
-      </NavLink>
-      {isAdmin && (
-        <NavLink to="/admin" className={navClass}>
-          Admin
-        </NavLink>
+      {isAdmin ? (
+        <>
+          <NavLink to="/admin/dashboard" className={navClass} end>
+            Dashboard
+          </NavLink>
+          <NavLink to="/admin/fields" className={navClass}>
+            Fushat
+          </NavLink>
+          <NavLink to="/admin/bookings" className={navClass}>
+            Rezervimet
+          </NavLink>
+          <NavLink to="/admin/players" className={navClass}>
+            Lojtarët
+          </NavLink>
+          <NavLink to="/profile" className={navClass}>
+            Profili
+          </NavLink>
+        </>
+      ) : (
+        <>
+          <NavLink to="/dashboard" className={navClass} end>
+            Dashboard
+          </NavLink>
+          <NavLink to="/booking" className={navClass}>
+            Rezervo
+          </NavLink>
+          <NavLink to="/equipment" className={navClass}>
+            Pajisjet
+          </NavLink>
+          <NavLink to="/calendar" className={navClass}>
+            Kalendari
+          </NavLink>
+          <NavLink to="/friends" className={navClass}>
+            Miqtë
+          </NavLink>
+          <NavLink to="/profile" className={navClass}>
+            Profili
+          </NavLink>
+        </>
       )}
     </>
   );
@@ -87,7 +104,7 @@ export default function Navbar() {
         >
           {menuOpen ? <X size={22} /> : <Menu size={22} />}
         </button>
-        <NavLink to="/dashboard" className="navbar-brand">
+        <NavLink to={isAdmin ? '/admin/dashboard' : '/dashboard'} className="navbar-brand">
           MatchDay 5+1
         </NavLink>
       </div>

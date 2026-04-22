@@ -25,8 +25,8 @@ function validateFieldPayload(body, isUpdate = false) {
     }
   }
   if (!isUpdate || body.courts_count !== undefined) {
-    if (!Number.isInteger(Number(body.courts_count)) || Number(body.courts_count) <= 0) {
-      errors.push('Numri i fushave duhet të jetë numër i plotë pozitiv.');
+    if (!Number.isInteger(Number(body.courts_count)) || Number(body.courts_count) < 1 || Number(body.courts_count) > 10) {
+      errors.push('Numri i fushave duhet të jetë nga 1 deri në 10.');
     }
   }
   return errors;

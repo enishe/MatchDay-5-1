@@ -26,8 +26,21 @@ function AppShell({ children }) {
 
 function HomeRedirect() {
   const { user } = useAuth();
+  if (user?.role === 'admin') return <Navigate to="/admin/dashboard" replace />;
   if (user) return <Navigate to="/dashboard" replace />;
   return <Navigate to="/login" replace />;
+}
+
+function PlayerOnlyRoute({ children }) {
+  const { user } = useAuth();
+  if (user?.role === 'admin') return <Navigate to="/admin/dashboard" replace />;
+  return children;
+}
+
+function AdminOnlyRoute({ children }) {
+  const { user } = useAuth();
+  if (user?.role !== 'admin') return <Navigate to="/dashboard" replace />;
+  return children;
 }
 
 export default function App() {
@@ -43,7 +56,9 @@ export default function App() {
             path="/dashboard"
             element={
               <ProtectedRoute>
-                <Dashboard />
+                <PlayerOnlyRoute>
+                  <Dashboard />
+                </PlayerOnlyRoute>
               </ProtectedRoute>
             }
           />
@@ -51,7 +66,9 @@ export default function App() {
             path="/booking"
             element={
               <ProtectedRoute>
-                <BookingPage />
+                <PlayerOnlyRoute>
+                  <BookingPage />
+                </PlayerOnlyRoute>
               </ProtectedRoute>
             }
           />
@@ -67,7 +84,9 @@ export default function App() {
             path="/equipment"
             element={
               <ProtectedRoute>
-                <Equipment />
+                <PlayerOnlyRoute>
+                  <Equipment />
+                </PlayerOnlyRoute>
               </ProtectedRoute>
             }
           />
@@ -75,7 +94,9 @@ export default function App() {
             path="/calendar"
             element={
               <ProtectedRoute>
-                <CalendarPage />
+                <PlayerOnlyRoute>
+                  <CalendarPage />
+                </PlayerOnlyRoute>
               </ProtectedRoute>
             }
           />
@@ -83,7 +104,9 @@ export default function App() {
             path="/friends"
             element={
               <ProtectedRoute>
-                <FriendsPage />
+                <PlayerOnlyRoute>
+                  <FriendsPage />
+                </PlayerOnlyRoute>
               </ProtectedRoute>
             }
           />
@@ -99,7 +122,47 @@ export default function App() {
             path="/admin"
             element={
               <ProtectedRoute requiredRole="admin">
-                <AdminPanel />
+                <Navigate to="/admin/dashboard" replace />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin/dashboard"
+            element={
+              <ProtectedRoute requiredRole="admin">
+                <AdminOnlyRoute>
+                  <AdminPanel section="dashboard" />
+                </AdminOnlyRoute>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin/fields"
+            element={
+              <ProtectedRoute requiredRole="admin">
+                <AdminOnlyRoute>
+                  <AdminPanel section="fields" />
+                </AdminOnlyRoute>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin/bookings"
+            element={
+              <ProtectedRoute requiredRole="admin">
+                <AdminOnlyRoute>
+                  <AdminPanel section="bookings" />
+                </AdminOnlyRoute>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin/players"
+            element={
+              <ProtectedRoute requiredRole="admin">
+                <AdminOnlyRoute>
+                  <AdminPanel section="players" />
+                </AdminOnlyRoute>
               </ProtectedRoute>
             }
           />
