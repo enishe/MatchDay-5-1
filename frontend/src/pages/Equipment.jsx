@@ -67,19 +67,27 @@ export default function Equipment() {
           {inventory.length === 0 ? (
             <p style={{ color: 'var(--text-muted)' }}>Nuk ka inventar të regjistruar për këtë fushë.</p>
           ) : (
-            <div className="table-wrap">
-              <table className="table">
-                <thead><tr><th>Madhësia</th><th>Sasia</th><th>Çmimi i qirasë</th></tr></thead>
-                <tbody>
-                  {inventory.map((r) => (
-                    <tr key={r.shoe_size}>
-                      <td>{r.shoe_size}</td>
-                      <td>{r.quantity_available}</td>
-                      <td>{Number(r.rent_price).toFixed(2)}€</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+            <div className="shoes-grid">
+              {inventory.map((r) => (
+                <div key={r.shoe_size} className="shoe-card">
+                  <span className="shoe-label">Madhësia</span>
+                  <div className="shoe-value">{r.shoe_size}</div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, marginTop: 10 }}>
+                    <div>
+                      <span className="shoe-label">Sasia</span>
+                      <div className="shoe-value" style={{ fontSize: '0.95rem' }}>
+                        {r.quantity_available}
+                      </div>
+                    </div>
+                    <div>
+                      <span className="shoe-label">Çmimi</span>
+                      <div className="shoe-value" style={{ fontSize: '0.95rem' }}>
+                        {Number(r.rent_price).toFixed(2)}€
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
             </div>
           )}
         </div>

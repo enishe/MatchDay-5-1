@@ -286,16 +286,16 @@ export default function AdminPanel({ section = 'dashboard' }) {
                   <p style={{ color: 'var(--text-muted)', marginBottom: 0 }}>Sot nuk ka rezervime të konfirmuara.</p>
                 ) : (
                   <div className="table-wrap">
-                    <table className="table">
+                    <table className="table table--stack-on-mobile">
                       <thead>
                         <tr><th>Numri i fushës</th><th>Ora</th><th>Vlera</th></tr>
                       </thead>
                       <tbody>
                         {group.bookings.map((b) => (
                           <tr key={b.booking_id}>
-                            <td>{b.court_number || '—'}</td>
-                            <td>{new Date(b.start_time).toLocaleTimeString('sq-AL', { hour: '2-digit', minute: '2-digit' })} - {new Date(b.end_time).toLocaleTimeString('sq-AL', { hour: '2-digit', minute: '2-digit' })}</td>
-                            <td>{Number(b.total_price || 0).toFixed(2)}€</td>
+                            <td data-label="Numri i fushës">{b.court_number || '—'}</td>
+                            <td data-label="Ora">{new Date(b.start_time).toLocaleTimeString('sq-AL', { hour: '2-digit', minute: '2-digit' })} - {new Date(b.end_time).toLocaleTimeString('sq-AL', { hour: '2-digit', minute: '2-digit' })}</td>
+                            <td data-label="Vlera">{Number(b.total_price || 0).toFixed(2)}€</td>
                           </tr>
                         ))}
                       </tbody>
@@ -391,7 +391,7 @@ export default function AdminPanel({ section = 'dashboard' }) {
       {tab === 'fields' && (
         <div className="card">
           <h2 className="card-title">Fushat</h2>
-          <form onSubmit={handleCreateField} style={{ display: 'grid', gridTemplateColumns: 'repeat(5, minmax(120px, 1fr))', gap: 8, marginBottom: 12 }}>
+          <form onSubmit={handleCreateField} className="admin-field-create-grid">
             <input className="input" placeholder="Emri i fushës" value={fieldForm.name} onChange={(e) => setFieldForm((p) => ({ ...p, name: e.target.value }))} />
             <input className="input" placeholder="Lokacioni" value={fieldForm.location} onChange={(e) => setFieldForm((p) => ({ ...p, location: e.target.value }))} />
             <select className="input" value={fieldForm.terrain_type} onChange={(e) => setFieldForm((p) => ({ ...p, terrain_type: e.target.value }))}>
@@ -404,21 +404,21 @@ export default function AdminPanel({ section = 'dashboard' }) {
           </form>
           {fields.length === 0 && <p style={{ color: 'var(--text-muted)' }}>Nuk ka fusha.</p>}
           <div className="table-wrap">
-            <table className="table">
+            <table className="table table--stack-on-mobile admin-fields-table">
               <thead>
                 <tr><th>ID</th><th>Emri</th><th>Lokacioni</th><th>Terreni</th><th>Çmimi/orë</th><th>Nr. fushash</th><th>Statusi</th><th>Veprimet</th></tr>
               </thead>
               <tbody>
                 {fields.map((f) => (
                   <tr key={f.id}>
-                    <td>{f.id}</td>
-                    <td>{f.name}</td>
-                    <td>{f.location || '—'}</td>
-                    <td>{terrainLabel(f.terrain_type)}</td>
-                    <td>{Number(f.price_per_hour || 0).toFixed(2)}€</td>
-                    <td>{f.courts_count || 1}</td>
-                    <td><span className={`badge ${f.is_active ? 'badge-confirmed' : 'badge-canceled'}`}>{f.is_active ? 'Aktive' : 'Joaktive'}</span></td>
-                    <td>
+                    <td data-label="ID">{f.id}</td>
+                    <td data-label="Emri">{f.name}</td>
+                    <td data-label="Lokacioni">{f.location || '—'}</td>
+                    <td data-label="Terreni">{terrainLabel(f.terrain_type)}</td>
+                    <td data-label="Çmimi/orë">{Number(f.price_per_hour || 0).toFixed(2)}€</td>
+                    <td data-label="Nr. fushash">{f.courts_count || 1}</td>
+                    <td data-label="Statusi"><span className={`badge ${f.is_active ? 'badge-confirmed' : 'badge-canceled'}`}>{f.is_active ? 'Aktive' : 'Joaktive'}</span></td>
+                    <td data-label="Veprimet" className="actions-cell">
                       <div style={{ display: 'flex', gap: 8 }}>
                         <button type="button" className="btn btn-ghost" onClick={() => {
                           const p = window.prompt('Çmimi i ri për orë', String(f.price_per_hour || ''));

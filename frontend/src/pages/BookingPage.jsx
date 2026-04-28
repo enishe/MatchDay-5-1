@@ -162,7 +162,7 @@ export default function BookingPage() {
                 {ora && chosenHourAvailability && (
                   <div style={{ marginTop: 12 }}>
                     <div className="label">Zgjidh fushën (court)</div>
-                    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                    <div className="court-number-grid">
                       {Array.from({ length: Number(chosenHourAvailability.total_courts || 0) }).map((_, i) => {
                         const nr = i + 1;
                         const free = (chosenHourAvailability.available_courts || []).includes(nr);

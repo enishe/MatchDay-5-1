@@ -147,6 +147,7 @@ export default function Dashboard() {
       <div className="card" style={{ marginTop: 16 }}>
         <div className="card-title">Veprime të shpejta</div>
         <div
+            className="quick-actions-grid"
           style={{
             display: 'grid',
             gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))',
@@ -176,7 +177,7 @@ export default function Dashboard() {
 
       
 
-      <div className="grid-2-col" style={{ marginTop: 16 }}>
+      <div className="grid-2-col dashboard-2col" style={{ marginTop: 16 }}>
         <div className="card">
           <div className="card-title">Java aktuale</div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 4, marginBottom: 8 }}>
@@ -234,7 +235,7 @@ export default function Dashboard() {
             <p style={{ color: 'var(--text-muted)', fontSize: 13 }}>Nuk ka ndeshje të regjistruara.</p>
           )}
           <div className="table-wrap">
-            <table className="table">
+            <table className="table table--stack-on-mobile">
               <thead>
                 <tr>
                   <th>ID</th>
@@ -255,12 +256,12 @@ export default function Dashboard() {
                     tabIndex={0}
                     role="link"
                   >
-                    <td>#{m.id}</td>
-                    <td>{m.field_name || `Fusha #${m.field_id}`}</td>
-                    <td>{formatDate(m.start_time)}</td>
-                    <td>{m.total_price}€</td>
-                    <td>{m.price_per_player}€</td>
-                    <td>
+                    <td data-label="ID">#{m.id}</td>
+                    <td data-label="Fusha">{m.field_name || `Fusha #${m.field_id}`}</td>
+                    <td data-label="Data/Ora">{formatDate(m.start_time)}</td>
+                    <td data-label="Çmimi">{m.total_price}€</td>
+                    <td data-label="Smart Split">{m.price_per_player}€</td>
+                    <td data-label="Status">
                       <span
                         className={`badge ${
                           m.status === 'pending'

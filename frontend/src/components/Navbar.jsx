@@ -26,9 +26,12 @@ export default function Navbar() {
   const [userOpen, setUserOpen] = useState(false);
   const [dark, setDark] = useState(() => getStoredTheme() === 'dark');
   const ddRef = useRef(null);
+  const navRef = useRef(null);
+  const menuButtonRef = useRef(null);
 
   useEffect(() => {
-    setMenuOpen(false);
+    // Avoid cascading renders warning by deferring the state update.
+    queueMicrotask(() => setMenuOpen(false));
   }, [location.pathname]);
 
   useEffect(() => {
@@ -38,6 +41,20 @@ export default function Navbar() {
     document.addEventListener('click', onDoc);
     return () => document.removeEventListener('click', onDoc);
   }, []);
+
+  useEffect(() => {
+    if (!menuOpen) return undefined;
+
+    function onDoc(e) {
+      const target = e.target;
+      if (navRef.current && navRef.current.contains(target)) return;
+      if (menuButtonRef.current && menuButtonRef.current.contains(target)) return;
+      setMenuOpen(false);
+    }
+
+    document.addEventListener('pointerdown', onDoc, { passive: true });
+    return () => document.removeEventListener('pointerdown', onDoc);
+  }, [menuOpen]);
 
   const onToggleTheme = () => {
     toggleTheme();
@@ -50,40 +67,40 @@ export default function Navbar() {
     <>
       {isAdmin ? (
         <>
-          <NavLink to="/admin/dashboard" className={navClass} end>
+          <NavLink to="/admin/dashboard" className={navClass} end onClick={() => setMenuOpen(false)}>
             Dashboard
           </NavLink>
-          <NavLink to="/admin/fields" className={navClass}>
+          <NavLink to="/admin/fields" className={navClass} onClick={() => setMenuOpen(false)}>
             Fushat
           </NavLink>
-          <NavLink to="/admin/bookings" className={navClass}>
+          <NavLink to="/admin/bookings" className={navClass} onClick={() => setMenuOpen(false)}>
             Rezervimet
           </NavLink>
-          <NavLink to="/admin/players" className={navClass}>
+          <NavLink to="/admin/players" className={navClass} onClick={() => setMenuOpen(false)}>
             Lojtarët
           </NavLink>
-          <NavLink to="/profile" className={navClass}>
+          <NavLink to="/profile" className={navClass} onClick={() => setMenuOpen(false)}>
             Profili
           </NavLink>
         </>
       ) : (
         <>
-          <NavLink to="/dashboard" className={navClass} end>
+          <NavLink to="/dashboard" className={navClass} end onClick={() => setMenuOpen(false)}>
             Dashboard
           </NavLink>
-          <NavLink to="/booking" className={navClass}>
+          <NavLink to="/booking" className={navClass} onClick={() => setMenuOpen(false)}>
             Rezervo
           </NavLink>
-          <NavLink to="/equipment" className={navClass}>
+          <NavLink to="/equipment" className={navClass} onClick={() => setMenuOpen(false)}>
             Pajisjet
           </NavLink>
-          <NavLink to="/calendar" className={navClass}>
+          <NavLink to="/calendar" className={navClass} onClick={() => setMenuOpen(false)}>
             Kalendari
           </NavLink>
-          <NavLink to="/friends" className={navClass}>
+          <NavLink to="/friends" className={navClass} onClick={() => setMenuOpen(false)}>
             Miqtë
           </NavLink>
-          <NavLink to="/profile" className={navClass}>
+          <NavLink to="/profile" className={navClass} onClick={() => setMenuOpen(false)}>
             Profili
           </NavLink>
         </>
@@ -94,26 +111,31 @@ export default function Navbar() {
   return (
     <header className="navbar">
       <div className="navbar-start">
+        <NavLink to={isAdmin ? '/admin/dashboard' : '/dashboard'} className="navbar-brand">
+          MatchDay 5+1
+        </NavLink>
+      </div>
+
+      <nav
+        id="primary-navigation"
+        className={`navbar-nav${menuOpen ? ' open' : ''}`}
+        ref={navRef}
+      >
+        {links}
+      </nav>
+
+      <div className="navbar-actions">
         <button
           type="button"
+          ref={menuButtonRef}
           className="navbar-toggle icon-btn"
           aria-label="Menu"
           aria-expanded={menuOpen}
           aria-controls="primary-navigation"
           onClick={() => setMenuOpen((o) => !o)}
         >
-          {menuOpen ? <X size={22} /> : <Menu size={22} />}
+          {menuOpen ? <X size={22} /> : <span aria-hidden style={{ fontSize: 22, fontWeight: 800, lineHeight: 1 }}>☰</span>}
         </button>
-        <NavLink to={isAdmin ? '/admin/dashboard' : '/dashboard'} className="navbar-brand">
-          MatchDay 5+1
-        </NavLink>
-      </div>
-
-      <nav id="primary-navigation" className={`navbar-nav${menuOpen ? ' open' : ''}`}>
-        {links}
-      </nav>
-
-      <div className="navbar-actions">
         <button type="button" className="icon-btn" aria-label="Dark mode" onClick={onToggleTheme}>
           {dark ? <Sun size={20} /> : <Moon size={20} />}
         </button>

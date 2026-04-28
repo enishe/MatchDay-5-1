@@ -130,7 +130,7 @@ export default function FriendsPage() {
       <div className="card" style={{ marginBottom: 16 }}>
         <div className="card-title">Kërko sipas emrit ose email-it</div>
         <form style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }} onSubmit={onSearch}>
-          <input className="input" style={{ flex: 1, minWidth: 200 }} value={q} onChange={(e) => setQ(e.target.value)} placeholder="p.sh. enis" />
+          <input className="input friends-search-input" style={{ flex: 1, minWidth: 0 }} value={q} onChange={(e) => setQ(e.target.value)} placeholder="p.sh. enis" />
           <button type="submit" className="btn btn-primary" disabled={loading}>
             {loading ? '…' : 'Kërko'}
           </button>
@@ -171,27 +171,21 @@ export default function FriendsPage() {
       <div className="card">
         <div className="card-title">Miqtë e mi</div>
         {friends.length === 0 && <p style={{ color: 'var(--text-muted)' }}>Ende nuk ke miq të pranuar.</p>}
-        {friends.map((row) => (
-          <div
-            key={row.friendshipId}
-            style={{
-              display: 'flex',
-              flexWrap: 'wrap',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-              padding: '10px 0',
-              borderBottom: '1px solid var(--border-color)',
-            }}
-          >
-            <div>
-              <strong>{row.friend.name}</strong>
-              <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>{row.friend.email}</div>
-            </div>
-            <button type="button" className="btn btn-primary" style={{ fontSize: 12 }} onClick={() => inviteToMatch(row.friend.id)}>
-              Fto në ndeshje
-            </button>
+        {friends.length > 0 && (
+          <div className="friends-grid">
+            {friends.map((row) => (
+              <div key={row.friendshipId} className="friend-card">
+                <div>
+                  <strong>{row.friend.name}</strong>
+                  <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>{row.friend.email}</div>
+                </div>
+                <button type="button" className="btn btn-primary" onClick={() => inviteToMatch(row.friend.id)}>
+                  Fto në ndeshje
+                </button>
+              </div>
+            ))}
           </div>
-        ))}
+        )}
       </div>
     </div>
   );

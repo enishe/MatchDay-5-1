@@ -88,6 +88,13 @@ export default function ProfilePage() {
   }
 
   const stats = profile?.stats || { matches_total: 0, matches_this_month: 0 };
+  const initials = (() => {
+    const fn = String(firstName || '').trim();
+    const ln = String(lastName || '').trim();
+    const a = fn ? fn[0] : '';
+    const b = ln ? ln[0] : '';
+    return (a + b).toUpperCase() || '?';
+  })();
 
   return (
     <div className="page">
@@ -106,88 +113,96 @@ export default function ProfilePage() {
         </p>
       </div>
 
-      <form className="card" onSubmit={onSave}>
-        <div className="card-title">Ndrysho të dhënat</div>
-        <div className="form-group">
-          <label className="label" htmlFor="fn">
-            Emri
-          </label>
-          <input id="fn" className="input" value={firstName} onChange={(e) => setFirstName(e.target.value)} />
+      <div className="profile-layout">
+        <div className="card profile-photo-card">
+          <div className="profile-photo-preview" aria-label="Foto profili">
+            {avatar ? <img src={avatar} alt="Foto e profilit" /> : <span style={{ fontWeight: 800, color: 'var(--text-muted)' }}>{initials}</span>}
+          </div>
         </div>
-        <div className="form-group">
-          <label className="label" htmlFor="ln">
-            Mbiemri
-          </label>
-          <input id="ln" className="input" value={lastName} onChange={(e) => setLastName(e.target.value)} />
-        </div>
-        <div className="form-group">
-          <label className="label" htmlFor="em">
-            Email (vetëm lexim)
-          </label>
-          <input id="em" className="input" value={profile?.email || user?.email || ''} disabled readOnly />
-        </div>
-        <div className="form-group">
-          <label className="label" htmlFor="ph">
-            Telefoni (opsional)
-          </label>
-          <input id="ph" className="input" value={phone} onChange={(e) => setPhone(e.target.value)} />
-        </div>
-        <div className="form-group">
-          <label className="label" htmlFor="bk">
-            Numri i llogarisë bankare (opsional)
-          </label>
-          <input id="bk" className="input" value={bank} onChange={(e) => setBank(e.target.value)} />
-        </div>
-        <div className="form-group">
-          <label className="label" htmlFor="nk">
-            Nickname unik
-          </label>
-          <input id="nk" className="input" value={nickname} onChange={(e) => setNickname(e.target.value)} />
-        </div>
-        <div className="form-group">
-          <label className="label" htmlFor="av">
-            URL e fotos së profilit (opsional)
-          </label>
-          <input id="av" className="input" value={avatar} onChange={(e) => setAvatar(e.target.value)} placeholder="https://..." />
-        </div>
-        <div className="form-group">
-          <label className="label" htmlFor="avf">
-            Ose ngarko foto
-          </label>
-          <input
-            id="avf"
-            className="input"
-            type="file"
-            accept="image/*"
-            onChange={(e) => {
-              const file = e.target.files?.[0];
-              if (!file) return;
-              const reader = new FileReader();
-              reader.onload = () => {
-                const result = typeof reader.result === 'string' ? reader.result : '';
-                setAvatar(result);
-              };
-              reader.readAsDataURL(file);
-            }}
-          />
-        </div>
-        <div className="form-group">
-          <label className="label" htmlFor="pf">
-            Fusha e preferuar (Mitrovicë)
-          </label>
-          <select id="pf" className="input" value={prefField} onChange={(e) => setPrefField(e.target.value)}>
-            <option value="">— Zgjidh —</option>
-            {fields.map((f) => (
-              <option key={f.id} value={String(f.id)}>
-                {f.name}
-              </option>
-            ))}
-          </select>
-        </div>
-        <button type="submit" className="btn btn-accent" disabled={saving}>
-          {saving ? 'Duke ruajtur…' : 'Ruaj ndryshimet'}
-        </button>
-      </form>
+
+        <form className="card" onSubmit={onSave}>
+          <div className="card-title">Ndrysho të dhënat</div>
+          <div className="form-group">
+            <label className="label" htmlFor="fn">
+              Emri
+            </label>
+            <input id="fn" className="input" value={firstName} onChange={(e) => setFirstName(e.target.value)} />
+          </div>
+          <div className="form-group">
+            <label className="label" htmlFor="ln">
+              Mbiemri
+            </label>
+            <input id="ln" className="input" value={lastName} onChange={(e) => setLastName(e.target.value)} />
+          </div>
+          <div className="form-group">
+            <label className="label" htmlFor="em">
+              Email (vetëm lexim)
+            </label>
+            <input id="em" className="input" value={profile?.email || user?.email || ''} disabled readOnly />
+          </div>
+          <div className="form-group">
+            <label className="label" htmlFor="ph">
+              Telefoni (opsional)
+            </label>
+            <input id="ph" className="input" value={phone} onChange={(e) => setPhone(e.target.value)} />
+          </div>
+          <div className="form-group">
+            <label className="label" htmlFor="bk">
+              Numri i llogarisë bankare (opsional)
+            </label>
+            <input id="bk" className="input" value={bank} onChange={(e) => setBank(e.target.value)} />
+          </div>
+          <div className="form-group">
+            <label className="label" htmlFor="nk">
+              Nickname unik
+            </label>
+            <input id="nk" className="input" value={nickname} onChange={(e) => setNickname(e.target.value)} />
+          </div>
+          <div className="form-group">
+            <label className="label" htmlFor="av">
+              URL e fotos së profilit (opsional)
+            </label>
+            <input id="av" className="input" value={avatar} onChange={(e) => setAvatar(e.target.value)} placeholder="https://..." />
+          </div>
+          <div className="form-group">
+            <label className="label" htmlFor="avf">
+              Ose ngarko foto
+            </label>
+            <input
+              id="avf"
+              className="input"
+              type="file"
+              accept="image/*"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (!file) return;
+                const reader = new FileReader();
+                reader.onload = () => {
+                  const result = typeof reader.result === 'string' ? reader.result : '';
+                  setAvatar(result);
+                };
+                reader.readAsDataURL(file);
+              }}
+            />
+          </div>
+          <div className="form-group">
+            <label className="label" htmlFor="pf">
+              Fusha e preferuar (Mitrovicë)
+            </label>
+            <select id="pf" className="input" value={prefField} onChange={(e) => setPrefField(e.target.value)}>
+              <option value="">— Zgjidh —</option>
+              {fields.map((f) => (
+                <option key={f.id} value={String(f.id)}>
+                  {f.name}
+                </option>
+              ))}
+            </select>
+          </div>
+          <button type="submit" className="btn btn-accent" disabled={saving}>
+            {saving ? 'Duke ruajtur…' : 'Ruaj ndryshimet'}
+          </button>
+        </form>
+      </div>
     </div>
   );
 }

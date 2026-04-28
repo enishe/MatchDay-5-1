@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { apiFetch } from '../lib/api';
 import { useAuth } from '../context/AuthContext';
@@ -38,6 +38,9 @@ export default function CalendarPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [reloadKey, setReloadKey] = useState(0);
+  const [daysToShow, setDaysToShow] = useState(7);
+  const [dayOffset, setDayOffset] = useState(0);
+  const touchStartXRef = useRef(null);
 
   const weekDays = useMemo(() => {
     const out = [];
@@ -48,6 +51,28 @@ export default function CalendarPage() {
     }
     return out;
   }, [weekStart]);
+
+  useEffect(() => {
+    function update() {
+      const w = window.innerWidth;
+      if (w <= 640) setDaysToShow(3);
+      else if (w <= 1024) setDaysToShow(5);
+      else setDaysToShow(7);
+    }
+    update();
+    window.addEventListener('resize', update);
+    return () => window.removeEventListener('resize', update);
+  }, []);
+
+  useEffect(() => {
+    setDayOffset(0);
+  }, [weekStart, daysToShow]);
+
+  const maxDayOffset = Math.max(0, 7 - daysToShow);
+  const visibleWeekDays = useMemo(() => weekDays.slice(dayOffset, dayOffset + daysToShow), [weekDays, dayOffset, daysToShow]);
+
+  const goPrevDays = () => setDayOffset((o) => Math.max(0, o - 1));
+  const goNextDays = () => setDayOffset((o) => Math.min(maxDayOffset, o + 1));
 
   useEffect(() => {
     if (!weekDays.some((d) => toYMD(d) === selectedDate)) {
@@ -106,8 +131,42 @@ export default function CalendarPage() {
             Java e ardhshme →
           </button>
         </div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 8, marginTop: 14 }}>
-          {weekDays.map((d, i) => {
+        <div style={{ marginTop: 12 }}>
+          {daysToShow < 7 && (
+            <div style={{ display: 'flex', gap: 10, justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+              <button type="button" className="btn btn-ghost" style={{ padding: '10px 14px' }} disabled={dayOffset === 0} onClick={goPrevDays}>
+                ← Ditet
+              </button>
+              <button
+                type="button"
+                className="btn btn-ghost"
+                style={{ padding: '10px 14px' }}
+                disabled={dayOffset >= maxDayOffset}
+                onClick={goNextDays}
+              >
+                Ditet →
+              </button>
+            </div>
+          )}
+
+          <div
+            style={{ display: 'grid', gridTemplateColumns: `repeat(${visibleWeekDays.length}, 1fr)`, gap: 8, marginTop: 14 }}
+            onTouchStart={(e) => {
+              touchStartXRef.current = e.touches?.[0]?.clientX ?? null;
+            }}
+            onTouchEnd={(e) => {
+              const startX = touchStartXRef.current;
+              touchStartXRef.current = null;
+              if (startX == null) return;
+              const endX = e.changedTouches?.[0]?.clientX ?? startX;
+              const dx = endX - startX;
+              if (Math.abs(dx) < 45) return;
+              if (dx < 0) goNextDays();
+              else goPrevDays();
+            }}
+          >
+            {visibleWeekDays.map((d, visibleIndex) => {
+              const i = dayOffset + visibleIndex;
             const ymd = toYMD(d);
             const active = ymd === selectedDate;
             return (
@@ -115,14 +174,15 @@ export default function CalendarPage() {
                 key={ymd}
                 type="button"
                 className={`btn ${active ? 'btn-accent' : 'btn-ghost'}`}
-                style={{ height: 'auto', padding: '8px 6px', display: 'flex', flexDirection: 'column' }}
+                  style={{ height: 'auto', padding: '8px 6px', display: 'flex', flexDirection: 'column' }}
                 onClick={() => setSelectedDate(ymd)}
               >
-                <span style={{ fontSize: 11 }}>{DITET_SH[i]}</span>
+                  <span className="calendar-day-dow">{DITET_SH[i]}</span>
                 <span>{d.toLocaleDateString('sq-AL', { day: '2-digit', month: 'short' })}</span>
               </button>
             );
           })}
+          </div>
         </div>
       </div>
 
@@ -140,16 +200,16 @@ export default function CalendarPage() {
       )}
 
       {!loading && !error && fields.length > 0 && (
-        <div className="card" style={{ overflowX: 'auto' }}>
-          <div className="table-wrap" style={{ minWidth: 1000 }}>
-            <table className="table">
+        <div className="card calendar-table-wrap">
+          <div style={{ minWidth: 1000 }}>
+            <table className="table calendar-table">
               <thead>
                 <tr>
                   <th>Ora</th>
                   {fields.map((field) => (
                     <th key={field.id}>
                       {field.name}<br />
-                      <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>{selectedDate}</span>
+                      <span className="calendar-selected-date">{selectedDate}</span>
                     </th>
                   ))}
                 </tr>
@@ -178,6 +238,7 @@ export default function CalendarPage() {
                             type="button"
                             disabled={past || free <= 0}
                             onClick={() => onSlotClick(field.id, selectedDate, time, free)}
+                            className="calendar-slot-btn"
                             style={{
                               width: '100%',
                               border: '1px solid var(--border-color)',
@@ -185,7 +246,6 @@ export default function CalendarPage() {
                               background: bg,
                               textAlign: 'center',
                               padding: '8px',
-                              fontSize: 12,
                               cursor: past || free <= 0 ? 'not-allowed' : 'pointer',
                             }}
                           >
