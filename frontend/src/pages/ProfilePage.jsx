@@ -15,6 +15,7 @@ export default function ProfilePage() {
   const [phone, setPhone] = useState('');
   const [bank, setBank] = useState('');
   const [avatar, setAvatar] = useState('');
+  const [avatarErr, setAvatarErr] = useState('');
   const [nickname, setNickname] = useState('');
   const [prefField, setPrefField] = useState('');
 
@@ -81,8 +82,17 @@ export default function ProfilePage() {
   if (loading) {
     return (
       <div className="page">
-        <div className="spinner" />
-        <p style={{ textAlign: 'center', color: 'var(--text-muted)' }}>Duke ngarkuar…</p>
+        <div className="card" style={{ marginBottom: 16 }}>
+          <div className="skeleton" style={{ height: 78 }} />
+        </div>
+        <div className="profile-layout">
+          <div className="card">
+            <div className="skeleton" style={{ height: 220 }} />
+          </div>
+          <div className="card">
+            <div className="skeleton" style={{ height: 420 }} />
+          </div>
+        </div>
       </div>
     );
   }
@@ -115,9 +125,57 @@ export default function ProfilePage() {
 
       <div className="profile-layout">
         <div className="card profile-photo-card">
-          <div className="profile-photo-preview" aria-label="Foto profili">
-            {avatar ? <img src={avatar} alt="Foto e profilit" /> : <span style={{ fontWeight: 800, color: 'var(--text-muted)' }}>{initials}</span>}
-          </div>
+          <input
+            id="avatar-file-hidden"
+            type="file"
+            accept="image/jpeg,image/png,image/gif,image/webp,image/jpg"
+            style={{ display: 'none' }}
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              if (!file) return;
+              const maxBytes = 5 * 1024 * 1024;
+              if (file.size > maxBytes) {
+                setAvatarErr('Foto duhet të jetë më e vogël se 5MB.');
+                return;
+              }
+              const reader = new FileReader();
+              reader.onload = () => {
+                const result = typeof reader.result === 'string' ? reader.result : '';
+                if (!result.startsWith('data:image')) {
+                  setAvatarErr('Formati i fotos nuk mbështetet.');
+                  return;
+                }
+                setAvatarErr('');
+                setAvatar(result);
+              };
+              reader.readAsDataURL(file);
+            }}
+          />
+          <button
+            type="button"
+            className="profile-photo-preview"
+            aria-label="Ngarko foto profili"
+            onClick={() => document.getElementById('avatar-file-hidden')?.click()}
+          >
+            {avatar ? (
+              <img src={avatar} alt="Foto e profilit" width="160" height="160" style={{ display: 'block' }} />
+            ) : (
+              <span style={{ fontWeight: 800, color: 'var(--text-muted)' }}>{initials}</span>
+            )}
+          </button>
+          <button
+            type="button"
+            className="btn btn-ghost"
+            style={{ marginTop: 10, width: '100%' }}
+            onClick={() => document.getElementById('avatar-file-hidden')?.click()}
+          >
+            Ngarko foto
+          </button>
+          {avatarErr && (
+            <p style={{ marginTop: 8, marginBottom: 0, color: 'var(--color-danger)', fontSize: 13 }}>
+              {avatarErr}
+            </p>
+          )}
         </div>
 
         <form className="card" onSubmit={onSave}>
@@ -157,33 +215,6 @@ export default function ProfilePage() {
               Nickname unik
             </label>
             <input id="nk" className="input" value={nickname} onChange={(e) => setNickname(e.target.value)} />
-          </div>
-          <div className="form-group">
-            <label className="label" htmlFor="av">
-              URL e fotos së profilit (opsional)
-            </label>
-            <input id="av" className="input" value={avatar} onChange={(e) => setAvatar(e.target.value)} placeholder="https://..." />
-          </div>
-          <div className="form-group">
-            <label className="label" htmlFor="avf">
-              Ose ngarko foto
-            </label>
-            <input
-              id="avf"
-              className="input"
-              type="file"
-              accept="image/*"
-              onChange={(e) => {
-                const file = e.target.files?.[0];
-                if (!file) return;
-                const reader = new FileReader();
-                reader.onload = () => {
-                  const result = typeof reader.result === 'string' ? reader.result : '';
-                  setAvatar(result);
-                };
-                reader.readAsDataURL(file);
-              }}
-            />
           </div>
           <div className="form-group">
             <label className="label" htmlFor="pf">

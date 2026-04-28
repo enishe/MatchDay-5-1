@@ -42,8 +42,12 @@ export default function BookingPage() {
   useEffect(() => {
     const fid = params.get('fieldId');
     const d = params.get('date');
+    const t = params.get('time');
+    const shoes = params.get('shoeRental');
     if (fid) setFushaId(fid);
     if (d) setData(d);
+    if (t && ORET.includes(t)) setOra(t);
+    if (shoes === '1' || shoes === 'true') setPatika(true);
   }, [params]);
 
   useEffect(() => {

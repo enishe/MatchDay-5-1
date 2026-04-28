@@ -1,9 +1,11 @@
 import { useEffect, useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { apiFetch } from '../lib/api';
 import { useAuth } from '../context/AuthContext';
 
 export default function Equipment() {
   const { token } = useAuth();
+  const navigate = useNavigate();
   const [fields, setFields] = useState([]);
   const [selectedFieldId, setSelectedFieldId] = useState('');
   const [inventory, setInventory] = useState([]);
@@ -37,7 +39,14 @@ export default function Equipment() {
   if (loading) {
     return (
       <div className="page">
-        <div className="spinner" />
+        <div className="card">
+          <div className="skeleton" style={{ height: 44, marginBottom: 12 }} />
+          <div className="shoes-grid">
+            {[1, 2, 3, 4].map((k) => (
+              <div key={k} className="skeleton" style={{ height: 150 }} />
+            ))}
+          </div>
+        </div>
       </div>
     );
   }
@@ -86,6 +95,14 @@ export default function Equipment() {
                       </div>
                     </div>
                   </div>
+                  <button
+                    type="button"
+                    className="btn btn-accent"
+                    style={{ width: '100%', marginTop: 10 }}
+                    onClick={() => navigate(`/booking?fieldId=${selectedFieldId}&shoeRental=1`)}
+                  >
+                    Rezervo (+2€)
+                  </button>
                 </div>
               ))}
             </div>

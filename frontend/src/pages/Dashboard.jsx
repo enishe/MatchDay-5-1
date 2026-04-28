@@ -104,8 +104,13 @@ export default function Dashboard() {
   if (loading) {
     return (
       <div className="page">
-        <div className="spinner" />
-        <p style={{ textAlign: 'center', color: 'var(--text-muted)' }}>Duke ngarkuar…</p>
+        <div className="stat-grid-4" style={{ marginBottom: 16 }}>
+          {[1, 2].map((k) => (
+            <div key={k} className="skeleton" style={{ height: 112 }} />
+          ))}
+        </div>
+        <div className="skeleton" style={{ height: 230, marginBottom: 16 }} />
+        <div className="skeleton" style={{ height: 300 }} />
       </div>
     );
   }

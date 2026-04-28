@@ -192,7 +192,11 @@ export default function CalendarPage() {
           Provo përsëri
         </button>
       )}
-      {loading && <div className="spinner" />}
+      {loading && (
+        <div className="card">
+          <div className="skeleton" style={{ height: 420 }} />
+        </div>
+      )}
       {!loading && !error && fields.length === 0 && (
         <div className="card">
           <p style={{ color: 'var(--text-muted)', margin: 0 }}>Aktualisht nuk ka fusha aktive për të shfaqur kalendarin.</p>

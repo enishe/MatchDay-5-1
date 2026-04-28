@@ -18,6 +18,14 @@ function initials(name) {
   return (p[0][0] + p[p.length - 1][0]).toUpperCase();
 }
 
+function avatarSource(user) {
+  const src = String(user?.avatar_url || user?.profile_photo_url || '').trim();
+  if (!src) return '';
+  if (src.startsWith('data:image')) return src;
+  if (src.startsWith('http://') || src.startsWith('https://')) return src;
+  return '';
+}
+
 export default function Navbar() {
   const { user, logout, isAdmin } = useAuth();
   const navigate = useNavigate();
@@ -25,6 +33,7 @@ export default function Navbar() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [userOpen, setUserOpen] = useState(false);
   const [dark, setDark] = useState(() => getStoredTheme() === 'dark');
+  const avatarSrc = avatarSource(user);
   const ddRef = useRef(null);
   const navRef = useRef(null);
   const menuButtonRef = useRef(null);
@@ -147,7 +156,18 @@ export default function Navbar() {
             aria-haspopup="true"
             onClick={() => setUserOpen((o) => !o)}
           >
-            {initials(displayName(user))}
+            {avatarSrc ? (
+              <img
+                src={avatarSrc}
+                alt={displayName(user) || 'User avatar'}
+                className="avatar-img"
+                width="40"
+                height="40"
+                style={{ display: 'block' }}
+              />
+            ) : (
+              initials(displayName(user))
+            )}
           </button>
           <div className={`user-dropdown${userOpen ? ' open' : ''}`}>
             <div style={{ padding: '8px 12px', fontSize: 12, color: 'var(--text-muted)' }}>
