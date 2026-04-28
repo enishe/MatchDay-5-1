@@ -50,6 +50,28 @@ router.get('/fields/inventory', authenticateToken, requireRole(['admin']), async
   }
 });
 
+router.get('/fields/availability-grid', async (req, res) => {
+  try {
+    const { startDate, days, startHour, endHour, fieldIds } = req.query;
+    if (!startDate) {
+      return res.status(400).json({ error: 'Parametri startDate është i detyrueshëm.' });
+    }
+    const ids = typeof fieldIds === 'string' && fieldIds.trim()
+      ? fieldIds.split(',').map((x) => Number(x.trim())).filter((x) => Number.isInteger(x) && x > 0)
+      : [];
+    const data = await fieldService.getAvailabilityGrid({
+      startDate: String(startDate),
+      days: days != null ? Number(days) : 7,
+      startHour: startHour != null ? Number(startHour) : 8,
+      endHour: endHour != null ? Number(endHour) : 22,
+      fieldIds: ids,
+    });
+    res.json(data);
+  } catch (error) {
+    res.status(400).json({ error: error.message || 'Nuk u lexua kalendari.' });
+  }
+});
+
 router.get('/fields/:id', async (req, res) => {
   try {
     const field = await fieldService.getFieldById(Number(req.params.id));

@@ -37,6 +37,7 @@ export default function CalendarPage() {
   const [selectedDate, setSelectedDate] = useState(() => toYMD(startOfWeekMonday(new Date())));
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [reloadKey, setReloadKey] = useState(0);
 
   const weekDays = useMemo(() => {
     const out = [];
@@ -60,29 +61,17 @@ export default function CalendarPage() {
     const run = async () => {
       try {
         setLoading(true);
-        const f = await apiFetch('/fields', { token });
-        const activeFields = (Array.isArray(f) ? f : []).filter((x) => x.is_active);
-        if (cancelled) return;
-        setFields(activeFields);
-
-        const next = {};
-        for (const day of weekDays) {
-          const ymd = toYMD(day);
-          for (const hour of ORET) {
-            const start = parseLocalHourSlot(ymd, hour);
-            const end = new Date(start.getTime() + 60 * 60 * 1000);
-            await Promise.all(activeFields.map(async (field) => {
-              const r = await apiFetch(`/fields/${field.id}/availability?start=${encodeURIComponent(start.toISOString())}&end=${encodeURIComponent(end.toISOString())}`, { token });
-              if (!next[ymd]) next[ymd] = {};
-              if (!next[ymd][hour]) next[ymd][hour] = {};
-              next[ymd][hour][field.id] = {
-                total: Number(r.total_courts || field.courts_count || 1),
-                free: Array.isArray(r.available_courts) ? r.available_courts.length : 0,
-              };
-            }));
-          }
-        }
+        const qs = new URLSearchParams({
+          startDate: toYMD(weekStart),
+          days: '7',
+          startHour: '8',
+          endHour: '22',
+        });
+        const r = await apiFetch(`/fields/availability-grid?${qs.toString()}`, { token });
+        const activeFields = Array.isArray(r?.fields) ? r.fields : [];
+        const next = r?.availability && typeof r.availability === 'object' ? r.availability : {};
         if (!cancelled) {
+          setFields(activeFields);
           setAvailability(next);
           setError(null);
         }
@@ -96,7 +85,7 @@ export default function CalendarPage() {
     return () => {
       cancelled = true;
     };
-  }, [token, weekDays]);
+  }, [token, weekStart, reloadKey]);
 
   const onSlotClick = (fieldId, dateYmd, time, freeCount) => {
     if (freeCount <= 0) return;
@@ -138,9 +127,19 @@ export default function CalendarPage() {
       </div>
 
       {error && <div className="feedback feedback-error">{error}</div>}
+      {error && (
+        <button type="button" className="btn btn-ghost" onClick={() => setReloadKey((x) => x + 1)} style={{ marginBottom: 10 }}>
+          Provo përsëri
+        </button>
+      )}
       {loading && <div className="spinner" />}
+      {!loading && !error && fields.length === 0 && (
+        <div className="card">
+          <p style={{ color: 'var(--text-muted)', margin: 0 }}>Aktualisht nuk ka fusha aktive për të shfaqur kalendarin.</p>
+        </div>
+      )}
 
-      {!loading && !error && (
+      {!loading && !error && fields.length > 0 && (
         <div className="card" style={{ overflowX: 'auto' }}>
           <div className="table-wrap" style={{ minWidth: 1000 }}>
             <table className="table">

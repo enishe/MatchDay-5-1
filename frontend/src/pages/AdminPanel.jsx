@@ -35,6 +35,7 @@ export default function AdminPanel({ section = 'dashboard' }) {
   const [users, setUsers] = useState([]);
   const [inventoryByField, setInventoryByField] = useState([]);
   const [inventoryDraft, setInventoryDraft] = useState({});
+  const [inventorySavingFieldId, setInventorySavingFieldId] = useState(null);
   const [filtri, setFiltri] = useState('');
   const [fieldForm, setFieldForm] = useState({ name: '', location: '', terrain_type: 'artificial_grass', price_per_hour: '', courts_count: '1' });
   const [loading, setLoading] = useState(true);
@@ -172,13 +173,23 @@ export default function AdminPanel({ section = 'dashboard' }) {
   };
 
   const updateInventoryDraft = (fieldId, size, key, value) => {
+    const raw = String(value ?? '');
+    const parsed = raw === '' ? '' : Number(raw);
+    const safeValue =
+      raw === ''
+        ? ''
+        : Number.isFinite(parsed)
+          ? key === 'quantity_available'
+            ? Math.max(0, Math.floor(parsed))
+            : Math.max(0, parsed)
+          : 0;
     setInventoryDraft((prev) => ({
       ...prev,
       [fieldId]: {
         ...(prev[fieldId] || {}),
         [size]: {
           ...(prev[fieldId]?.[size] || { quantity_available: 0, rent_price: 2 }),
-          [key]: value,
+          [key]: safeValue,
         },
       },
     }));
@@ -186,12 +197,20 @@ export default function AdminPanel({ section = 'dashboard' }) {
 
   const handleSaveInventory = async (fieldId) => {
     try {
+      setInventorySavingFieldId(fieldId);
       const source = inventoryDraft[fieldId] || {};
       const payload = SIZES.map((size) => ({
         shoe_size: size,
         quantity_available: Number(source[size]?.quantity_available ?? 0),
         rent_price: Number(source[size]?.rent_price ?? 2),
       }));
+      const hasInvalid = payload.some(
+        (row) => !Number.isFinite(row.quantity_available) || row.quantity_available < 0 || !Number.isFinite(row.rent_price) || row.rent_price < 0
+      );
+      if (hasInvalid) {
+        tregoBust('Kontrollo vlerat e inventarit: sasia dhe çmimi duhet të jenë numra jo negativë.', 'error');
+        return;
+      }
       await apiFetch(`/fields/${fieldId}/shoes`, {
         token,
         method: 'PUT',
@@ -201,6 +220,8 @@ export default function AdminPanel({ section = 'dashboard' }) {
       fetchShoes();
     } catch (e2) {
       tregoBust(e2.message, 'error');
+    } finally {
+      setInventorySavingFieldId(null);
     }
   };
 
@@ -449,7 +470,9 @@ export default function AdminPanel({ section = 'dashboard' }) {
                   </tbody>
                 </table>
               </div>
-              <button type="button" className="btn btn-accent" onClick={() => handleSaveInventory(group.field_id)}>Ruaj inventarin</button>
+              <button type="button" className="btn btn-accent" disabled={inventorySavingFieldId === group.field_id} onClick={() => handleSaveInventory(group.field_id)}>
+                {inventorySavingFieldId === group.field_id ? 'Duke ruajtur…' : 'Ruaj inventarin'}
+              </button>
             </div>
           ))}
         </div>

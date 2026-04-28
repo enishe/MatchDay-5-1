@@ -1,6 +1,23 @@
 const pool = require('../config/db');
 
 class FieldService {
+  buildHourlySlots(startDate, days, startHour, endHour) {
+    const slots = [];
+    for (let dayOffset = 0; dayOffset < days; dayOffset += 1) {
+      const base = new Date(startDate);
+      base.setDate(base.getDate() + dayOffset);
+      for (let h = startHour; h <= endHour; h += 1) {
+        const start = new Date(base);
+        start.setHours(h, 0, 0, 0);
+        const end = new Date(start.getTime() + 60 * 60 * 1000);
+        const dateKey = start.toISOString().slice(0, 10);
+        const hourKey = `${String(h).padStart(2, '0')}:00`;
+        slots.push({ start, end, dateKey, hourKey });
+      }
+    }
+    return slots;
+  }
+
   async getAllFields() {
     const result = await pool.query(
       `SELECT id, name, location, terrain_type, price_per_hour, courts_count, is_active, created_at
@@ -173,6 +190,90 @@ class FieldService {
       available_courts: available,
       taken_courts: taken,
     };
+  }
+
+  async getAvailabilityGrid({ startDate, days = 7, startHour = 8, endHour = 22, fieldIds = [] }) {
+    const date = new Date(`${startDate}T00:00:00`);
+    if (Number.isNaN(date.getTime())) {
+      throw new Error('startDate nuk është valid.');
+    }
+    if (!Number.isInteger(days) || days < 1 || days > 14) {
+      throw new Error('days duhet të jetë nga 1 deri në 14.');
+    }
+    if (!Number.isInteger(startHour) || !Number.isInteger(endHour) || startHour < 0 || endHour > 23 || startHour > endHour) {
+      throw new Error('Ora e intervalit nuk është valide.');
+    }
+
+    const filters = ['is_active = TRUE'];
+    const params = [];
+    if (Array.isArray(fieldIds) && fieldIds.length > 0) {
+      const ids = fieldIds.map((x) => Number(x)).filter((x) => Number.isInteger(x) && x > 0);
+      if (ids.length > 0) {
+        params.push(ids);
+        filters.push(`id = ANY($${params.length}::int[])`);
+      }
+    }
+    const fieldsQ = await pool.query(
+      `SELECT id, name, location, courts_count
+       FROM fields
+       WHERE ${filters.join(' AND ')}
+       ORDER BY id ASC`,
+      params
+    );
+    const fields = fieldsQ.rows.map((f) => ({
+      id: Number(f.id),
+      name: f.name,
+      location: f.location,
+      courts_count: Number(f.courts_count || 1),
+    }));
+    if (fields.length === 0) return { fields: [], availability: {} };
+
+    const slots = this.buildHourlySlots(date, days, startHour, endHour);
+    const rangeStart = slots[0].start;
+    const rangeEnd = slots[slots.length - 1].end;
+
+    const bookingsQ = await pool.query(
+      `SELECT field_id, court_number, start_time, end_time
+       FROM bookings
+       WHERE status <> 'canceled'
+         AND field_id = ANY($1::int[])
+         AND court_number IS NOT NULL
+         AND start_time < $3::timestamp
+         AND end_time > $2::timestamp`,
+      [fields.map((f) => f.id), rangeStart.toISOString(), rangeEnd.toISOString()]
+    );
+
+    const bookingsByField = new Map();
+    for (const row of bookingsQ.rows) {
+      const fieldId = Number(row.field_id);
+      const list = bookingsByField.get(fieldId) || [];
+      list.push({
+        court: Number(row.court_number),
+        start: new Date(row.start_time),
+        end: new Date(row.end_time),
+      });
+      bookingsByField.set(fieldId, list);
+    }
+
+    const availability = {};
+    for (const slot of slots) {
+      if (!availability[slot.dateKey]) availability[slot.dateKey] = {};
+      if (!availability[slot.dateKey][slot.hourKey]) availability[slot.dateKey][slot.hourKey] = {};
+
+      for (const field of fields) {
+        const taken = new Set();
+        const bookings = bookingsByField.get(field.id) || [];
+        for (const b of bookings) {
+          if (b.start < slot.end && b.end > slot.start) taken.add(b.court);
+        }
+        availability[slot.dateKey][slot.hourKey][field.id] = {
+          total: field.courts_count,
+          free: Math.max(field.courts_count - taken.size, 0),
+        };
+      }
+    }
+
+    return { fields, availability };
   }
 }
 
