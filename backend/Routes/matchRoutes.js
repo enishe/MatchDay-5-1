@@ -186,13 +186,10 @@ router.post(
             };
             const startTime = new Date(payload.startTime);
             const endTime = new Date(payload.endTime);
-            const courtNumber = Number(req.body.court_number);
+            const requestedCourtNumber = req.body.court_number;
             const paymentMethod = req.body.payment_method === 'card' ? 'card' : 'cash';
             if (!Number.isFinite(startTime.getTime()) || !Number.isFinite(endTime.getTime()) || startTime >= endTime) {
                 return res.status(400).json({ error: 'Intervali i kohës nuk është i vlefshëm.' });
-            }
-            if (!Number.isInteger(courtNumber) || courtNumber <= 0) {
-                return res.status(400).json({ error: 'Duhet të zgjidhni numrin e fushës.' });
             }
             const fieldR = await pool.query(
                 `SELECT id, courts_count
@@ -204,6 +201,13 @@ router.post(
                 return res.status(404).json({ error: 'Fusha nuk ekziston ose është joaktive.' });
             }
             const totalCourts = Number(fieldR.rows[0].courts_count || 1);
+            const courtNumber =
+                requestedCourtNumber == null || requestedCourtNumber === ''
+                    ? (totalCourts === 1 ? 1 : NaN)
+                    : Number(requestedCourtNumber);
+            if (!Number.isInteger(courtNumber) || courtNumber <= 0) {
+                return res.status(400).json({ error: 'Duhet të zgjidhni numrin e fushës.' });
+            }
             if (courtNumber > totalCourts) {
                 return res.status(400).json({ error: 'Numri i fushës është jashtë intervalit të lejuar.' });
             }
@@ -219,7 +223,7 @@ router.post(
                 [fieldId, courtNumber, startTime.toISOString(), endTime.toISOString()]
             );
             if (conflict.rows.length > 0) {
-                return res.status(409).json({ error: 'Kjo fushë është e zënë në këtë orar.' });
+                return res.status(409).json({ error: 'Fusha është e zënë për këtë orë' });
             }
 
             const pricePerPlayer = parseFloat((totalPrice / 12).toFixed(2));

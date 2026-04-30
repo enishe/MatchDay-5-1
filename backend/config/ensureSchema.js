@@ -32,6 +32,21 @@ async function ensureSchema() {
     "ALTER TABLE bookings ADD COLUMN IF NOT EXISTS payment_method VARCHAR(20) NOT NULL DEFAULT 'cash'"
   );
   await pool.query(
+    "ALTER TABLE bookings ADD COLUMN IF NOT EXISTS payment_status VARCHAR(20) DEFAULT 'pending' CHECK (payment_status IN ('pending', 'partial', 'completed', 'refunded'))"
+  );
+  await pool.query(
+    "ALTER TABLE bookings ADD COLUMN IF NOT EXISTS total_amount DECIMAL(10,2) DEFAULT 0"
+  );
+  await pool.query(
+    "ALTER TABLE bookings ADD COLUMN IF NOT EXISTS invite_token VARCHAR(100) UNIQUE"
+  );
+  await pool.query(
+    "ALTER TABLE bookings ADD COLUMN IF NOT EXISTS shoes_summary JSONB DEFAULT '[]'"
+  );
+  await pool.query(
+    "ALTER TABLE bookings ADD COLUMN IF NOT EXISTS payment_method VARCHAR(10) DEFAULT 'cash' CHECK (payment_method IN ('cash', 'card'))"
+  );
+  await pool.query(
     "ALTER TABLE users ADD COLUMN IF NOT EXISTS nickname VARCHAR(50)"
   );
   await pool.query(
@@ -94,6 +109,36 @@ async function ensureSchema() {
       created_at TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
       CONSTRAINT friend_no_self CHECK (from_user_id <> to_user_id),
       UNIQUE (from_user_id, to_user_id)
+    )
+  `);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS booking_participants (
+      id SERIAL PRIMARY KEY,
+      booking_id INTEGER NOT NULL REFERENCES bookings(id) ON DELETE CASCADE,
+      user_id INTEGER REFERENCES users(id),
+      invite_email VARCHAR(100),
+      status VARCHAR(20) NOT NULL DEFAULT 'invited' CHECK (status IN ('invited', 'accepted', 'declined', 'paid')),
+      needs_shoes BOOLEAN DEFAULT false,
+      shoe_size SMALLINT,
+      amount_due DECIMAL(10,2) NOT NULL DEFAULT 5.00,
+      amount_paid DECIMAL(10,2) NOT NULL DEFAULT 0,
+      payment_method VARCHAR(10) DEFAULT 'card',
+      paid_at TIMESTAMP,
+      invited_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE(booking_id, user_id)
+    )
+  `);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS admin_notifications (
+      id SERIAL PRIMARY KEY,
+      type VARCHAR(50) NOT NULL,
+      title VARCHAR(200) NOT NULL,
+      message TEXT NOT NULL,
+      booking_id INTEGER REFERENCES bookings(id),
+      is_read BOOLEAN DEFAULT false,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )
   `);
 }

@@ -72,6 +72,36 @@ router.get('/fields/availability-grid', async (req, res) => {
   }
 });
 
+// Backward-compatible calendar endpoint used by smoke checks and older clients.
+router.get('/fields/availability', authenticateToken, async (req, res) => {
+  try {
+    const date = String(req.query.date || '').trim();
+    if (!date) {
+      return res.status(400).json({ error: 'date është e detyrueshme' });
+    }
+    const dayData = await fieldService.getAvailabilityGrid({
+      startDate: date,
+      days: 1,
+      startHour: 8,
+      endHour: 22,
+    });
+    const hours = [];
+    for (let h = 8; h <= 22; h += 1) hours.push(`${String(h).padStart(2, '0')}:00`);
+    const fields = (dayData.fields || []).map((f) => ({
+      id: f.id,
+      name: f.name,
+      slots: hours.map((time) => {
+        const slot = dayData.availability?.[date]?.[time]?.[f.id];
+        const free = Number(slot?.free || 0);
+        return free > 0 ? { time, available: true } : { time, available: false, bookedBy: 'E zënë' };
+      }),
+    }));
+    res.json({ fields });
+  } catch (error) {
+    res.status(400).json({ error: error.message || 'Nuk u lexua disponueshmëria e fushave.' });
+  }
+});
+
 router.get('/fields/:id', async (req, res) => {
   try {
     const field = await fieldService.getFieldById(Number(req.params.id));

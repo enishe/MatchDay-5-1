@@ -12,6 +12,8 @@ import AdminPanel from './pages/AdminPanel';
 import CalendarPage from './pages/CalendarPage';
 import FriendsPage from './pages/FriendsPage';
 import ProfilePage from './pages/ProfilePage';
+import JoinBookingPage from './pages/JoinBookingPage';
+import AdminNotificationsPage from './pages/AdminNotificationsPage';
 
 function AppShell({ children }) {
   const location = useLocation();
@@ -68,6 +70,16 @@ export default function App() {
               <ProtectedRoute>
                 <PlayerOnlyRoute>
                   <BookingPage />
+                </PlayerOnlyRoute>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/booking/join/:token"
+            element={
+              <ProtectedRoute>
+                <PlayerOnlyRoute>
+                  <JoinBookingPage />
                 </PlayerOnlyRoute>
               </ProtectedRoute>
             }
@@ -162,6 +174,16 @@ export default function App() {
               <ProtectedRoute requiredRole="admin">
                 <AdminOnlyRoute>
                   <AdminPanel section="players" />
+                </AdminOnlyRoute>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin/notifications"
+            element={
+              <ProtectedRoute requiredRole="admin">
+                <AdminOnlyRoute>
+                  <AdminNotificationsPage />
                 </AdminOnlyRoute>
               </ProtectedRoute>
             }

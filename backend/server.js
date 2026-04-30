@@ -8,6 +8,8 @@ const { router: authRouter } = require('./Routes/authRoutes');
 const { router: friendsRouter } = require('./Routes/friendsRoutes');
 const matchRouter = require('./Routes/matchRoutes');
 const fieldRoutes = require('./Routes/fieldRoutes');
+const bookingRoutes = require('./Routes/bookingRoutes');
+const notificationRoutes = require('./Routes/notificationRoutes');
 const { ensureSchema, seedMitrovicaFields } = require('./config/ensureSchema');
 const AuthService = require('./Services/AuthService');
 
@@ -34,6 +36,8 @@ app.get('/health', (req, res) => {
 // API routes para static — shmang përplasje me skedarë në dist
 app.use('/api/auth', authRouter);
 app.use('/api/friends', friendsRouter);
+app.use('/api/bookings', bookingRoutes);
+app.use('/api/notifications', notificationRoutes);
 app.use('/api', fieldRoutes);
 app.use('/api', matchRouter);
 

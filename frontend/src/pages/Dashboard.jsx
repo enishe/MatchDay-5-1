@@ -58,7 +58,7 @@ export default function Dashboard() {
     if (!token) return;
     let cancelled = false;
     setLoading(true);
-    const req = apiFetch('/my-matches', { token }).then((m) => {
+    const req = apiFetch('/bookings/my', { token }).then((m) => {
       const list = Array.isArray(m) ? m : [];
       return { stats: statsFromMatches(list), matches: list };
     });
@@ -267,17 +267,41 @@ export default function Dashboard() {
                     <td data-label="Çmimi">{m.total_price}€</td>
                     <td data-label="Smart Split">{m.price_per_player}€</td>
                     <td data-label="Status">
-                      <span
-                        className={`badge ${
-                          m.status === 'pending'
-                            ? 'badge-pending'
-                            : m.status === 'confirmed'
-                              ? 'badge-confirmed'
-                              : 'badge-canceled'
-                        }`}
-                      >
-                        {m.status === 'pending' ? 'Pritje' : m.status === 'confirmed' ? 'Konfirmuar' : 'Anuluar'}
-                      </span>
+                      {m.payment_method === 'card' && m.status === 'pending' ? (
+                        <div>
+                          <span className="badge badge-pending">Duke pritur pagesën</span>
+                          <div style={{ fontSize: 12, marginTop: 4 }}>{Number(m.participants_paid || 0)}/12 të paguar</div>
+                          {m.invite_token && (
+                            <button
+                              type="button"
+                              className="btn btn-ghost"
+                              style={{ marginTop: 6, fontSize: 12, padding: '4px 8px' }}
+                              onClick={(ev) => {
+                                ev.stopPropagation();
+                                const link = `${window.location.origin}/booking/join/${m.invite_token}`;
+                                navigator.clipboard.writeText(link);
+                              }}
+                            >
+                              Kopjo linkun e ftesës
+                            </button>
+                          )}
+                        </div>
+                      ) : (
+                        <div>
+                          <span
+                            className={`badge ${
+                              m.status === 'confirmed' ? 'badge-confirmed' : m.status === 'pending' ? 'badge-pending' : 'badge-canceled'
+                            }`}
+                          >
+                            {m.status === 'confirmed' ? 'Konfirmuar ✓' : m.status === 'pending' ? 'Në pritje' : 'Anuluar'}
+                          </span>
+                          {m.payment_method === 'cash' && Array.isArray(m.shoes_summary) && m.shoes_summary.length > 0 && (
+                            <div style={{ fontSize: 12, marginTop: 4 }}>
+                              Patika: {m.shoes_summary.map((s) => `${s.count}x nr.${s.size}`).join(', ')}
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </td>
                   </tr>
                 ))}
