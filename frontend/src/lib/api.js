@@ -5,7 +5,7 @@
  */
 export function getApiBase() {
   if (import.meta.env.DEV) return 'http://localhost:5000/api';
-  return import.meta.env.VITE_API_URL || 'https://your-render-url.onrender.com/api';
+  return 'https://matchday-5-1.onrender.com/api';
 }
 
 /**
