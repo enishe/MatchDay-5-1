@@ -7,7 +7,11 @@
     "start": "node server.js",
     "dev": "node server.js"
   },
-  "keywords": ["football", "booking", "api"],
+  "keywords": [
+    "football",
+    "booking",
+    "api"
+  ],
   "author": "Enis Hetemi",
   "license": "ISC",
   "engines": {
@@ -17,6 +21,7 @@
     "@supabase/supabase-js": "^2.103.3",
     "bcryptjs": "^3.0.3",
     "cors": "^2.8.6",
+    "dotenv": "^17.4.2",
     "express": "^4.22.1",
     "jsonwebtoken": "^9.0.3",
     "pg": "^8.20.0"

@@ -1,6 +1,9 @@
+require('dotenv').config();
+
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
+const pool = require('./config/db');
 const { router: authRouter } = require('./Routes/authRoutes');
 const { router: friendsRouter } = require('./Routes/friendsRoutes');
 const matchRouter = require('./Routes/matchRoutes');
@@ -12,8 +15,16 @@ const app = express();
 const PORT = process.env.PORT || 5000;
 
 // Middleware
-app.use(cors({ origin: true, credentials: false }));
-app.use(express.json({ limit: '1mb' }));
+const corsOptions = {
+  origin: process.env.FRONTEND_URL || 'http://localhost:5173',
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+};
+app.use(cors(corsOptions));
+app.options('*', cors(corsOptions));
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // Health check endpoint for Render
 app.get('/health', (req, res) => {
@@ -62,6 +73,13 @@ app.use('/api/*', (req, res) => {
 });
 
 async function bootstrap() {
+  await pool
+    .query('SELECT NOW()')
+    .then(() => console.log('[DB] PostgreSQL connected successfully'))
+    .catch((err) => {
+      console.error('[DB] Connection failed:', err.message);
+      throw err;
+    });
   await ensureSchema();
   await seedMitrovicaFields();
   const authService = new AuthService();

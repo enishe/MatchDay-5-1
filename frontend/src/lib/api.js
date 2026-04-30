@@ -4,32 +4,8 @@
  * Në prod me frontend të ndarë nga API, vendos VITE_API_URL (p.sh. https://api-xxx.onrender.com ose .../api).
  */
 export function getApiBase() {
-  const raw = import.meta.env.VITE_API_URL;
-  if (raw != null && String(raw).trim() !== '') {
-    const trimmed = String(raw).trim().replace(/\/+$/, '');
-    try {
-      const url = new URL(trimmed);
-      const path = (url.pathname || '/').replace(/\/+$/, '') || '/';
-      if (path === '/') {
-        url.pathname = '/api';
-      }
-      return `${url.origin}${url.pathname}`.replace(/\/+$/, '') || `${url.origin}/api`;
-    } catch {
-      if (!trimmed.toLowerCase().endsWith('/api')) {
-        return `${trimmed}/api`;
-      }
-      return trimmed;
-    }
-  }
-  // Dev fallback: kur frontend hapet në localhost pa proxy aktiv,
-  // dërgo API thirrjet direkt te backend-i në portin 5000.
-  if (typeof window !== 'undefined') {
-    const host = window.location.hostname;
-    if (host === 'localhost' || host === '127.0.0.1') {
-      return 'http://localhost:5000/api';
-    }
-  }
-  return '/api';
+  if (import.meta.env.DEV) return 'http://localhost:5000/api';
+  return import.meta.env.VITE_API_URL || 'https://your-render-url.onrender.com/api';
 }
 
 /**

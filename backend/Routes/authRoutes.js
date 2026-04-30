@@ -48,7 +48,7 @@ router.get('/profile', authenticateToken, async (req, res) => {
     }
 });
 
-router.put('/profile', authenticateToken, async (req, res) => {
+router.put('/profile', express.json({ limit: '10mb' }), authenticateToken, async (req, res) => {
     try {
         const user = await authService.updateProfile(req.user.id, req.body);
         res.setHeader('Content-Type', 'application/json; charset=utf-8');

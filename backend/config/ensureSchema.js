@@ -13,8 +13,9 @@ async function ensureSchema() {
   const alters = [
     'ALTER TABLE users ADD COLUMN IF NOT EXISTS phone VARCHAR(40)',
     'ALTER TABLE users ADD COLUMN IF NOT EXISTS bank_account VARCHAR(80)',
-    'ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_url VARCHAR(500)',
+    'ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_url TEXT',
     'ALTER TABLE users ADD COLUMN IF NOT EXISTS preferred_field_id INTEGER',
+    'ALTER TABLE users ADD COLUMN IF NOT EXISTS profile_photo TEXT',
   ];
   for (const sql of alters) {
     try {
@@ -23,6 +24,7 @@ async function ensureSchema() {
       console.warn('[ensureSchema] alter skip:', e.message);
     }
   }
+  await pool.query('ALTER TABLE users ALTER COLUMN avatar_url TYPE TEXT');
 
   await pool.query('ALTER TABLE fields ADD COLUMN IF NOT EXISTS courts_count INTEGER NOT NULL DEFAULT 1');
   await pool.query('ALTER TABLE bookings ADD COLUMN IF NOT EXISTS court_number INTEGER');
@@ -30,7 +32,7 @@ async function ensureSchema() {
     "ALTER TABLE bookings ADD COLUMN IF NOT EXISTS payment_method VARCHAR(20) NOT NULL DEFAULT 'cash'"
   );
   await pool.query(
-    "ALTER TABLE users ADD COLUMN IF NOT EXISTS nickname VARCHAR(60)"
+    "ALTER TABLE users ADD COLUMN IF NOT EXISTS nickname VARCHAR(50)"
   );
   await pool.query(
     "ALTER TABLE users ADD COLUMN IF NOT EXISTS profile_photo_url TEXT"

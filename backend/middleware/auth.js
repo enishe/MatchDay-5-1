@@ -4,11 +4,12 @@ const authService = new AuthService();
 
 function authenticateToken(req, res, next) {
     const authHeader = req.headers.authorization;
-    const token = authHeader && authHeader.split(' ')[1];
+    const isBearer = typeof authHeader === 'string' && authHeader.startsWith('Bearer ');
+    const token = isBearer ? authHeader.slice(7).trim() : '';
 
     if (!token) {
         res.setHeader('Content-Type', 'application/json; charset=utf-8');
-        return res.status(401).json({ error: 'Kërkohet token i qasjes.' });
+        return res.status(401).json({ error: 'Ju duhet të kyçeni për të vazhduar.' });
     }
 
     try {
@@ -17,7 +18,7 @@ function authenticateToken(req, res, next) {
         next();
     } catch {
         res.setHeader('Content-Type', 'application/json; charset=utf-8');
-        return res.status(403).json({ error: 'Token i pavlefshëm ose i skaduar.' });
+        return res.status(401).json({ error: 'Sesioni juaj ka skaduar. Kyçuni përsëri.' });
     }
 }
 

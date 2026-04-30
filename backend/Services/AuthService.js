@@ -23,6 +23,7 @@ function apiRole(dbRole) {
 
 function mapUserRow(row) {
   const { firstName, lastName } = splitName(row.name);
+  const profilePhoto = row.profile_photo ?? row.profile_photo_url ?? null;
   return {
     id: row.id,
     firstName,
@@ -34,7 +35,8 @@ function mapUserRow(row) {
     bank_account: row.bank_account ?? null,
     avatar_url: row.avatar_url ?? null,
     nickname: row.nickname ?? null,
-    profile_photo_url: row.profile_photo_url ?? null,
+    profile_photo: profilePhoto,
+    profile_photo_url: profilePhoto,
     preferred_field_id: row.preferred_field_id ?? null,
   };
 }
@@ -134,7 +136,7 @@ class AuthService {
     const result = await pool
       .query(
         `SELECT id, name, email, role, created_at,
-                phone, bank_account, avatar_url, preferred_field_id, nickname, profile_photo_url
+                phone, bank_account, avatar_url, preferred_field_id, nickname, profile_photo, profile_photo_url
          FROM users WHERE id = $1`,
         [userId]
       )
@@ -168,7 +170,17 @@ class AuthService {
   }
 
   async updateProfile(userId, profileData) {
-    const { firstName, lastName, phone, bank_account, avatar_url, preferred_field_id, nickname, profile_photo_url } = profileData;
+    const {
+      firstName,
+      lastName,
+      phone,
+      bank_account,
+      avatar_url,
+      preferred_field_id,
+      nickname,
+      profile_photo,
+      profile_photo_url,
+    } = profileData;
     const updates = [];
     const vals = [];
     let i = 1;
@@ -193,12 +205,21 @@ class AuthService {
       vals.push(bank_account === '' || bank_account == null ? null : String(bank_account).trim());
     }
     if (avatar_url !== undefined) {
+      const avatar = avatar_url === '' || avatar_url == null ? null : String(avatar_url).trim();
+      if (avatar && !avatar.startsWith('data:image')) {
+        throw new Error('avatar_url duhet të jetë base64 i fotos (data:image...)');
+      }
       updates.push(`avatar_url = $${i++}`);
-      vals.push(avatar_url === '' || avatar_url == null ? null : String(avatar_url).trim());
+      vals.push(avatar);
     }
-    if (profile_photo_url !== undefined) {
-      updates.push(`profile_photo_url = $${i++}`);
-      vals.push(profile_photo_url === '' || profile_photo_url == null ? null : String(profile_photo_url).trim());
+    const incomingProfilePhoto = profile_photo !== undefined ? profile_photo : profile_photo_url;
+    if (incomingProfilePhoto !== undefined) {
+      const photo = incomingProfilePhoto === '' || incomingProfilePhoto == null ? null : String(incomingProfilePhoto).trim();
+      if (photo && !photo.startsWith('data:image')) {
+        throw new Error('profile_photo duhet të jetë base64 i fotos (data:image...)');
+      }
+      updates.push(`profile_photo = $${i++}`);
+      vals.push(photo);
     }
     if (nickname !== undefined) {
       const nick = nickname === '' || nickname == null ? null : String(nickname).trim();

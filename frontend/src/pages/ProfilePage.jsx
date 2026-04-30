@@ -133,16 +133,20 @@ export default function ProfilePage() {
             onChange={(e) => {
               const file = e.target.files?.[0];
               if (!file) return;
+              if (!['image/jpeg', 'image/png', 'image/gif', 'image/webp'].includes(file.type)) {
+                setAvatarErr('Ju lutem zgjidhni një foto (jpg, png, gif, webp).');
+                return;
+              }
               const maxBytes = 5 * 1024 * 1024;
               if (file.size > maxBytes) {
-                setAvatarErr('Foto duhet të jetë më e vogël se 5MB.');
+                setAvatarErr('Fotoja është shumë e madhe. Maksimumi është 5MB.');
                 return;
               }
               const reader = new FileReader();
               reader.onload = () => {
                 const result = typeof reader.result === 'string' ? reader.result : '';
                 if (!result.startsWith('data:image')) {
-                  setAvatarErr('Formati i fotos nuk mbështetet.');
+                  setAvatarErr('Ju lutem zgjidhni një foto (jpg, png, gif, webp).');
                   return;
                 }
                 setAvatarErr('');
@@ -169,7 +173,7 @@ export default function ProfilePage() {
             style={{ marginTop: 10, width: '100%' }}
             onClick={() => document.getElementById('avatar-file-hidden')?.click()}
           >
-            Ngarko foto
+            Ndrysho foton
           </button>
           {avatarErr && (
             <p style={{ marginTop: 8, marginBottom: 0, color: 'var(--color-danger)', fontSize: 13 }}>

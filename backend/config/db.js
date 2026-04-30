@@ -1,15 +1,18 @@
 const { Pool } = require('pg');
 
+const connectionString = process.env.DATABASE_URL;
+if (!connectionString) {
+  console.warn('[DB] DATABASE_URL is not set. Falling back to local postgres defaults.');
+}
 
+const isLocalConnection =
+  !connectionString ||
+  /localhost|127\.0\.0\.1/i.test(connectionString) ||
+  process.env.DB_SSL === 'false';
 
 const pool = new Pool({
-
-  connectionString: process.env.DATABASE_URL || 'postgresql://matchday_db_e7i5_user:rUCUh0fhdaJvfSJMUAhb6syFYioVytTE@dpg-d77r3n9r0fns738942sg-a.oregon-postgres.render.com/matchday_db_e7i5',
-
-  ssl: { rejectUnauthorized: false }
-
+  connectionString,
+  ssl: isLocalConnection ? false : { rejectUnauthorized: false },
 });
-
-
 
 module.exports = pool;
