@@ -5,6 +5,7 @@ const sqlMatchRepository = require('../Repositories/SqlMatchRepository');
 const PaymentService = require('../Services/PaymentService');
 const AutoCancelService = require('../Services/AutoCancelService');
 const AuthService = require('../Services/AuthService');
+const UnifiedBookingService = require('../Services/UnifiedBookingService');
 const {
     authenticateToken,
     requireRole,
@@ -16,6 +17,7 @@ const matchService = new MatchService(sqlMatchRepository);
 const paymentService = new PaymentService();
 const autoCancelService = new AutoCancelService();
 const authService = new AuthService();
+const unifiedBookingService = new UnifiedBookingService();
 
 function fieldLabel(terrain) {
     if (terrain === 'indoor_hall') return 'Sallë Futsali';
@@ -168,6 +170,7 @@ router.post(
     authenticateToken,
     requireRole(['organizer', 'admin', 'participant']),
     async (req, res) => {
+        // TODO: deprecated — do të ridrejtohet te /api/bookings në v2
         try {
             const fieldId = parseInt(req.body.fieldId, 10);
             const totalPrice = parseFloat(req.body.totalPrice);
@@ -226,16 +229,21 @@ router.post(
                 return res.status(409).json({ error: 'Fusha është e zënë për këtë orë' });
             }
 
-            const pricePerPlayer = parseFloat((totalPrice / 12).toFixed(2));
-            const inserted = await pool.query(
-                `INSERT INTO bookings (field_id, organizer_id, start_time, end_time, total_price, price_per_player, status, court_number, payment_method)
-                 VALUES ($1, $2, $3, $4, $5, $6, 'pending', $7, $8)
-                 RETURNING *`,
-                [fieldId, Number(req.user.id), startTime.toISOString(), endTime.toISOString(), totalPrice, pricePerPlayer, courtNumber, paymentMethod]
-            );
-            const created = inserted.rows[0];
+            const { raw: created, normalized } = await unifiedBookingService.createBooking(Number(req.user.id), {
+                fieldId,
+                startTime: startTime.toISOString(),
+                endTime: endTime.toISOString(),
+                totalPrice,
+                court_number: courtNumber,
+                payment_method: paymentMethod,
+                teamShoes: req.body.teamShoes,
+                inviteEmails: req.body.inviteEmails,
+            });
             const fieldMap = await loadFieldsMap();
-            res.status(201).json(mapBookingRow(created, fieldMap));
+            res.status(201).json({
+                ...mapBookingRow(created, fieldMap),
+                ...normalized,
+            });
         } catch (error) {
             console.error('Create match error:', error);
             res.status(400).json({ error: error.message });
@@ -591,6 +599,7 @@ router.get('/matches/:id', authenticateToken, async (req, res) => {
 });
 
 router.put('/matches/:id', authenticateToken, async (req, res) => {
+    // TODO: deprecated — do të ridrejtohet te /api/bookings në v2
     try {
         const { status } = req.body;
         if (!status) return res.status(400).json({ error: 'status është i detyrueshëm' });
@@ -600,9 +609,12 @@ router.put('/matches/:id', authenticateToken, async (req, res) => {
         if (!isAdmin && !(isOwner && status === 'confirmed')) {
             return res.status(403).json({ error: 'Nuk keni leje për këtë veprim' });
         }
-        const updated = await matchService.perditesoStatusin(req.params.id, status);
+        const { raw: updated, normalized } = await unifiedBookingService.updateStatus(req.params.id, status);
         const fieldMap = await loadFieldsMap();
-        res.json(mapBookingRow(updated, fieldMap));
+        res.json({
+            ...mapBookingRow(updated, fieldMap),
+            ...normalized,
+        });
     } catch (error) {
         console.error('Update match error:', error);
         res.status(400).json({ error: error.message });
@@ -620,13 +632,14 @@ router.delete('/matches/:id', authenticateToken, requireRole(['admin']), async (
 });
 
 router.post('/matches/:id/cancel', authenticateToken, async (req, res) => {
+    // TODO: deprecated — do të ridrejtohet te /api/bookings në v2
     try {
         const booking = await matchService.gjejSipasId(req.params.id);
         if (req.user.role !== 'admin' && !sameUserId(booking.organizer_id, req.user.id)) {
             return res.status(403).json({ error: 'Nuk keni leje për këtë veprim' });
         }
-        const result = await matchService.perditesoStatusin(req.params.id, 'canceled');
-        res.json(result);
+        const { raw: result, normalized } = await unifiedBookingService.cancelBooking(req.params.id);
+        res.json({ ...result, ...normalized });
     } catch (error) {
         console.error('Cancel match error:', error);
         res.status(400).json({ error: error.message });

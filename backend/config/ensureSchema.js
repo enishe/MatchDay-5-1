@@ -169,6 +169,19 @@ async function ensureSchema() {
     CREATE INDEX IF NOT EXISTS idx_notifications_recipient
     ON notifications(recipient_id, is_read)
   `);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS token_blacklist (
+      id SERIAL PRIMARY KEY,
+      jti VARCHAR(120) NOT NULL UNIQUE,
+      invalidated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      expires_at TIMESTAMP
+    )
+  `);
+  await pool.query(`
+    CREATE INDEX IF NOT EXISTS idx_token_blacklist_expires_at
+    ON token_blacklist(expires_at)
+  `);
 }
 
 async function seedMitrovicaFields() {

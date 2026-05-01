@@ -1,6 +1,125 @@
 const pool = require('../config/db');
 
 class NotificationService {
+    /**
+     * Purpose:
+     * Adapter over dual notification sources (`admin_notifications` + `notifications`)
+     * so routes can read one consistent stream/count without migrating tables yet.
+     */
+    async listNotifications(userId = null, limit = 20) {
+        const safeLimit = Number.isInteger(Number(limit)) ? Math.max(1, Math.min(100, Number(limit))) : 20;
+        const unifiedRows = [];
+
+        if (userId == null) {
+            const [adminLegacy, adminUnified] = await Promise.all([
+                pool.query(
+                    `SELECT
+                        id,
+                        type,
+                        title,
+                        message,
+                        booking_id,
+                        is_read,
+                        created_at,
+                        COALESCE(booking_id::text, type || ':' || title || ':' || message) AS reference_id
+                     FROM admin_notifications
+                     ORDER BY created_at DESC
+                     LIMIT $1`,
+                    [safeLimit * 3]
+                ),
+                pool.query(
+                    `SELECT
+                        id,
+                        type,
+                        title,
+                        message,
+                        booking_id,
+                        is_read,
+                        created_at,
+                        COALESCE(booking_id::text, type || ':' || title || ':' || message) AS reference_id
+                     FROM notifications
+                     WHERE recipient_type = 'admin'
+                     ORDER BY created_at DESC
+                     LIMIT $1`,
+                    [safeLimit * 3]
+                ),
+            ]);
+            unifiedRows.push(
+                ...adminLegacy.rows.map((r) => ({ ...r, source: 'admin' })),
+                ...adminUnified.rows.map((r) => ({ ...r, source: 'unified' }))
+            );
+        } else {
+            const [userUnified] = await Promise.all([
+                pool.query(
+                    `SELECT
+                        id,
+                        type,
+                        title,
+                        message,
+                        booking_id,
+                        is_read,
+                        created_at,
+                        COALESCE(booking_id::text, type || ':' || title || ':' || message) AS reference_id
+                     FROM notifications
+                     WHERE recipient_id = $1
+                     ORDER BY created_at DESC
+                     LIMIT $2`,
+                    [userId, safeLimit * 3]
+                ),
+            ]);
+            unifiedRows.push(...userUnified.rows.map((r) => ({ ...r, source: 'unified' })));
+        }
+
+        const dedup = new Map();
+        for (const row of unifiedRows.sort((a, b) => new Date(b.created_at) - new Date(a.created_at))) {
+            const key = `${row.reference_id}:${row.type}`;
+            if (!dedup.has(key)) {
+                dedup.set(key, row);
+            }
+        }
+        return [...dedup.values()].slice(0, safeLimit).map((row) => ({
+            ...row,
+            id: `${row.source}:${row.id}`,
+        }));
+    }
+
+    async markAsRead(notificationId, userId = null) {
+        const asString = String(notificationId || '');
+        const [sourceMaybe, idMaybe] = asString.includes(':') ? asString.split(':') : [null, asString];
+        const numericId = Number(idMaybe);
+        if (!Number.isInteger(numericId) || numericId <= 0) {
+            throw new Error('ID e njoftimit nuk është valide.');
+        }
+
+        if (sourceMaybe === 'admin') {
+            await pool.query(`UPDATE admin_notifications SET is_read = true WHERE id = $1`, [numericId]);
+            return { ok: true };
+        }
+        if (sourceMaybe === 'unified') {
+            if (userId == null) {
+                await pool.query(`UPDATE notifications SET is_read = true WHERE id = $1`, [numericId]);
+            } else {
+                await pool.query(`UPDATE notifications SET is_read = true WHERE id = $1 AND recipient_id = $2`, [numericId, userId]);
+            }
+            return { ok: true };
+        }
+
+        if (userId == null) {
+            await Promise.all([
+                pool.query(`UPDATE admin_notifications SET is_read = true WHERE id = $1`, [numericId]),
+                pool.query(`UPDATE notifications SET is_read = true WHERE id = $1 AND recipient_type = 'admin'`, [numericId]),
+            ]);
+        } else {
+            await pool.query(
+                `UPDATE notifications
+                 SET is_read = true
+                 WHERE id = $1 AND recipient_id = $2`,
+                [numericId, userId]
+            );
+        }
+        return { ok: true };
+    }
+
     async createUserNotification(recipientId, type, title, message, bookingId = null) {
         const result = await pool.query(
             `INSERT INTO notifications (recipient_id, recipient_type, type, title, message, booking_id, is_read)
@@ -22,39 +141,15 @@ class NotificationService {
     }
 
     async getMyNotifications(recipientId, limit = 20) {
-        const result = await pool.query(
-            `SELECT id, recipient_id, recipient_type, type, title, message, booking_id, is_read, created_at
-             FROM notifications
-             WHERE recipient_id = $1
-             ORDER BY created_at DESC
-             LIMIT $2`,
-            [recipientId, limit]
-        );
-        return result.rows;
+        return this.listNotifications(recipientId, limit);
     }
 
     async getMyUnreadCount(recipientId) {
-        const result = await pool.query(
-            `SELECT COUNT(*)::int AS c
-             FROM notifications
-             WHERE recipient_id = $1 AND is_read = false`,
-            [recipientId]
-        );
-        return Number(result.rows[0]?.c || 0);
+        return this.getUnreadCount(recipientId);
     }
 
     async markMyNotificationRead(recipientId, notificationId) {
-        const result = await pool.query(
-            `UPDATE notifications
-             SET is_read = true
-             WHERE id = $1 AND recipient_id = $2
-             RETURNING id`,
-            [notificationId, recipientId]
-        );
-        if (result.rows.length === 0) {
-            throw new Error('Njoftimi nuk u gjet.');
-        }
-        return { ok: true };
+        return this.markAsRead(notificationId, recipientId);
     }
 
     async markAllMyNotificationsRead(recipientId) {
@@ -89,9 +184,30 @@ class NotificationService {
     }
 
     // Get unread notifications count
-    async getUnreadCount(userId) {
+    async getUnreadCount(userId = null) {
         try {
-            return await this.getMyUnreadCount(userId);
+            if (userId == null) {
+                const [legacy, unified] = await Promise.all([
+                    pool.query(
+                        `SELECT COUNT(*)::int AS c
+                         FROM admin_notifications
+                         WHERE is_read = false`
+                    ),
+                    pool.query(
+                        `SELECT COUNT(*)::int AS c
+                         FROM notifications
+                         WHERE recipient_type = 'admin' AND is_read = false`
+                    ),
+                ]);
+                return Number(legacy.rows[0]?.c || 0) + Number(unified.rows[0]?.c || 0);
+            }
+            const result = await pool.query(
+                `SELECT COUNT(*)::int AS c
+                 FROM notifications
+                 WHERE recipient_id = $1 AND is_read = false`,
+                [userId]
+            );
+            return Number(result.rows[0]?.c || 0);
         } catch (error) {
             console.error('Error getting unread count:', error);
             return 0;

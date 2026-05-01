@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { apiFetch } from '../lib/api';
 import { useAuth } from '../context/AuthContext';
+import BookingStatusBadge from '../components/BookingStatusBadge';
 
 export default function JoinBookingPage() {
   const { token } = useAuth();
@@ -46,7 +47,18 @@ export default function JoinBookingPage() {
   };
 
   if (loading) return <div className="page"><div className="card">Duke ngarkuar…</div></div>;
-  if (error) return <div className="page"><div className="feedback feedback-error">{error || 'Ky link i ftesës nuk është më i vlefshëm.'}</div></div>;
+  if (error) {
+    return (
+      <div className="page">
+        <div className="feedback feedback-error">
+          Ky link ka skaduar. Kontakto organizatorin ose rezervo sërish.
+        </div>
+        <button type="button" className="btn btn-accent" onClick={() => navigate('/booking')}>
+          Shko te rezervimi
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div className="page">
@@ -59,6 +71,13 @@ export default function JoinBookingPage() {
         <p><strong>Çmimi për lojtar:</strong> {Number(details.price_per_player || 0).toFixed(2)}€</p>
         <p><strong>Kush ju ftoi:</strong> {details.organizer_name}</p>
         <p><strong>Të paguar:</strong> {details.paid_count || 0} / 12</p>
+        <p>
+          <strong>Statusi:</strong>{' '}
+          <BookingStatusBadge
+            status={details.status}
+            expiresAt={details.start_time ? new Date(new Date(details.start_time).getTime() - 2 * 60 * 60 * 1000).toISOString() : null}
+          />
+        </p>
       </div>
 
       {!paid ? (

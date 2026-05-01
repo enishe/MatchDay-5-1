@@ -1,10 +1,8 @@
 const express = require('express');
 const { authenticateToken, requireRole } = require('../middleware/auth');
-const BookingService = require('../Services/BookingService');
 const NotificationService = require('../Services/NotificationService');
 
 const router = express.Router();
-const bookingService = new BookingService();
 const notificationService = new NotificationService();
 
 router.get('/my', authenticateToken, async (req, res) => {
@@ -48,9 +46,10 @@ router.put('/my/read-all', authenticateToken, async (req, res) => {
 
 router.get('/', authenticateToken, requireRole(['admin']), async (req, res) => {
   try {
+    console.warn('[notifications] Legacy admin endpoint in use: GET /api/notifications');
     const unreadOnly = String(req.query.unreadOnly || 'false') === 'true';
-    const rows = await bookingService.getAdminNotifications(unreadOnly);
-    res.json(rows);
+    const rows = await notificationService.listNotifications(null, 100);
+    res.json(unreadOnly ? rows.filter((n) => !n.is_read) : rows);
   } catch (error) {
     res.status(400).json({ error: error.message });
   }
@@ -58,7 +57,8 @@ router.get('/', authenticateToken, requireRole(['admin']), async (req, res) => {
 
 router.put('/:id/read', authenticateToken, requireRole(['admin']), async (req, res) => {
   try {
-    const data = await bookingService.markNotificationRead(Number(req.params.id));
+    console.warn('[notifications] Legacy admin endpoint in use: PUT /api/notifications/:id/read');
+    const data = await notificationService.markAsRead(String(req.params.id), null);
     res.json(data);
   } catch (error) {
     res.status(400).json({ error: error.message });
@@ -67,7 +67,8 @@ router.put('/:id/read', authenticateToken, requireRole(['admin']), async (req, r
 
 router.get('/count', authenticateToken, requireRole(['admin']), async (req, res) => {
   try {
-    const count = await bookingService.getUnreadNotificationCount();
+    console.warn('[notifications] Legacy admin endpoint in use: GET /api/notifications/count');
+    const count = await notificationService.getUnreadCount(null);
     res.json({ count });
   } catch (error) {
     res.status(400).json({ error: error.message });

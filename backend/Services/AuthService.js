@@ -1,5 +1,6 @@
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
+const crypto = require('crypto');
 const pool = require('../config/db');
 
 const JWT_SECRET = process.env.JWT_SECRET || 'matchday-secret-key';
@@ -44,7 +45,7 @@ function mapUserRow(row) {
 class AuthService {
   generateToken(row) {
     const role = apiRole(row.role);
-    return jwt.sign({ id: row.id, email: row.email, role }, JWT_SECRET, { expiresIn: '7d' });
+    return jwt.sign({ id: row.id, email: row.email, role, jti: crypto.randomUUID() }, JWT_SECRET, { expiresIn: '7d' });
   }
 
   verifyToken(token) {

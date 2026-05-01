@@ -12,6 +12,8 @@ const bookingRoutes = require('./Routes/bookingRoutes');
 const notificationRoutes = require('./Routes/notificationRoutes');
 const { ensureSchema, seedMitrovicaFields } = require('./config/ensureSchema');
 const AuthService = require('./Services/AuthService');
+const TokenBlacklistService = require('./Services/TokenBlacklistService');
+const checkTokenBlacklist = require('./middleware/checkTokenBlacklist');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -36,6 +38,7 @@ app.get('/health', (req, res) => {
 });
 
 // API routes para static — shmang përplasje me skedarë në dist
+app.use('/api', checkTokenBlacklist);
 app.use('/api/auth', authRouter);
 app.use('/api/friends', friendsRouter);
 app.use('/api/bookings', bookingRoutes);
@@ -98,12 +101,26 @@ async function bootstrap() {
   }
 }
 
+function scheduleTokenBlacklistCleanup() {
+  const tokenBlacklistService = new TokenBlacklistService();
+  const cleanup = async () => {
+    try {
+      await tokenBlacklistService.cleanupExpired();
+    } catch (error) {
+      console.error('[token-blacklist] Cleanup failed:', error?.message || error);
+    }
+  };
+  cleanup();
+  setInterval(cleanup, 24 * 60 * 60 * 1000);
+}
+
 bootstrap()
   .then(() => {
     app.listen(PORT, () => {
       console.log(`MATCHDAY server running on port ${PORT}`);
       console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
     });
+    scheduleTokenBlacklistCleanup();
   })
   .catch((err) => {
     console.error('Bootstrap failed:', err);

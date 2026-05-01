@@ -1,9 +1,11 @@
 const express = require('express');
 const AuthService = require('../Services/AuthService');
 const { authenticateToken, requireRole } = require('../middleware/auth');
+const TokenBlacklistService = require('../Services/TokenBlacklistService');
 
 const router = express.Router();
 const authService = new AuthService();
+const tokenBlacklistService = new TokenBlacklistService();
 
 router.post('/register', async (req, res) => {
     try {
@@ -73,6 +75,21 @@ router.get('/search', authenticateToken, async (req, res) => {
 
 router.get('/verify', authenticateToken, (req, res) => {
     res.json({ valid: true, user: req.user });
+});
+
+router.post('/logout', authenticateToken, async (req, res) => {
+    try {
+        const authHeader = req.headers.authorization || '';
+        const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7).trim() : '';
+        const decoded = token ? authService.verifyToken(token) : null;
+        if (decoded?.jti) {
+            const expiresAt = decoded?.exp ? new Date(decoded.exp * 1000) : null;
+            await tokenBlacklistService.add(decoded.jti, expiresAt);
+        }
+        return res.json({ ok: true });
+    } catch (error) {
+        return res.status(400).json({ error: error.message || 'Logout dështoi.' });
+    }
 });
 
 module.exports = {

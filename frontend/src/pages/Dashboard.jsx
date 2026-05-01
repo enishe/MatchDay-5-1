@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { apiFetch } from '../lib/api';
 import { useAuth } from '../context/AuthContext';
+import BookingStatusBadge from '../components/BookingStatusBadge';
 
 const DITET = ['Hën', 'Mar', 'Mër', 'Enj', 'Pre', 'Sht', 'Die'];
 
@@ -52,6 +53,7 @@ export default function Dashboard() {
   const [matches, setMatches] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [autoCancelNotice, setAutoCancelNotice] = useState('');
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -79,6 +81,16 @@ export default function Dashboard() {
       cancelled = true;
     };
   }, [token]);
+
+  useEffect(() => {
+    // TODO: Replace this fallback with socket event listener when realtime auto-cancel event is available.
+    const autoCanceled = matches.find((m) => m.status === 'canceled' && m.payment_method === 'card');
+    if (!autoCanceled) return;
+    const key = `autocancel-notice-${autoCanceled.id}`;
+    if (sessionStorage.getItem(key)) return;
+    sessionStorage.setItem(key, '1');
+    setAutoCancelNotice('Rezervimi u anulua automatikisht.');
+  }, [matches]);
 
   const fillim = useMemo(() => {
     const d = new Date();
@@ -139,6 +151,7 @@ export default function Dashboard() {
     <div className="page">
       <h1 className="page-title">Dashboard</h1>
       <p className="page-subtitle">Pamje lojtari — statistikat e tua personale</p>
+      {autoCancelNotice && <div className="feedback feedback-error">{autoCancelNotice}</div>}
 
       <div className="stat-grid-4">
         {statKartat.map((k) => (
@@ -269,7 +282,10 @@ export default function Dashboard() {
                     <td data-label="Status">
                       {m.payment_method === 'card' && m.status === 'pending' ? (
                         <div>
-                          <span className="badge badge-pending">Duke pritur pagesën</span>
+                          <BookingStatusBadge
+                            status={m.status}
+                            expiresAt={m.start_time ? new Date(new Date(m.start_time).getTime() - 2 * 60 * 60 * 1000).toISOString() : null}
+                          />
                           <div style={{ fontSize: 12, marginTop: 4 }}>{Number(m.participants_paid || 0)}/12 të paguar</div>
                           {m.invite_token && (
                             <button
