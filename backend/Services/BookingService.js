@@ -1,6 +1,7 @@
 const crypto = require('crypto');
 const pool = require('../config/db');
 const NotificationService = require('./NotificationService');
+const { formatBelgradeDate, formatBelgradeTime } = require('../utils/timezone');
 
 class BookingService {
   constructor() {
@@ -153,7 +154,7 @@ class BookingService {
       );
       const booking = ins.rows[0];
       const organizerName = await this.getOrganizerName(client, organizerId);
-      const msg = `${organizerName} rezervoi "${field.name}" më ${new Date(startTime).toLocaleDateString('sq-AL')} në ${new Date(startTime).toLocaleTimeString('sq-AL', { hour: '2-digit', minute: '2-digit' })}. Totali: ${totalAmount.toFixed(2)}€.`;
+      const msg = `${organizerName} rezervoi "${field.name}" më ${formatBelgradeDate(startTime, 'sq-AL')} në ${formatBelgradeTime(startTime, 'sq-AL', { hour: '2-digit', minute: '2-digit' })}. Totali: ${totalAmount.toFixed(2)}€.`;
       await this.createAdminNotification(client, {
         type: 'new_booking',
         title: 'Rezervim i ri (Cash)',
@@ -409,7 +410,7 @@ class BookingService {
           bookingId,
           'booking_confirmed',
           'Rezervimi u konfirmua!',
-          () => `Rezervimi juaj në ${booking.field_name} më ${new Date(booking.start_time).toLocaleDateString('sq-AL')} ora ${new Date(booking.start_time).toLocaleTimeString('sq-AL', { hour: '2-digit', minute: '2-digit' })} u konfirmua.`
+          () => `Rezervimi juaj në ${booking.field_name} më ${formatBelgradeDate(booking.start_time, 'sq-AL')} ora ${formatBelgradeTime(booking.start_time, 'sq-AL', { hour: '2-digit', minute: '2-digit' })} u konfirmua.`
         );
       } else {
         await client.query(

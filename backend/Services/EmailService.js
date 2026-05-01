@@ -1,4 +1,5 @@
 const pool = require('../config/db');
+const { formatBelgradeDate, formatBelgradeTime } = require('../utils/timezone');
 
 class EmailService {
   constructor() {
@@ -69,8 +70,8 @@ class EmailService {
           <div style="background: white; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #c8ff00;">
             <h3 style="color: #1a6b3c; margin-top: 0;">Detajet e Rezervimit</h3>
             <p><strong>Fusha:</strong> ${bookingDetails.field_name}</p>
-            <p><strong>Data:</strong> ${new Date(bookingDetails.start_time).toLocaleDateString('sq-AL')}</p>
-            <p><strong>Ora:</strong> ${new Date(bookingDetails.start_time).toLocaleTimeString('sq-AL', { hour: '2-digit', minute: '2-digit' })} - ${new Date(bookingDetails.end_time).toLocaleTimeString('sq-AL', { hour: '2-digit', minute: '2-digit' })}</p>
+            <p><strong>Data:</strong> ${formatBelgradeDate(bookingDetails.start_time, 'sq-AL')}</p>
+            <p><strong>Ora:</strong> ${formatBelgradeTime(bookingDetails.start_time, 'sq-AL', { hour: '2-digit', minute: '2-digit' })} - ${formatBelgradeTime(bookingDetails.end_time, 'sq-AL', { hour: '2-digit', minute: '2-digit' })}</p>
             <p><strong>Çmimi për lojtar:</strong> €${bookingDetails.price_per_player}</p>
             <p><strong>Metoda e pagesës:</strong> ${bookingDetails.payment_method === 'cash' ? 'Cash' : 'Kartë'}</p>
           </div>
@@ -126,8 +127,8 @@ class EmailService {
           <p>Rezervimi juaj për fushën <strong>${bookingDetails.field_name}</strong> është anuluar.</p>
           
           <div style="background: white; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #e74c3c;">
-            <p><strong>Data:</strong> ${new Date(bookingDetails.start_time).toLocaleDateString('sq-AL')}</p>
-            <p><strong>Ora:</strong> ${new Date(bookingDetails.start_time).toLocaleTimeString('sq-AL', { hour: '2-digit', minute: '2-digit' })}</p>
+            <p><strong>Data:</strong> ${formatBelgradeDate(bookingDetails.start_time, 'sq-AL')}</p>
+            <p><strong>Ora:</strong> ${formatBelgradeTime(bookingDetails.start_time, 'sq-AL', { hour: '2-digit', minute: '2-digit' })}</p>
             <p><strong>Shkaku i anulimit:</strong> ${bookingDetails.cancellation_reason || 'Kërkesë e përdoruesit'}</p>
           </div>
           
@@ -174,8 +175,8 @@ class EmailService {
           
           <div style="background: white; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #c8ff00;">
             <p><strong>Fusha:</strong> ${invitationDetails.field_name}</p>
-            <p><strong>Data:</strong> ${new Date(invitationDetails.start_time).toLocaleDateString('sq-AL')}</p>
-            <p><strong>Ora:</strong> ${new Date(invitationDetails.start_time).toLocaleTimeString('sq-AL', { hour: '2-digit', minute: '2-digit' })} - ${new Date(invitationDetails.end_time).toLocaleTimeString('sq-AL', { hour: '2-digit', minute: '2-digit' })}</p>
+            <p><strong>Data:</strong> ${formatBelgradeDate(invitationDetails.start_time, 'sq-AL')}</p>
+            <p><strong>Ora:</strong> ${formatBelgradeTime(invitationDetails.start_time, 'sq-AL', { hour: '2-digit', minute: '2-digit' })} - ${formatBelgradeTime(invitationDetails.end_time, 'sq-AL', { hour: '2-digit', minute: '2-digit' })}</p>
             <p><strong>Çmimi për lojtar:</strong> €${invitationDetails.price_per_player}</p>
             <p><strong>Lojtarët aktualë:</strong> ${invitationDetails.current_players}/12</p>
           </div>

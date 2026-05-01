@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { apiFetch } from '../lib/api';
 import { useAuth } from '../context/AuthContext';
 import BookingStatusBadge from '../components/BookingStatusBadge';
+import { formatBelgradeDateTime } from '../lib/timezone';
 
 const DITET = ['Hën', 'Mar', 'Mër', 'Enj', 'Pre', 'Sht', 'Die'];
 
@@ -11,7 +12,7 @@ function sot() {
 }
 
 function formatDate(d) {
-  return new Date(d).toLocaleString('sq-AL', {
+  return formatBelgradeDateTime(d, 'sq-AL', {
     day: '2-digit',
     month: '2-digit',
     hour: '2-digit',

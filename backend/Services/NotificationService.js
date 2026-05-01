@@ -1,4 +1,5 @@
 const pool = require('../config/db');
+const { formatBelgradeDate, formatBelgradeTime } = require('../utils/timezone');
 
 class NotificationService {
     normalizeSubject(type, titleOrSubject) {
@@ -332,8 +333,8 @@ Ndeshja juaj është konfirmuar me sukses!
 
 🏟️ **Fusha:** ${booking.field_name}
 📍 **Lokacioni:** ${booking.location}
-📅 **Data:** ${new Date(booking.start_time).toLocaleDateString('sq-AL', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
-⏰ **Ora:** ${new Date(booking.start_time).toLocaleTimeString('sq-AL', { hour: '2-digit', minute: '2-digit' })} - ${new Date(booking.end_time).toLocaleTimeString('sq-AL', { hour: '2-digit', minute: '2-digit' })}
+📅 **Data:** ${formatBelgradeDate(booking.start_time, 'sq-AL', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+⏰ **Ora:** ${formatBelgradeTime(booking.start_time, 'sq-AL', { hour: '2-digit', minute: '2-digit' })} - ${formatBelgradeTime(booking.end_time, 'sq-AL', { hour: '2-digit', minute: '2-digit' })}
 💰 **Çmimi per lojtar:** €${booking.price_per_player}
 
 Numri i lojtarëve: 12/12
@@ -352,7 +353,7 @@ Përshëndetje ${booking.user_name},
 Ndeshja juaj është anuluar.
 
 🏟️ **Fusha:** ${booking.field_name}
-📅 **Data:** ${new Date(booking.start_time).toLocaleDateString('sq-AL')}
+📅 **Data:** ${formatBelgradeDate(booking.start_time, 'sq-AL')}
 💰 **Politika e rimbursimit:** ${booking.cancellation_status === 'free' ? '100% refund' : '60% fushë, 100% patika'}
 
 Rimbursimi do të procesohet brenda 24-48 orëve.
@@ -370,8 +371,8 @@ Përshëndetje,
 Jeni ftuar në një ndeshje futbolli!
 
 🏟️ **Fusha:** ${booking.field_name}
-📅 **Data:** ${new Date(booking.start_time).toLocaleDateString('sq-AL')}
-⏰ **Ora:** ${new Date(booking.start_time).toLocaleTimeString('sq-AL', { hour: '2-digit', minute: '2-digit' })} - ${new Date(booking.end_time).toLocaleTimeString('sq-AL', { hour: '2-digit', minute: '2-digit' })}
+📅 **Data:** ${formatBelgradeDate(booking.start_time, 'sq-AL')}
+⏰ **Ora:** ${formatBelgradeTime(booking.start_time, 'sq-AL', { hour: '2-digit', minute: '2-digit' })} - ${formatBelgradeTime(booking.end_time, 'sq-AL', { hour: '2-digit', minute: '2-digit' })}
 👤 **Organizatori:** ${booking.organizer_name}
 
 Hyni në platformën MATCHDAY për të pranuar ose refuzuar ftesën.

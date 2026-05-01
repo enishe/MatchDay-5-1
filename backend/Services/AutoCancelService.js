@@ -1,4 +1,5 @@
 const pool = require('../config/db');
+const { formatBelgradeDateTime } = require('../utils/timezone');
 
 class AutoCancelService {
     /**
@@ -91,7 +92,7 @@ class AutoCancelService {
                         organizerId,
                         match.id,
                         'Ndeshja u anulua automatikisht',
-                        `Ndeshja juaj për datën ${new Date(match.start_time).toLocaleString('sq-AL')} u anulua automatikisht sepse nuk u arritën 12 lojtarë pagesë. Të gjitha pagesat do të rimbursohen.`
+                        `Ndeshja juaj për datën ${formatBelgradeDateTime(match.start_time, 'sq-AL')} u anulua automatikisht sepse nuk u arritën 12 lojtarë pagesë. Të gjitha pagesat do të rimbursohen.`
                     ]
                 );
                 

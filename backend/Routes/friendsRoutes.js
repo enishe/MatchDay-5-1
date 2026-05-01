@@ -2,6 +2,7 @@ const express = require('express');
 const pool = require('../config/db');
 const { authenticateToken } = require('../middleware/auth');
 const NotificationService = require('../Services/NotificationService');
+const { formatBelgradeDate, formatBelgradeTime } = require('../utils/timezone');
 
 const router = express.Router();
 const notifications = new NotificationService();
@@ -167,8 +168,8 @@ router.post('/invite-to-match', async (req, res) => {
     const bookingId = m.rows[0].id;
     const fieldName = m.rows[0].field_name;
     const organizerName = m.rows[0].organizer_name;
-    const dateLabel = new Date(m.rows[0].start_time).toLocaleDateString('sq-AL');
-    const timeLabel = new Date(m.rows[0].start_time).toLocaleTimeString('sq-AL', {
+    const dateLabel = formatBelgradeDate(m.rows[0].start_time, 'sq-AL');
+    const timeLabel = formatBelgradeTime(m.rows[0].start_time, 'sq-AL', {
       hour: '2-digit',
       minute: '2-digit',
     });

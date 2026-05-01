@@ -3,6 +3,7 @@ import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { apiFetch } from '../lib/api';
 import { useAuth } from '../context/AuthContext';
 import BookingStatusBadge from '../components/BookingStatusBadge';
+import { formatBelgradeDateTime } from '../lib/timezone';
 
 export default function JoinBookingPage() {
   const { token } = useAuth();
@@ -67,7 +68,7 @@ export default function JoinBookingPage() {
         <p><strong>Fusha:</strong> {details.field_name}</p>
         <p><strong>Lokacioni:</strong> {details.location}</p>
         <p><strong>Terreni:</strong> {details.terrain_type}</p>
-        <p><strong>Data dhe ora:</strong> {new Date(details.start_time).toLocaleString('sq-AL')}</p>
+        <p><strong>Data dhe ora:</strong> {formatBelgradeDateTime(details.start_time, 'sq-AL')}</p>
         <p><strong>Çmimi për lojtar:</strong> {Number(details.price_per_player || 0).toFixed(2)}€</p>
         <p><strong>Kush ju ftoi:</strong> {details.organizer_name}</p>
         <p><strong>Të paguar:</strong> {details.paid_count || 0} / 12</p>

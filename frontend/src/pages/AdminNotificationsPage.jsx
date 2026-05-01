@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { apiFetch } from '../lib/api';
 import { useAuth } from '../context/AuthContext';
+import { formatBelgradeDateTime } from '../lib/timezone';
 
 export default function AdminNotificationsPage() {
   const { token } = useAuth();
@@ -43,7 +44,7 @@ export default function AdminNotificationsPage() {
                   <td>{n.type}</td>
                   <td>{n.title}</td>
                   <td>{n.message}</td>
-                  <td>{new Date(n.created_at).toLocaleString('sq-AL')}</td>
+                  <td>{formatBelgradeDateTime(n.created_at, 'sq-AL')}</td>
                   <td>{n.is_read ? 'Lexuar' : 'Palexuar'}</td>
                   <td>{!n.is_read ? <button type="button" className="btn btn-ghost" onClick={() => markRead(n.id)}>Shëno si lexuar</button> : '—'}</td>
                 </tr>

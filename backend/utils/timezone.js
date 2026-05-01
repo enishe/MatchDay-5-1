@@ -47,9 +47,27 @@ function formatBelgradeYmd(dateLike) {
   return `${values.year}-${values.month}-${values.day}`;
 }
 
+function formatBelgradeDateTime(dateLike, locale = 'sq-AL', options = {}) {
+  const date = dateLike instanceof Date ? dateLike : new Date(dateLike);
+  return date.toLocaleString(locale, { timeZone: BELGRADE_TIMEZONE, ...options });
+}
+
+function formatBelgradeDate(dateLike, locale = 'sq-AL', options = {}) {
+  const date = dateLike instanceof Date ? dateLike : new Date(dateLike);
+  return date.toLocaleDateString(locale, { timeZone: BELGRADE_TIMEZONE, ...options });
+}
+
+function formatBelgradeTime(dateLike, locale = 'sq-AL', options = {}) {
+  const date = dateLike instanceof Date ? dateLike : new Date(dateLike);
+  return date.toLocaleTimeString(locale, { timeZone: BELGRADE_TIMEZONE, ...options });
+}
+
 module.exports = {
   BELGRADE_TIMEZONE,
   createUtcDateFromBelgradeLocal,
   createUtcDateFromBelgradeHourLabel,
   formatBelgradeYmd,
+  formatBelgradeDateTime,
+  formatBelgradeDate,
+  formatBelgradeTime,
 };

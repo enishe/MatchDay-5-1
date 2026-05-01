@@ -5,6 +5,7 @@ import Button from '../../components/UI/Button';
 import Badge from '../../components/UI/Badge';
 import PageHeader from '../../components/Layout/PageHeader';
 import EmptyState from '../../components/Layout/EmptyState';
+import { formatBelgradeDateTime } from '../../lib/timezone';
 
 const PlayerInvitations = () => {
   const invitations = [
@@ -35,14 +36,14 @@ const PlayerInvitations = () => {
   ];
 
   const formatDate = (dateString) =>
-    new Date(dateString).toLocaleDateString('sq-AL', {
+    formatBelgradeDateTime(dateString, 'sq-AL', {
       weekday: 'long',
       day: 'numeric',
       month: 'long',
     });
 
   const formatTime = (dateString) =>
-    new Date(dateString).toLocaleTimeString('sq-AL', {
+    formatBelgradeDateTime(dateString, 'sq-AL', {
       hour: '2-digit',
       minute: '2-digit',
     });

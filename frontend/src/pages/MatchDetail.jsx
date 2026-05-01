@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { apiFetch } from '../lib/api';
 import { useAuth } from '../context/AuthContext';
+import { formatBelgradeDateTime } from '../lib/timezone';
 
 function useCountdown(targetIso) {
   const [left, setLeft] = useState(null);
@@ -104,7 +105,7 @@ export default function MatchDetail() {
     <div className="page">
       <h1 className="page-title">Ndeshja #{match.id}</h1>
       <p className="page-subtitle">
-        {match.field_name} · {new Date(match.start_time).toLocaleString('sq-AL')}
+        {match.field_name} · {formatBelgradeDateTime(match.start_time, 'sq-AL')}
       </p>
 
       {msg && <div className="feedback feedback-warning">{msg}</div>}

@@ -314,7 +314,7 @@ export default function AdminPanel({ section = 'dashboard' }) {
                         {group.bookings.map((b) => (
                           <tr key={b.booking_id}>
                             <td data-label="Numri i fushës">{b.court_number || '—'}</td>
-                            <td data-label="Ora">{new Date(b.start_time).toLocaleTimeString('sq-AL', { hour: '2-digit', minute: '2-digit' })} - {new Date(b.end_time).toLocaleTimeString('sq-AL', { hour: '2-digit', minute: '2-digit' })}</td>
+                            <td data-label="Ora">{formatBelgradeDateTime(b.start_time, 'sq-AL', { hour: '2-digit', minute: '2-digit' })} - {formatBelgradeDateTime(b.end_time, 'sq-AL', { hour: '2-digit', minute: '2-digit' })}</td>
                             <td data-label="Vlera">{Number(b.total_price || 0).toFixed(2)}€</td>
                           </tr>
                         ))}
@@ -372,7 +372,7 @@ export default function AdminPanel({ section = 'dashboard' }) {
                       <tr key={m.id}>
                         <td>#{m.id}</td>
                         <td>{m.field_name || `#${m.field_id}`}</td>
-                        <td>{new Date(m.start_time).toLocaleString('sq-AL')}</td>
+                        <td>{formatBelgradeDateTime(m.start_time, 'sq-AL')}</td>
                         <td>{m.total_price}€</td>
                         <td>{m.price_per_player}€</td>
                         <td>
