@@ -7,17 +7,33 @@ class BookingService {
     this.notificationService = new NotificationService();
   }
 
-  async createAdminNotification(client, { type, title, message, bookingId = null }) {
+  async createAdminNotification(client, { type, title, message, bookingId = null, fallbackUserId = null }) {
+    const adminRows = await client.query(
+      `SELECT id FROM users WHERE role = 'admin' ORDER BY id ASC`,
+      []
+    );
+    const adminIds = adminRows.rows
+      .map((r) => Number(r.id))
+      .filter((id) => Number.isInteger(id) && id > 0);
+    if (adminIds.length === 0 && Number.isInteger(Number(fallbackUserId)) && Number(fallbackUserId) > 0) {
+      adminIds.push(Number(fallbackUserId));
+    }
+    if (adminIds.length === 0) {
+      throw new Error('Nuk u gjet asnjë admin valid për njoftim.');
+    }
+
     await client.query(
       `INSERT INTO admin_notifications (type, title, message, booking_id)
        VALUES ($1, $2, $3, $4)`,
       [type, title, message, bookingId]
     );
-    await client.query(
-      `INSERT INTO notifications (recipient_id, recipient_type, type, title, message, booking_id, is_read)
-       VALUES (NULL, 'admin', $1, $2, $3, $4, false)`,
-      [type, title, message, bookingId]
-    );
+    for (const adminUserId of adminIds) {
+      await client.query(
+        `INSERT INTO notifications (user_id, recipient_id, recipient_type, type, title, message, booking_id, is_read)
+         VALUES ($1, $1, 'admin', $2, $3, $4, $5, false)`,
+        [adminUserId, type, title, message, bookingId]
+      );
+    }
   }
 
   async getFieldOrThrow(client, fieldId) {
@@ -123,6 +139,7 @@ class BookingService {
         title: 'Rezervim i ri (Cash)',
         message: msg,
         bookingId: booking.id,
+        fallbackUserId: organizerId,
       });
 
       await client.query('COMMIT');
@@ -198,6 +215,7 @@ class BookingService {
         title: 'Rezervim i ri (Kartë)',
         message: msg,
         bookingId: booking.id,
+        fallbackUserId: organizerId,
       });
 
       await client.query('COMMIT');
@@ -364,6 +382,7 @@ class BookingService {
           title: 'Rezervim i konfirmuar',
           message: `Rezervimi te "${booking.field_name}" u konfirmua. Të hyrat: ${Number(totalRevenue).toFixed(2)}€.`,
           bookingId,
+          fallbackUserId: Number(booking.organizer_id),
         });
         await this.notifyBookingParticipants(
           client,
@@ -424,6 +443,7 @@ class BookingService {
           title: 'Rezervim i anuluar automatikisht',
           message: `Rezervimi te "${booking.field_name}" u anulua automatikisht. Pagesa të kryera: ${paidCount}/12.`,
           bookingId,
+          fallbackUserId: Number(booking.organizer_id),
         });
         await this.notifyBookingParticipants(
           client,

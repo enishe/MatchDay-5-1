@@ -1,6 +1,16 @@
 const pool = require('../config/db');
 
 class NotificationService {
+    async getAdminRecipientIds() {
+        const rows = await pool.query(
+            `SELECT id FROM users WHERE role = 'admin' ORDER BY id ASC`,
+            []
+        );
+        return rows.rows
+            .map((r) => Number(r.id))
+            .filter((id) => Number.isInteger(id) && id > 0);
+    }
+
     /**
      * Purpose:
      * Adapter over dual notification sources (`admin_notifications` + `notifications`)
@@ -61,7 +71,7 @@ class NotificationService {
                         created_at,
                         COALESCE(booking_id::text, type || ':' || title || ':' || message) AS reference_id
                      FROM notifications
-                     WHERE recipient_id = $1
+                     WHERE COALESCE(recipient_id, user_id) = $1
                      ORDER BY created_at DESC
                      LIMIT $2`,
                     [userId, safeLimit * 3]
@@ -99,7 +109,7 @@ class NotificationService {
             if (userId == null) {
                 await pool.query(`UPDATE notifications SET is_read = true WHERE id = $1`, [numericId]);
             } else {
-                await pool.query(`UPDATE notifications SET is_read = true WHERE id = $1 AND recipient_id = $2`, [numericId, userId]);
+                await pool.query(`UPDATE notifications SET is_read = true WHERE id = $1 AND COALESCE(recipient_id, user_id) = $2`, [numericId, userId]);
             }
             return { ok: true };
         }
@@ -113,7 +123,7 @@ class NotificationService {
             await pool.query(
                 `UPDATE notifications
                  SET is_read = true
-                 WHERE id = $1 AND recipient_id = $2`,
+                 WHERE id = $1 AND COALESCE(recipient_id, user_id) = $2`,
                 [numericId, userId]
             );
         }
@@ -121,23 +131,35 @@ class NotificationService {
     }
 
     async createUserNotification(recipientId, type, title, message, bookingId = null) {
+        const safeRecipientId = Number(recipientId);
+        if (!Number.isInteger(safeRecipientId) || safeRecipientId <= 0) {
+            throw new Error('Recipient user_id i pavlefshëm për notifications.');
+        }
         const result = await pool.query(
-            `INSERT INTO notifications (recipient_id, recipient_type, type, title, message, booking_id, is_read)
-             VALUES ($1, 'user', $2, $3, $4, $5, false)
+            `INSERT INTO notifications (user_id, recipient_id, recipient_type, type, title, message, booking_id, is_read)
+             VALUES ($1, $1, 'user', $2, $3, $4, $5, false)
              RETURNING *`,
-            [recipientId, type, title, message, bookingId]
+            [safeRecipientId, type, title, message, bookingId]
         );
         return result.rows[0];
     }
 
     async createAdminNotification(type, title, message, bookingId = null) {
-        const result = await pool.query(
-            `INSERT INTO notifications (recipient_id, recipient_type, type, title, message, booking_id, is_read)
-             VALUES (NULL, 'admin', $1, $2, $3, $4, false)
-             RETURNING *`,
-            [type, title, message, bookingId]
-        );
-        return result.rows[0];
+        const adminIds = await this.getAdminRecipientIds();
+        if (adminIds.length === 0) {
+            throw new Error('Asnjë admin valid për notifications.');
+        }
+        let firstInserted = null;
+        for (const adminUserId of adminIds) {
+            const result = await pool.query(
+                `INSERT INTO notifications (user_id, recipient_id, recipient_type, type, title, message, booking_id, is_read)
+                 VALUES ($1, $1, 'admin', $2, $3, $4, $5, false)
+                 RETURNING *`,
+                [adminUserId, type, title, message, bookingId]
+            );
+            if (!firstInserted && result.rows[0]) firstInserted = result.rows[0];
+        }
+        return firstInserted;
     }
 
     async getMyNotifications(recipientId, limit = 20) {
@@ -156,7 +178,7 @@ class NotificationService {
         await pool.query(
             `UPDATE notifications
              SET is_read = true
-             WHERE recipient_id = $1 AND is_read = false`,
+             WHERE COALESCE(recipient_id, user_id) = $1 AND is_read = false`,
             [recipientId]
         );
         return { ok: true };
@@ -204,7 +226,7 @@ class NotificationService {
             const result = await pool.query(
                 `SELECT COUNT(*)::int AS c
                  FROM notifications
-                 WHERE recipient_id = $1 AND is_read = false`,
+                 WHERE COALESCE(recipient_id, user_id) = $1 AND is_read = false`,
                 [userId]
             );
             return Number(result.rows[0]?.c || 0);

@@ -156,6 +156,7 @@ async function ensureSchema() {
     )
   `);
   await pool.query(`ALTER TABLE notifications ADD COLUMN IF NOT EXISTS recipient_id INTEGER REFERENCES users(id) ON DELETE CASCADE`);
+  await pool.query(`ALTER TABLE notifications ADD COLUMN IF NOT EXISTS user_id INTEGER REFERENCES users(id) ON DELETE CASCADE`);
   await pool.query(`ALTER TABLE notifications ADD COLUMN IF NOT EXISTS recipient_type VARCHAR(10) NOT NULL DEFAULT 'user'`);
   await pool.query(`ALTER TABLE notifications ADD COLUMN IF NOT EXISTS type VARCHAR(50)`);
   await pool.query(`ALTER TABLE notifications ADD COLUMN IF NOT EXISTS title VARCHAR(200)`);
@@ -164,6 +165,17 @@ async function ensureSchema() {
   await pool.query(`ALTER TABLE notifications ADD COLUMN IF NOT EXISTS is_read BOOLEAN NOT NULL DEFAULT false`);
   await pool.query(`ALTER TABLE notifications ADD COLUMN IF NOT EXISTS created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP`);
   await pool.query(`UPDATE notifications SET recipient_type = 'user' WHERE recipient_type IS NULL`);
+  await pool.query(`UPDATE notifications SET user_id = recipient_id WHERE user_id IS NULL AND recipient_id IS NOT NULL`);
+  await pool.query(`UPDATE notifications SET recipient_id = user_id WHERE recipient_id IS NULL AND user_id IS NOT NULL`);
+  await pool.query(`
+    UPDATE notifications n
+    SET user_id = u.id,
+        recipient_id = COALESCE(n.recipient_id, u.id)
+    FROM users u
+    WHERE n.user_id IS NULL
+      AND n.recipient_type = 'admin'
+      AND u.role = 'admin'
+  `);
 
   await pool.query(`
     CREATE INDEX IF NOT EXISTS idx_notifications_recipient

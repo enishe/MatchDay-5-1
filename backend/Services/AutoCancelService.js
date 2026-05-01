@@ -79,12 +79,16 @@ class AutoCancelService {
                 );
                 
                 // Create notification for organizer
+                const organizerId = Number(match.organizer_id);
+                if (!Number.isInteger(organizerId) || organizerId <= 0) {
+                    continue;
+                }
                 await client.query(
                     `INSERT INTO Notifications 
                      (user_id, booking_id, type, subject, body, is_sent, sent_at)
                      VALUES ($1, $2, 'cancellation', $3, $4, TRUE, CURRENT_TIMESTAMP)`,
                     [
-                        match.organizer_id,
+                        organizerId,
                         match.id,
                         'Ndeshja u anulua automatikisht',
                         `Ndeshja juaj për datën ${new Date(match.start_time).toLocaleString('sq-AL')} u anulua automatikisht sepse nuk u arritën 12 lojtarë pagesë. Të gjitha pagesat do të rimbursohen.`

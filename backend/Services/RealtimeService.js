@@ -225,12 +225,14 @@ class RealtimeService {
     // Create notification for user
     async createNotification(userId, type, subject, body, bookingId = null) {
         const pool = require('../config/db');
+        const safeUserId = Number(userId);
+        if (!Number.isInteger(safeUserId) || safeUserId <= 0) return;
         
         try {
             await pool.query(
                 `INSERT INTO Notifications (user_id, booking_id, type, subject, body) 
                  VALUES ($1, $2, $3, $4, $5)`,
-                [userId, bookingId, type, subject, body]
+                [safeUserId, bookingId, type, subject, body]
             );
         } catch (error) {
             console.error('Error creating notification:', error);
@@ -246,7 +248,8 @@ class RealtimeService {
                 `INSERT INTO Notifications (user_id, booking_id, type, subject, body) 
                  SELECT mp.user_id, $1, $2, $3, $4
                  FROM MatchPlayers mp 
-                 WHERE mp.booking_id = $5`,
+                 WHERE mp.booking_id = $5
+                   AND mp.user_id IS NOT NULL`,
                 [bookingId, type, subject, body, bookingId]
             );
         } catch (error) {
