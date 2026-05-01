@@ -7,6 +7,24 @@ class BookingService {
     this.notificationService = new NotificationService();
   }
 
+  normalizeSubject(type, title) {
+    const candidate = String(title || '').trim();
+    if (candidate) return candidate;
+    const byType = {
+      new_booking: 'Rezervim i ri',
+      booking_confirmed: 'Rezervim i konfirmuar',
+      booking_canceled: 'Rezervim i anuluar',
+      invite_accepted: 'Ftesë e pranuar',
+      invite: 'Ftesë për lojë',
+    };
+    return byType[String(type || '').trim()] || 'Njoftim';
+  }
+
+  normalizeBody(message) {
+    const candidate = String(message || '').trim();
+    return candidate || 'Keni një njoftim të ri.';
+  }
+
   async createAdminNotification(client, { type, title, message, bookingId = null, fallbackUserId = null }) {
     const adminRows = await client.query(
       `SELECT id FROM users WHERE role = 'admin' ORDER BY id ASC`,
@@ -27,11 +45,13 @@ class BookingService {
        VALUES ($1, $2, $3, $4)`,
       [type, title, message, bookingId]
     );
+    const safeSubject = this.normalizeSubject(type, title);
+    const safeBody = this.normalizeBody(message);
     for (const adminUserId of adminIds) {
       await client.query(
-        `INSERT INTO notifications (user_id, recipient_id, recipient_type, type, title, message, booking_id, is_read)
-         VALUES ($1, $1, 'admin', $2, $3, $4, $5, false)`,
-        [adminUserId, type, title, message, bookingId]
+        `INSERT INTO notifications (user_id, recipient_id, recipient_type, type, title, message, subject, body, booking_id, is_read)
+         VALUES ($1, $1, 'admin', $2, $3, $4, $5, $6, $7, false)`,
+        [adminUserId, type, safeSubject, safeBody, safeSubject, safeBody, bookingId]
       );
     }
   }

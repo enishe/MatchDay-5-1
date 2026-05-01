@@ -161,10 +161,16 @@ async function ensureSchema() {
   await pool.query(`ALTER TABLE notifications ADD COLUMN IF NOT EXISTS type VARCHAR(50)`);
   await pool.query(`ALTER TABLE notifications ADD COLUMN IF NOT EXISTS title VARCHAR(200)`);
   await pool.query(`ALTER TABLE notifications ADD COLUMN IF NOT EXISTS message TEXT`);
+  await pool.query(`ALTER TABLE notifications ADD COLUMN IF NOT EXISTS subject VARCHAR(255)`);
+  await pool.query(`ALTER TABLE notifications ADD COLUMN IF NOT EXISTS body TEXT`);
   await pool.query(`ALTER TABLE notifications ADD COLUMN IF NOT EXISTS booking_id INTEGER REFERENCES bookings(id) ON DELETE SET NULL`);
   await pool.query(`ALTER TABLE notifications ADD COLUMN IF NOT EXISTS is_read BOOLEAN NOT NULL DEFAULT false`);
   await pool.query(`ALTER TABLE notifications ADD COLUMN IF NOT EXISTS created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP`);
   await pool.query(`UPDATE notifications SET recipient_type = 'user' WHERE recipient_type IS NULL`);
+  await pool.query(`UPDATE notifications SET title = COALESCE(title, subject, type, 'Njoftim') WHERE title IS NULL`);
+  await pool.query(`UPDATE notifications SET message = COALESCE(message, body, '') WHERE message IS NULL`);
+  await pool.query(`UPDATE notifications SET subject = COALESCE(subject, title, type, 'Njoftim') WHERE subject IS NULL`);
+  await pool.query(`UPDATE notifications SET body = COALESCE(body, message, '') WHERE body IS NULL`);
   await pool.query(`UPDATE notifications SET user_id = recipient_id WHERE user_id IS NULL AND recipient_id IS NOT NULL`);
   await pool.query(`UPDATE notifications SET recipient_id = user_id WHERE recipient_id IS NULL AND user_id IS NOT NULL`);
   await pool.query(`

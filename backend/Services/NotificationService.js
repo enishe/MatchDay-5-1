@@ -1,6 +1,28 @@
 const pool = require('../config/db');
 
 class NotificationService {
+    normalizeSubject(type, titleOrSubject) {
+        const candidate = String(titleOrSubject || '').trim();
+        if (candidate) return candidate;
+        const byType = {
+            new_booking: 'Rezervim i ri',
+            booking_confirmed: 'Rezervim i konfirmuar',
+            booking_canceled: 'Rezervim i anuluar',
+            invite_accepted: 'Ftesë e pranuar',
+            invite: 'Ftesë për lojë',
+            confirmation: 'Konfirmim',
+            cancellation: 'Anulim',
+            reminder: 'Kujtesë',
+            refund: 'Rimbursim',
+        };
+        return byType[String(type || '').trim()] || 'Njoftim';
+    }
+
+    normalizeBody(messageOrBody) {
+        const candidate = String(messageOrBody || '').trim();
+        return candidate || 'Keni një njoftim të ri.';
+    }
+
     async getAdminRecipientIds() {
         const rows = await pool.query(
             `SELECT id FROM users WHERE role = 'admin' ORDER BY id ASC`,
@@ -135,11 +157,13 @@ class NotificationService {
         if (!Number.isInteger(safeRecipientId) || safeRecipientId <= 0) {
             throw new Error('Recipient user_id i pavlefshëm për notifications.');
         }
+        const safeSubject = this.normalizeSubject(type, title);
+        const safeBody = this.normalizeBody(message);
         const result = await pool.query(
-            `INSERT INTO notifications (user_id, recipient_id, recipient_type, type, title, message, booking_id, is_read)
-             VALUES ($1, $1, 'user', $2, $3, $4, $5, false)
+            `INSERT INTO notifications (user_id, recipient_id, recipient_type, type, title, message, subject, body, booking_id, is_read)
+             VALUES ($1, $1, 'user', $2, $3, $4, $5, $6, $7, false)
              RETURNING *`,
-            [safeRecipientId, type, title, message, bookingId]
+            [safeRecipientId, type, safeSubject, safeBody, safeSubject, safeBody, bookingId]
         );
         return result.rows[0];
     }
@@ -150,12 +174,14 @@ class NotificationService {
             throw new Error('Asnjë admin valid për notifications.');
         }
         let firstInserted = null;
+        const safeSubject = this.normalizeSubject(type, title);
+        const safeBody = this.normalizeBody(message);
         for (const adminUserId of adminIds) {
             const result = await pool.query(
-                `INSERT INTO notifications (user_id, recipient_id, recipient_type, type, title, message, booking_id, is_read)
-                 VALUES ($1, $1, 'admin', $2, $3, $4, $5, false)
+                `INSERT INTO notifications (user_id, recipient_id, recipient_type, type, title, message, subject, body, booking_id, is_read)
+                 VALUES ($1, $1, 'admin', $2, $3, $4, $5, $6, $7, false)
                  RETURNING *`,
-                [adminUserId, type, title, message, bookingId]
+                [adminUserId, type, safeSubject, safeBody, safeSubject, safeBody, bookingId]
             );
             if (!firstInserted && result.rows[0]) firstInserted = result.rows[0];
         }
