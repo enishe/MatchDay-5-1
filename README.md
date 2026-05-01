@@ -5,33 +5,7 @@
 **Menaxhim profesional i termineve dhe ndeshjeve të futbollit 5+1**
 
 
-## Setup & Installation
 
-### Kërkesat
-- Node.js v18+
-- PostgreSQL v14+
-
-### Hapat për ekzekutim lokal
-
-**Backend:**
-```bash
-cd backend
-npm install
-cp .env.example .env
-# Plotëso DATABASE_URL në .env me të dhënat tuaja
-psql -f Data/schema.sql
-npm run dev
-```
-
-**Frontend:**
-```bash
-cd frontend
-npm install
-npm run dev
-```
-
-### Live Demo
-https://matchday-5-1.onrender.com
 
 *Full-stack: React · Express · PostgreSQL · Repository pattern & SOLID*
 
