@@ -2,14 +2,15 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { apiFetch } from '../lib/api';
 import { useAuth } from '../context/AuthContext';
+import { createUtcDateFromBelgradeHourLabel, formatBelgradeDateTime, getBelgradeTodayYmd } from '../lib/timezone';
 
-const ORET = ['08:00', '09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00', '17:00', '18:00', '19:00', '20:00', '21:00', '22:00'];
+const ORET = ['12:00', '13:00', '14:00', '15:00', '16:00', '17:00', '18:00', '19:00', '20:00', '21:00', '22:00', '23:00'];
 
-function parseLocalHourSlot(dateStr, hourLabel) {
-  return new Date(`${dateStr}T${hourLabel}:00`);
+function parseBelgradeHourSlot(dateStr, hourLabel) {
+  return createUtcDateFromBelgradeHourLabel(dateStr, hourLabel);
 }
 function isSlotStartInPast(dateStr, hourLabel) {
-  return parseLocalHourSlot(dateStr, hourLabel).getTime() <= Date.now();
+  return parseBelgradeHourSlot(dateStr, hourLabel).getTime() <= Date.now();
 }
 function terrainLabel(t) {
   if (t === 'indoor_hall') return 'Sallë e mbyllur';
@@ -82,7 +83,7 @@ export default function BookingPage() {
     let cancelled = false;
     Promise.all(
       ORET.map(async (h) => {
-        const start = parseLocalHourSlot(data, h);
+        const start = parseBelgradeHourSlot(data, h);
         const end = new Date(start.getTime() + 60 * 60 * 1000);
         const r = await apiFetch(`/fields/${fushaId}/availability?start=${encodeURIComponent(start.toISOString())}&end=${encodeURIComponent(end.toISOString())}`);
         return [h, r];
@@ -117,7 +118,7 @@ export default function BookingPage() {
   const handleRezervim = async (e) => {
     e.preventDefault();
     if (!formComplete) return tregoBust('Plotëso të gjitha fushat e detyrueshme.', 'error');
-    const start = parseLocalHourSlot(data, ora);
+    const start = parseBelgradeHourSlot(data, ora);
     const end = new Date(start.getTime() + 60 * 60 * 1000);
     setDukeShtuar(true);
     try {
@@ -182,7 +183,7 @@ export default function BookingPage() {
           <div className="card">
             <p>Rezervimi u ruajt me sukses dhe është i konfirmuar.</p>
             <p><strong>Fusha:</strong> {done.booking?.field_name || fusha?.name}</p>
-            <p><strong>Data dhe ora:</strong> {new Date(done.booking?.start_time || parseLocalHourSlot(data, ora)).toLocaleString('sq-AL')}</p>
+            <p><strong>Data dhe ora:</strong> {formatBelgradeDateTime(done.booking?.start_time || parseBelgradeHourSlot(data, ora), 'sq-AL')}</p>
             <p><strong>Patika të nevojshme:</strong> {summary.map((s) => `${s.count} palë nr.${s.size}`).join(', ') || 'Pa patika'}</p>
             <p><strong>Totali i paguar:</strong> {Number(done.booking?.total_amount || cashTotal).toFixed(2)}€</p>
             <button type="button" className="btn btn-accent" onClick={() => navigate('/dashboard')}>Shko te Dashboard</button>
@@ -233,7 +234,7 @@ export default function BookingPage() {
             </div>
             <div className="card">
               <div className="card-title">Hapi 3 — Data</div>
-              <input className="input" type="date" value={data} onChange={(e) => { setData(e.target.value); setOra(''); setCourtNumber(''); }} min={new Date().toISOString().split('T')[0]} />
+              <input className="input" type="date" value={data} onChange={(e) => { setData(e.target.value); setOra(''); setCourtNumber(''); }} min={getBelgradeTodayYmd()} />
             </div>
             {data && (
               <div className="card">

@@ -2,39 +2,47 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { apiFetch } from '../lib/api';
 import { useAuth } from '../context/AuthContext';
+import {
+  createUtcDateFromBelgradeHourLabel,
+  formatBelgradeDate,
+  getBelgradeTodayYmd,
+} from '../lib/timezone';
 
-const ORET = ['08:00', '09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00', '17:00', '18:00', '19:00', '20:00', '21:00', '22:00'];
+const ORET = ['12:00', '13:00', '14:00', '15:00', '16:00', '17:00', '18:00', '19:00', '20:00', '21:00', '22:00', '23:00'];
 const DITET_SH = ['E Hënë', 'E Martë', 'E Mërkurë', 'E Enjte', 'E Premte', 'E Shtunë', 'E Diel'];
 
-function parseLocalHourSlot(dateStr, hourLabel) {
-  return new Date(`${dateStr}T${hourLabel}:00`);
+function parseBelgradeHourSlot(dateStr, hourLabel) {
+  return createUtcDateFromBelgradeHourLabel(dateStr, hourLabel);
 }
 function isSlotStartInPast(dateStr, hourLabel) {
-  return parseLocalHourSlot(dateStr, hourLabel).getTime() <= Date.now();
+  return parseBelgradeHourSlot(dateStr, hourLabel).getTime() <= Date.now();
 }
-function startOfWeekMonday(d) {
-  const x = new Date(d);
-  const day = x.getDay();
+function addDaysYmd(ymd, daysToAdd) {
+  const [y, m, d] = String(ymd || '').split('-').map(Number);
+  const base = new Date(Date.UTC(y, m - 1, d));
+  base.setUTCDate(base.getUTCDate() + daysToAdd);
+  const yy = base.getUTCFullYear();
+  const mm = String(base.getUTCMonth() + 1).padStart(2, '0');
+  const dd = String(base.getUTCDate()).padStart(2, '0');
+  return `${yy}-${mm}-${dd}`;
+}
+function getWeekdayFromYmd(ymd) {
+  const [y, m, d] = String(ymd || '').split('-').map(Number);
+  return new Date(Date.UTC(y, m - 1, d)).getUTCDay();
+}
+function startOfWeekMondayYmd(ymd) {
+  const day = getWeekdayFromYmd(ymd);
   const diff = day === 0 ? -6 : 1 - day;
-  x.setDate(x.getDate() + diff);
-  x.setHours(0, 0, 0, 0);
-  return x;
-}
-function toYMD(d) {
-  const x = new Date(d);
-  const y = x.getFullYear();
-  const m = String(x.getMonth() + 1).padStart(2, '0');
-  const day = String(x.getDate()).padStart(2, '0');
-  return `${y}-${m}-${day}`;
+  return addDaysYmd(ymd, diff);
 }
 
 export default function CalendarPage() {
   const { token } = useAuth();
   const navigate = useNavigate();
-  const [weekStart, setWeekStart] = useState(() => startOfWeekMonday(new Date()));
+  const [weekStart, setWeekStart] = useState(() => startOfWeekMondayYmd(getBelgradeTodayYmd()));
   const [fields, setFields] = useState([]);
   const [availability, setAvailability] = useState({});
-  const [selectedDate, setSelectedDate] = useState(() => toYMD(startOfWeekMonday(new Date())));
+  const [selectedDate, setSelectedDate] = useState(() => startOfWeekMondayYmd(getBelgradeTodayYmd()));
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [reloadKey, setReloadKey] = useState(0);
@@ -45,9 +53,7 @@ export default function CalendarPage() {
   const weekDays = useMemo(() => {
     const out = [];
     for (let i = 0; i < 7; i += 1) {
-      const d = new Date(weekStart);
-      d.setDate(d.getDate() + i);
-      out.push(d);
+      out.push(addDaysYmd(weekStart, i));
     }
     return out;
   }, [weekStart]);
@@ -76,8 +82,8 @@ export default function CalendarPage() {
   const goNextDays = () => setDayOffset((o) => Math.min(maxDayOffset, o + 1));
 
   useEffect(() => {
-    if (!weekDays.some((d) => toYMD(d) === selectedDate)) {
-      setSelectedDate(toYMD(weekDays[0]));
+    if (!weekDays.some((d) => d === selectedDate)) {
+      setSelectedDate(weekDays[0]);
     }
   }, [weekDays, selectedDate]);
 
@@ -88,10 +94,10 @@ export default function CalendarPage() {
       try {
         setLoading(true);
         const qs = new URLSearchParams({
-          startDate: toYMD(weekStart),
+          startDate: weekStart,
           days: '7',
-          startHour: '8',
-          endHour: '22',
+          startHour: '12',
+          endHour: '23',
         });
         const r = await apiFetch(`/fields/availability-grid?${qs.toString()}`, { token });
         const activeFields = Array.isArray(r?.fields) ? r.fields : [];
@@ -121,14 +127,14 @@ export default function CalendarPage() {
   return (
     <div className="page">
       <h1 className="page-title">Kalendari</h1>
-      <p className="page-subtitle">Pamje javore me fusha dhe orare 08:00 - 22:00.</p>
+      <p className="page-subtitle">Pamje javore me fusha dhe orare 12:00 - 23:00 (Europe/Belgrade).</p>
 
       <div className="card" style={{ marginBottom: 16 }}>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, alignItems: 'center' }}>
-          <button type="button" className="btn btn-ghost" onClick={() => setWeekStart((w) => new Date(w.getTime() - 7 * 86400000))}>
+          <button type="button" className="btn btn-ghost" onClick={() => setWeekStart((w) => addDaysYmd(w, -7))}>
             ← Java e kaluar
           </button>
-          <button type="button" className="btn btn-ghost" onClick={() => setWeekStart((w) => new Date(w.getTime() + 7 * 86400000))}>
+          <button type="button" className="btn btn-ghost" onClick={() => setWeekStart((w) => addDaysYmd(w, 7))}>
             Java e ardhshme →
           </button>
         </div>
@@ -168,7 +174,7 @@ export default function CalendarPage() {
           >
             {visibleWeekDays.map((d, visibleIndex) => {
               const i = dayOffset + visibleIndex;
-              const ymd = toYMD(d);
+              const ymd = d;
               const active = ymd === selectedDate;
               return (
                 <button
@@ -179,7 +185,7 @@ export default function CalendarPage() {
                   onClick={() => setSelectedDate(ymd)}
                 >
                   <span className="calendar-day-dow">{DITET_SH[i]}</span>
-                  <span>{d.toLocaleDateString('sq-AL', { day: '2-digit', month: 'short' })}</span>
+                  <span>{formatBelgradeDate(`${ymd}T12:00:00.000Z`, 'sq-AL', { day: '2-digit', month: 'short' })}</span>
                 </button>
               );
             })}
@@ -215,16 +221,15 @@ export default function CalendarPage() {
                   {ORET.map((time) => {
                     const slot = availability?.[selectedDate]?.[time]?.[field.id];
                     const free = Number(slot?.free || 0);
-                    const total = Number(slot?.total || field.courts_count || 1);
                     const past = isSlotStartInPast(selectedDate, time);
                     let text = 'Lirë';
-                    let bg = 'rgba(39, 174, 96, 0.25)';
-                    if (past || free <= 0) {
+                    let bg = 'rgba(39, 174, 96, 0.25)'; // GREEN
+                    if (past) {
+                      text = 'Ka kaluar';
+                      bg = 'rgba(128, 128, 128, 0.40)'; // GRAY
+                    } else if (free <= 0) {
                       text = 'Zënë';
-                      bg = 'rgba(192, 57, 43, 0.35)';
-                    } else if (free < total) {
-                      text = `${free} lirë`;
-                      bg = 'rgba(243, 156, 18, 0.30)';
+                      bg = 'rgba(192, 57, 43, 0.35)'; // RED
                     }
                     return (
                       <button
@@ -275,16 +280,15 @@ export default function CalendarPage() {
                   {fields.map((field) => {
                     const slot = availability?.[selectedDate]?.[time]?.[field.id];
                     const free = Number(slot?.free || 0);
-                    const total = Number(slot?.total || field.courts_count || 1);
                     const past = isSlotStartInPast(selectedDate, time);
                     let text = 'Lirë';
-                    let bg = 'rgba(39, 174, 96, 0.25)';
-                    if (past || free <= 0) {
+                    let bg = 'rgba(39, 174, 96, 0.25)'; // GREEN
+                    if (past) {
+                      text = 'Ka kaluar';
+                      bg = 'rgba(128, 128, 128, 0.40)'; // GRAY
+                    } else if (free <= 0) {
                       text = 'Zënë';
-                      bg = 'rgba(192, 57, 43, 0.35)';
-                    } else if (free < total) {
-                      text = `${free} lirë`;
-                      bg = 'rgba(243, 156, 18, 0.30)';
+                      bg = 'rgba(192, 57, 43, 0.35)'; // RED
                     }
                     return (
                       <td key={`${field.id}-${selectedDate}-${time}`}>

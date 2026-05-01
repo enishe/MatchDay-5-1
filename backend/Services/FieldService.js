@@ -1,16 +1,21 @@
 const pool = require('../config/db');
+const { createUtcDateFromBelgradeLocal } = require('../utils/timezone');
 
 class FieldService {
   buildHourlySlots(startDate, days, startHour, endHour) {
     const slots = [];
     for (let dayOffset = 0; dayOffset < days; dayOffset += 1) {
-      const base = new Date(startDate);
-      base.setDate(base.getDate() + dayOffset);
+      const baseYmd = String(startDate);
+      const base = createUtcDateFromBelgradeLocal(baseYmd, 12, 0);
+      base.setUTCDate(base.getUTCDate() + dayOffset);
+      const y = base.getUTCFullYear();
+      const m = String(base.getUTCMonth() + 1).padStart(2, '0');
+      const d = String(base.getUTCDate()).padStart(2, '0');
+      const dayYmd = `${y}-${m}-${d}`;
       for (let h = startHour; h <= endHour; h += 1) {
-        const start = new Date(base);
-        start.setHours(h, 0, 0, 0);
+        const start = createUtcDateFromBelgradeLocal(dayYmd, h, 0);
         const end = new Date(start.getTime() + 60 * 60 * 1000);
-        const dateKey = start.toISOString().slice(0, 10);
+        const dateKey = dayYmd;
         const hourKey = `${String(h).padStart(2, '0')}:00`;
         slots.push({ start, end, dateKey, hourKey });
       }
@@ -189,8 +194,8 @@ class FieldService {
        FROM bookings
        WHERE field_id = $1
          AND status <> 'canceled'
-         AND start_time < $3::timestamp
-         AND end_time > $2::timestamp
+         AND start_time < $3::timestamptz
+         AND end_time > $2::timestamptz
          AND court_number IS NOT NULL`,
       [fieldId, start, end]
     );
@@ -211,8 +216,8 @@ class FieldService {
     };
   }
 
-  async getAvailabilityGrid({ startDate, days = 7, startHour = 8, endHour = 22, fieldIds = [] }) {
-    const date = new Date(`${startDate}T00:00:00`);
+  async getAvailabilityGrid({ startDate, days = 7, startHour = 12, endHour = 23, fieldIds = [] }) {
+    const date = createUtcDateFromBelgradeLocal(startDate, 0, 0);
     if (Number.isNaN(date.getTime())) {
       throw new Error('startDate nuk është valid.');
     }
@@ -247,7 +252,7 @@ class FieldService {
     }));
     if (fields.length === 0) return { fields: [], availability: {} };
 
-    const slots = this.buildHourlySlots(date, days, startHour, endHour);
+    const slots = this.buildHourlySlots(startDate, days, startHour, endHour);
     const rangeStart = slots[0].start;
     const rangeEnd = slots[slots.length - 1].end;
 
@@ -257,8 +262,8 @@ class FieldService {
        WHERE status <> 'canceled'
          AND field_id = ANY($1::int[])
          AND court_number IS NOT NULL
-         AND start_time < $3::timestamp
-         AND end_time > $2::timestamp`,
+         AND start_time < $3::timestamptz
+         AND end_time > $2::timestamptz`,
       [fields.map((f) => f.id), rangeStart.toISOString(), rangeEnd.toISOString()]
     );
 

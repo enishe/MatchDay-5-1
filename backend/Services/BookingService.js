@@ -81,8 +81,8 @@ class BookingService {
        WHERE field_id = $1
          AND court_number = $2
          AND status <> 'canceled'
-         AND start_time < $4::timestamp
-         AND end_time > $3::timestamp
+         AND start_time < $4::timestamptz
+         AND end_time > $3::timestamptz
        LIMIT 1`,
       [fieldId, courtNumber, startTime.toISOString(), endTime.toISOString()]
     );

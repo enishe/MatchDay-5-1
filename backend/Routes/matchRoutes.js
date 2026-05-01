@@ -6,6 +6,7 @@ const PaymentService = require('../Services/PaymentService');
 const AutoCancelService = require('../Services/AutoCancelService');
 const AuthService = require('../Services/AuthService');
 const UnifiedBookingService = require('../Services/UnifiedBookingService');
+const { createUtcDateFromBelgradeLocal } = require('../utils/timezone');
 const {
     authenticateToken,
     requireRole,
@@ -99,12 +100,12 @@ async function assertMatchAccess(booking, user) {
 }
 
 /**
- * Orët lokale 8–22 të zëna, e njëjta logjikë mbivendosjeje si në BookingPage / kalendar.
+ * Orët lokale 12–23 të zëna, sipas Europe/Belgrade.
  */
 function occupiedLocalHoursFromBookings(dateStr, timeRows) {
     const occupied = new Set();
-    for (let H = 8; H <= 22; H += 1) {
-        const slotStart = new Date(`${dateStr}T${String(H).padStart(2, '0')}:00:00`);
+    for (let H = 12; H <= 23; H += 1) {
+        const slotStart = createUtcDateFromBelgradeLocal(dateStr, H, 0);
         const slotEnd = new Date(slotStart.getTime() + 60 * 60 * 1000);
         for (const row of timeRows) {
             const bs = new Date(row.start_time);
@@ -220,8 +221,8 @@ router.post(
                  WHERE field_id = $1
                    AND court_number = $2
                    AND status <> 'canceled'
-                   AND start_time < $4::timestamp
-                   AND end_time > $3::timestamp
+                   AND start_time < $4::timestamptz
+                   AND end_time > $3::timestamptz
                  LIMIT 1`,
                 [fieldId, courtNumber, startTime.toISOString(), endTime.toISOString()]
             );
@@ -306,7 +307,7 @@ router.get('/fields/availability', authenticateToken, async (req, res) => {
             [date]
         );
         const hours = [];
-        for (let h = 8; h <= 22; h += 1) {
+        for (let h = 12; h <= 23; h += 1) {
             hours.push(`${String(h).padStart(2, '0')}:00`);
         }
         function shortOrganizer(name) {
@@ -317,7 +318,7 @@ router.get('/fields/availability', authenticateToken, async (req, res) => {
         }
         function slotForHour(fieldId, hourStr) {
             const hour = parseInt(hourStr.split(':')[0], 10);
-            const slotStart = new Date(`${date}T${String(hour).padStart(2, '0')}:00:00`);
+            const slotStart = createUtcDateFromBelgradeLocal(date, hour, 0);
             const slotEnd = new Date(slotStart.getTime() + 60 * 60 * 1000);
             for (const row of bookR.rows) {
                 if (row.field_id !== fieldId) continue;

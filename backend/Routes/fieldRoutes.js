@@ -62,8 +62,8 @@ router.get('/fields/availability-grid', async (req, res) => {
     const data = await fieldService.getAvailabilityGrid({
       startDate: String(startDate),
       days: days != null ? Number(days) : 7,
-      startHour: startHour != null ? Number(startHour) : 8,
-      endHour: endHour != null ? Number(endHour) : 22,
+      startHour: startHour != null ? Number(startHour) : 12,
+      endHour: endHour != null ? Number(endHour) : 23,
       fieldIds: ids,
     });
     res.json(data);
@@ -82,11 +82,11 @@ router.get('/fields/availability', authenticateToken, async (req, res) => {
     const dayData = await fieldService.getAvailabilityGrid({
       startDate: date,
       days: 1,
-      startHour: 8,
-      endHour: 22,
+      startHour: 12,
+      endHour: 23,
     });
     const hours = [];
-    for (let h = 8; h <= 22; h += 1) hours.push(`${String(h).padStart(2, '0')}:00`);
+    for (let h = 12; h <= 23; h += 1) hours.push(`${String(h).padStart(2, '0')}:00`);
     const fields = (dayData.fields || []).map((f) => ({
       id: f.id,
       name: f.name,

@@ -15,4 +15,8 @@ const pool = new Pool({
   ssl: isLocalConnection ? false : { rejectUnauthorized: false },
 });
 
+pool.on('connect', (client) => {
+  client.query("SET TIME ZONE 'Europe/Belgrade'").catch(() => {});
+});
+
 module.exports = pool;
