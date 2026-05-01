@@ -6,7 +6,7 @@ const PaymentService = require('../Services/PaymentService');
 const AutoCancelService = require('../Services/AutoCancelService');
 const AuthService = require('../Services/AuthService');
 const UnifiedBookingService = require('../Services/UnifiedBookingService');
-const { createUtcDateFromBelgradeLocal } = require('../utils/timezone');
+const { BELGRADE_TIMEZONE, createUtcDateFromBelgradeLocal, formatBelgradeYmd } = require('../utils/timezone');
 const {
     authenticateToken,
     requireRole,
@@ -117,6 +117,10 @@ function occupiedLocalHoursFromBookings(dateStr, timeRows) {
         }
     }
     return [...occupied].sort((a, b) => a - b);
+}
+
+function pad2(value) {
+    return String(value).padStart(2, '0');
 }
 
 // ─── Stats & list (before /matches/:id) ──────────────────────────────────────
@@ -462,6 +466,111 @@ router.get('/admin/today-bookings', authenticateToken, requireRole(['admin']), a
     } catch (error) {
         console.error('Admin today bookings error:', error);
         res.status(400).json({ error: 'Nuk u lexuan rezervimet e sotme.' });
+    }
+});
+
+router.get('/admin/field-calendar', authenticateToken, requireRole(['admin']), async (req, res) => {
+    try {
+        const fieldId = Number(req.query.fieldId);
+        const selectedDate = String(req.query.date || formatBelgradeYmd(new Date())).trim();
+        if (!Number.isInteger(fieldId) || fieldId <= 0) {
+            return res.status(400).json({ error: 'fieldId është i detyrueshëm dhe duhet të jetë valid.' });
+        }
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(selectedDate)) {
+            return res.status(400).json({ error: 'date duhet të jetë në formatin YYYY-MM-DD.' });
+        }
+
+        const fieldResult = await pool.query(
+            `SELECT id, name, location, terrain_type, courts_count
+             FROM fields
+             WHERE id = $1 AND is_active = TRUE`,
+            [fieldId]
+        );
+        if (fieldResult.rows.length === 0) {
+            return res.status(404).json({ error: 'Fusha nuk u gjet ose nuk është aktive.' });
+        }
+        const field = fieldResult.rows[0];
+
+        const bookingsResult = await pool.query(
+            `SELECT b.id,
+                    b.start_time,
+                    b.end_time,
+                    b.created_at,
+                    b.court_number,
+                    b.organizer_id,
+                    u.name AS organizer_name,
+                    u.phone AS organizer_phone
+             FROM bookings b
+             LEFT JOIN users u ON u.id = b.organizer_id
+             WHERE b.field_id = $1
+               AND b.status <> 'canceled'
+               AND DATE(b.start_time AT TIME ZONE '${BELGRADE_TIMEZONE}') = $2::date
+             ORDER BY b.start_time ASC`,
+            [fieldId, selectedDate]
+        );
+
+        const now = new Date();
+        const slots = [];
+        let freeCount = 0;
+        let bookedCount = 0;
+        let pastCount = 0;
+
+        for (let hour = 12; hour <= 23; hour += 1) {
+            const slotStart = createUtcDateFromBelgradeLocal(selectedDate, hour, 0);
+            const slotEnd = new Date(slotStart.getTime() + 60 * 60 * 1000);
+            const isPast = slotStart.getTime() <= now.getTime();
+            const bookingRow = bookingsResult.rows.find((row) => {
+                const bookingStart = new Date(row.start_time);
+                const bookingEnd = new Date(row.end_time);
+                return bookingStart < slotEnd && bookingEnd > slotStart;
+            });
+
+            let status = 'available';
+            if (isPast) status = 'past';
+            else if (bookingRow) status = 'booked';
+
+            if (status === 'past') pastCount += 1;
+            else if (status === 'booked') bookedCount += 1;
+            else freeCount += 1;
+
+            slots.push({
+                hour: `${pad2(hour)}:00`,
+                label: `${pad2(hour)}:00 - ${pad2(hour + 1)}:00`,
+                status,
+                booking: bookingRow
+                    ? {
+                        booking_id: bookingRow.id,
+                        organizer_name: bookingRow.organizer_name || `Përdoruesi #${bookingRow.organizer_id}`,
+                        organizer_phone: bookingRow.organizer_phone || null,
+                        court_number: bookingRow.court_number || null,
+                        created_at: bookingRow.created_at,
+                        start_time: bookingRow.start_time,
+                        end_time: bookingRow.end_time,
+                    }
+                    : null,
+            });
+        }
+
+        res.json({
+            timezone: BELGRADE_TIMEZONE,
+            date: selectedDate,
+            field: {
+                id: field.id,
+                name: field.name,
+                location: field.location,
+                terrain_type: field.terrain_type,
+                courts_count: Number(field.courts_count || 1),
+            },
+            counts: {
+                free: freeCount,
+                booked: bookedCount,
+                past: pastCount,
+            },
+            slots,
+        });
+    } catch (error) {
+        console.error('Admin field calendar error:', error);
+        res.status(400).json({ error: error.message || 'Nuk u lexua kalendari i fushës.' });
     }
 });
 

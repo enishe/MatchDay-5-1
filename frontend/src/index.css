@@ -845,8 +845,77 @@ a:hover {
   grid-template-columns: repeat(5, minmax(120px, 1fr));
 }
 
+.admin-calendar-filter-bar {
+  display: grid;
+  grid-template-columns: minmax(220px, 1.2fr) minmax(180px, 1fr) auto;
+  gap: 10px;
+  align-items: end;
+  margin-bottom: 12px;
+}
+
+.admin-calendar-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  font-size: 0.86rem;
+  color: var(--text-secondary);
+  margin-bottom: 8px;
+}
+
+.admin-calendar-counts {
+  margin: 0 0 10px;
+  color: var(--text-primary);
+}
+
+.admin-slot-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.admin-slot-card {
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  padding: 12px;
+}
+
+.admin-slot-card--free {
+  background: rgba(39, 174, 96, 0.18);
+}
+
+.admin-slot-card--booked {
+  background: rgba(192, 57, 43, 0.2);
+}
+
+.admin-slot-card--past {
+  background: rgba(128, 128, 128, 0.24);
+}
+
+.admin-slot-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.admin-slot-details {
+  font-size: 0.86rem;
+  color: var(--text-secondary);
+  display: grid;
+  gap: 4px;
+}
+
 @media (max-width: 640px) {
   .admin-field-create-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-calendar-filter-bar {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-slot-list {
     grid-template-columns: 1fr;
   }
 }

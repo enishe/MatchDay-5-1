@@ -28,30 +28,58 @@ async function ensureSchema() {
 
   await pool.query('ALTER TABLE fields ADD COLUMN IF NOT EXISTS courts_count INTEGER NOT NULL DEFAULT 1');
   await pool.query('ALTER TABLE bookings ADD COLUMN IF NOT EXISTS court_number INTEGER');
-  await pool.query(`
-    ALTER TABLE bookings
-    ALTER COLUMN start_time TYPE TIMESTAMPTZ USING
-      CASE
-        WHEN start_time IS NULL THEN NULL
-        ELSE start_time AT TIME ZONE 'Europe/Belgrade'
-      END
-  `);
-  await pool.query(`
-    ALTER TABLE bookings
-    ALTER COLUMN end_time TYPE TIMESTAMPTZ USING
-      CASE
-        WHEN end_time IS NULL THEN NULL
-        ELSE end_time AT TIME ZONE 'Europe/Belgrade'
-      END
-  `);
-  await pool.query(`
-    ALTER TABLE bookings
-    ALTER COLUMN canceled_at TYPE TIMESTAMPTZ USING
-      CASE
-        WHEN canceled_at IS NULL THEN NULL
-        ELSE canceled_at AT TIME ZONE 'Europe/Belgrade'
-      END
-  `);
+  try {
+    await pool.query('BEGIN');
+    await pool.query('DROP VIEW IF EXISTS bookingpaymentsummary');
+    await pool.query(`
+      ALTER TABLE bookings
+      ALTER COLUMN start_time TYPE TIMESTAMPTZ USING
+        CASE
+          WHEN start_time IS NULL THEN NULL
+          ELSE start_time AT TIME ZONE 'Europe/Belgrade'
+        END
+    `);
+    await pool.query(`
+      ALTER TABLE bookings
+      ALTER COLUMN end_time TYPE TIMESTAMPTZ USING
+        CASE
+          WHEN end_time IS NULL THEN NULL
+          ELSE end_time AT TIME ZONE 'Europe/Belgrade'
+        END
+    `);
+    await pool.query(`
+      ALTER TABLE bookings
+      ALTER COLUMN canceled_at TYPE TIMESTAMPTZ USING
+        CASE
+          WHEN canceled_at IS NULL THEN NULL
+          ELSE canceled_at AT TIME ZONE 'Europe/Belgrade'
+        END
+    `);
+    await pool.query(`
+      CREATE VIEW bookingpaymentsummary AS
+      SELECT
+          b.id AS booking_id,
+          b.field_id,
+          b.start_time,
+          b.status AS booking_status,
+          b.total_price,
+          b.price_per_player,
+          COUNT(pp.id) AS total_players,
+          SUM(CASE WHEN pp.status = 'paid' THEN 1 ELSE 0 END) AS paid_count,
+          SUM(pp.total_amount) AS collected_amount,
+          b.total_price - COALESCE(
+            SUM(CASE WHEN pp.status = 'paid' THEN pp.total_amount ELSE 0 END),
+            0
+          ) AS remaining_amount
+      FROM bookings b
+      LEFT JOIN playerpayments pp ON pp.booking_id = b.id
+      GROUP BY b.id
+    `);
+    await pool.query('COMMIT');
+  } catch (error) {
+    await pool.query('ROLLBACK');
+    throw error;
+  }
   await pool.query(
     "ALTER TABLE bookings ADD COLUMN IF NOT EXISTS payment_method VARCHAR(20) NOT NULL DEFAULT 'cash'"
   );

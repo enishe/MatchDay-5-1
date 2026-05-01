@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { apiFetch } from '../lib/api';
 import { useAuth } from '../context/AuthContext';
+import { BELGRADE_TIMEZONE, formatBelgradeDateTime, getBelgradeTodayYmd } from '../lib/timezone';
 
 function statusBadgeClass(status) {
   if (status === 'confirmed') return 'badge-confirmed';
@@ -41,6 +42,10 @@ export default function AdminPanel({ section = 'dashboard' }) {
   const [fieldForm, setFieldForm] = useState({ name: '', location: '', terrain_type: 'artificial_grass', price_per_hour: '', courts_count: '1' });
   const [loading, setLoading] = useState(true);
   const [mesazhi, setMesazhi] = useState(null);
+  const [calendarFieldId, setCalendarFieldId] = useState('');
+  const [calendarDate, setCalendarDate] = useState(() => getBelgradeTodayYmd());
+  const [calendarData, setCalendarData] = useState(null);
+  const [calendarLoading, setCalendarLoading] = useState(false);
 
   useEffect(() => {
     setTab(section);
@@ -83,6 +88,26 @@ export default function AdminPanel({ section = 'dashboard' }) {
     return apiFetch('/admin/users', { token }).then((u) => setUsers(Array.isArray(u) ? u : []));
   }, [token]);
 
+  const fetchAdminFieldCalendar = useCallback(async (fieldIdArg, dateArg) => {
+    const fieldId = Number(fieldIdArg || calendarFieldId);
+    const selectedDate = String(dateArg || calendarDate || getBelgradeTodayYmd());
+    if (!token || !Number.isInteger(fieldId) || fieldId <= 0) return;
+    setCalendarLoading(true);
+    try {
+      const qs = new URLSearchParams({
+        fieldId: String(fieldId),
+        date: selectedDate,
+      });
+      const data = await apiFetch(`/admin/field-calendar?${qs.toString()}`, { token });
+      setCalendarData(data && typeof data === 'object' ? data : null);
+    } catch (e) {
+      setCalendarData(null);
+      tregoBust(e.message || 'Nuk u ngarkua kalendari i fushës.', 'error');
+    } finally {
+      setCalendarLoading(false);
+    }
+  }, [calendarDate, calendarFieldId, token, tregoBust]);
+
   useEffect(() => {
     if (!token) return;
     setLoading(true);
@@ -90,6 +115,27 @@ export default function AdminPanel({ section = 'dashboard' }) {
       .catch(() => tregoBust('Gabim gjatë ngarkimit.', 'error'))
       .finally(() => setLoading(false));
   }, [token, fetchBookings, fetchAdminStats, fetchTodayByField, fetchFields, fetchUsers, tregoBust]);
+
+  useEffect(() => {
+    if (!calendarFieldId && fields.length > 0) {
+      const firstActive = fields.find((f) => f.is_active) || fields[0];
+      if (firstActive) setCalendarFieldId(String(firstActive.id));
+    }
+  }, [calendarFieldId, fields]);
+
+  useEffect(() => {
+    if (tab !== 'calendar') return;
+    if (!calendarFieldId) return;
+    fetchAdminFieldCalendar(calendarFieldId, calendarDate);
+  }, [tab, calendarFieldId, calendarDate, fetchAdminFieldCalendar]);
+
+  useEffect(() => {
+    if (tab !== 'calendar' || !calendarFieldId) return undefined;
+    const id = setInterval(() => {
+      fetchAdminFieldCalendar(calendarFieldId, calendarDate);
+    }, 30000);
+    return () => clearInterval(id);
+  }, [tab, calendarFieldId, calendarDate, fetchAdminFieldCalendar]);
 
   const handleFshi = async (id) => {
     if (!window.confirm(`Fshi rezervimin #${id}?`)) return;
@@ -229,6 +275,9 @@ export default function AdminPanel({ section = 'dashboard' }) {
         </button>
         <button type="button" className={`tab${tab === 'players' ? ' tab--active' : ''}`} onClick={() => { setTab('players'); navigate('/admin/players'); }}>
           Lojtarët
+        </button>
+        <button type="button" className={`tab${tab === 'calendar' ? ' tab--active' : ''}`} onClick={() => { setTab('calendar'); navigate('/admin/calendar'); }}>
+          Kalendari i Fushave
         </button>
       </div>
 
@@ -507,6 +556,102 @@ export default function AdminPanel({ section = 'dashboard' }) {
                   ))}
                 </tbody>
               </table>
+            </div>
+          )}
+        </div>
+      )}
+
+      {tab === 'calendar' && (
+        <div className="card">
+          <h2 className="card-title">Kalendari i Fushave</h2>
+          <div className="admin-calendar-filter-bar">
+            <div className="form-group" style={{ marginBottom: 0 }}>
+              <label className="label" htmlFor="admin-calendar-field">Zgjidh Fushën</label>
+              <select
+                id="admin-calendar-field"
+                className="input"
+                value={calendarFieldId}
+                onChange={(e) => setCalendarFieldId(e.target.value)}
+              >
+                <option value="">-- Zgjidh fushën --</option>
+                {fields.filter((f) => f.is_active).map((f) => (
+                  <option key={f.id} value={String(f.id)}>
+                    {f.name} — {f.location || 'Pa lokacion'} — {terrainLabel(f.terrain_type)}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="form-group" style={{ marginBottom: 0 }}>
+              <label className="label" htmlFor="admin-calendar-date">Zgjidh Ditën</label>
+              <input
+                id="admin-calendar-date"
+                className="input"
+                type="date"
+                value={calendarDate}
+                onChange={(e) => setCalendarDate(e.target.value)}
+              />
+            </div>
+            <div style={{ display: 'flex', alignItems: 'flex-end' }}>
+              <button
+                type="button"
+                className="btn btn-accent"
+                onClick={() => fetchAdminFieldCalendar(calendarFieldId, calendarDate)}
+                disabled={!calendarFieldId || calendarLoading}
+              >
+                {calendarLoading ? 'Duke ngarkuar…' : 'Shiko'}
+              </button>
+            </div>
+          </div>
+
+          <div className="admin-calendar-legend">
+            <span>🟢 E lirë</span>
+            <span>🔴 E zënë</span>
+            <span>⬛ Ka kaluar</span>
+          </div>
+
+          {calendarData?.counts && (
+            <p className="admin-calendar-counts">
+              Të lira: <strong>{Number(calendarData.counts.free || 0)}</strong> | Të zëna: <strong>{Number(calendarData.counts.booked || 0)}</strong> | Ka kaluar: <strong>{Number(calendarData.counts.past || 0)}</strong>
+            </p>
+          )}
+
+          {calendarData?.field && (
+            <p style={{ color: 'var(--text-secondary)', marginTop: 0 }}>
+              Fusha: <strong>{calendarData.field.name}</strong> — {calendarData.field.location || 'Pa lokacion'} | Data: <strong>{calendarData.date}</strong> | Zona: <strong>{BELGRADE_TIMEZONE}</strong>
+            </p>
+          )}
+
+          {!calendarLoading && !calendarData?.slots?.length && (
+            <p style={{ color: 'var(--text-muted)', marginBottom: 0 }}>
+              Zgjidhni fushën dhe ditën, pastaj klikoni "Shiko" për të parë disponueshmërinë.
+            </p>
+          )}
+
+          {!calendarLoading && calendarData?.slots?.length > 0 && (
+            <div className="admin-slot-list">
+              {calendarData.slots.map((slot) => {
+                const statusClass = slot.status === 'past'
+                  ? 'admin-slot-card--past'
+                  : slot.status === 'booked'
+                    ? 'admin-slot-card--booked'
+                    : 'admin-slot-card--free';
+                const statusLabel = slot.status === 'past' ? 'Ka kaluar' : slot.status === 'booked' ? 'E zënë' : 'E lirë';
+                return (
+                  <article key={slot.hour} className={`admin-slot-card ${statusClass}`}>
+                    <div className="admin-slot-header">
+                      <strong>{slot.label}</strong>
+                      <span>{statusLabel}</span>
+                    </div>
+                    {slot.status === 'booked' && slot.booking && (
+                      <div className="admin-slot-details">
+                        <div><strong>Rezervuesi:</strong> {slot.booking.organizer_name || '—'}</div>
+                        <div><strong>Telefoni:</strong> {slot.booking.organizer_phone || '—'}</div>
+                        <div><strong>Rezervuar në:</strong> {slot.booking.created_at ? formatBelgradeDateTime(slot.booking.created_at, 'sq-AL', { hour: '2-digit', minute: '2-digit' }) : '—'}</div>
+                      </div>
+                    )}
+                  </article>
+                );
+              })}
             </div>
           )}
         </div>

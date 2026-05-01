@@ -190,6 +190,16 @@ export default function App() {
             }
           />
           <Route
+            path="/admin/calendar"
+            element={
+              <ProtectedRoute requiredRole="admin">
+                <AdminOnlyRoute>
+                  <AdminPanel section="calendar" />
+                </AdminOnlyRoute>
+              </ProtectedRoute>
+            }
+          />
+          <Route
             path="/admin/notifications"
             element={
               <ProtectedRoute requiredRole="admin">

@@ -137,6 +137,9 @@ export default function Navbar() {
           <NavLink to="/admin/players" className={navClass} onClick={() => setMenuOpen(false)}>
             Lojtarët
           </NavLink>
+          <NavLink to="/admin/calendar" className={navClass} onClick={() => setMenuOpen(false)}>
+            Kalendari
+          </NavLink>
         </>
       ) : (
         <>
