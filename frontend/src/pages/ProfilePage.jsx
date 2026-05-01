@@ -83,14 +83,14 @@ export default function ProfilePage() {
     return (
       <div className="page">
         <div className="card" style={{ marginBottom: 16 }}>
-          <div className="skeleton" style={{ height: 78 }} />
+          <div className="skeleton" style={{ height: 'clamp(70px, 12vw, 90px)' }} />
         </div>
         <div className="profile-layout">
           <div className="card">
-            <div className="skeleton" style={{ height: 220 }} />
+            <div className="skeleton" style={{ height: 'clamp(180px, 36vw, 240px)' }} />
           </div>
           <div className="card">
-            <div className="skeleton" style={{ height: 420 }} />
+            <div className="skeleton" style={{ height: 'clamp(320px, 60vw, 440px)' }} />
           </div>
         </div>
       </div>
@@ -162,7 +162,7 @@ export default function ProfilePage() {
             onClick={() => document.getElementById('avatar-file-hidden')?.click()}
           >
             {avatar ? (
-              <img src={avatar} alt="Foto e profilit" width="160" height="160" style={{ display: 'block' }} />
+              <img src={avatar} alt="Foto e profilit" style={{ display: 'block', width: '100%', height: '100%' }} />
             ) : (
               <span style={{ fontWeight: 800, color: 'var(--text-muted)' }}>{initials}</span>
             )}

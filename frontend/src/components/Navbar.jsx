@@ -217,7 +217,7 @@ export default function Navbar() {
               )}
             </button>
             {notifOpen && (
-              <div className="user-dropdown open" style={{ width: 340, right: 0 }}>
+              <div className="user-dropdown notif-dropdown open">
                 {notifications.map((n) => (
                   <button
                     key={n.id}

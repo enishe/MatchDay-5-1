@@ -70,6 +70,7 @@ export default function CalendarPage() {
 
   const maxDayOffset = Math.max(0, 7 - daysToShow);
   const visibleWeekDays = useMemo(() => weekDays.slice(dayOffset, dayOffset + daysToShow), [weekDays, dayOffset, daysToShow]);
+  const isMobileCalendar = daysToShow <= 3;
 
   const goPrevDays = () => setDayOffset((o) => Math.max(0, o - 1));
   const goNextDays = () => setDayOffset((o) => Math.min(maxDayOffset, o + 1));
@@ -133,7 +134,7 @@ export default function CalendarPage() {
         </div>
         <div style={{ marginTop: 12 }}>
           {daysToShow < 7 && (
-            <div style={{ display: 'flex', gap: 10, justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
               <button type="button" className="btn btn-ghost" style={{ padding: '10px 14px' }} disabled={dayOffset === 0} onClick={goPrevDays}>
                 ← Ditet
               </button>
@@ -167,21 +168,21 @@ export default function CalendarPage() {
           >
             {visibleWeekDays.map((d, visibleIndex) => {
               const i = dayOffset + visibleIndex;
-            const ymd = toYMD(d);
-            const active = ymd === selectedDate;
-            return (
-              <button
-                key={ymd}
-                type="button"
-                className={`btn ${active ? 'btn-accent' : 'btn-ghost'}`}
+              const ymd = toYMD(d);
+              const active = ymd === selectedDate;
+              return (
+                <button
+                  key={ymd}
+                  type="button"
+                  className={`btn ${active ? 'btn-accent' : 'btn-ghost'}`}
                   style={{ height: 'auto', padding: '8px 6px', display: 'flex', flexDirection: 'column' }}
-                onClick={() => setSelectedDate(ymd)}
-              >
+                  onClick={() => setSelectedDate(ymd)}
+                >
                   <span className="calendar-day-dow">{DITET_SH[i]}</span>
-                <span>{d.toLocaleDateString('sq-AL', { day: '2-digit', month: 'short' })}</span>
-              </button>
-            );
-          })}
+                  <span>{d.toLocaleDateString('sq-AL', { day: '2-digit', month: 'short' })}</span>
+                </button>
+              );
+            })}
           </div>
         </div>
       </div>
@@ -203,66 +204,114 @@ export default function CalendarPage() {
         </div>
       )}
 
-      {!loading && !error && fields.length > 0 && (
-        <div className="card calendar-table-wrap">
-          <div style={{ minWidth: 1000 }}>
-            <table className="table calendar-table">
-              <thead>
-                <tr>
-                  <th>Ora</th>
-                  {fields.map((field) => (
-                    <th key={field.id}>
-                      {field.name}<br />
-                      <span className="calendar-selected-date">{selectedDate}</span>
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {ORET.map((time) => (
-                  <tr key={time}>
-                    <td style={{ fontWeight: 600 }}>{time}</td>
-                    {fields.map((field) => {
-                      const slot = availability?.[selectedDate]?.[time]?.[field.id];
-                      const free = Number(slot?.free || 0);
-                      const total = Number(slot?.total || field.courts_count || 1);
-                      const past = isSlotStartInPast(selectedDate, time);
-                      let text = 'Lirë';
-                      let bg = 'rgba(39, 174, 96, 0.25)';
-                      if (past || free <= 0) {
-                        text = 'Zënë';
-                        bg = 'rgba(192, 57, 43, 0.35)';
-                      } else if (free < total) {
-                        text = `${free} lirë`;
-                        bg = 'rgba(243, 156, 18, 0.30)';
-                      }
-                      return (
-                        <td key={`${field.id}-${selectedDate}-${time}`}>
-                          <button
-                            type="button"
-                            disabled={past || free <= 0}
-                            onClick={() => onSlotClick(field.id, selectedDate, time, free)}
-                            className="calendar-slot-btn"
-                            style={{
-                              width: '100%',
-                              border: '1px solid var(--border-color)',
-                              borderRadius: 6,
-                              background: bg,
-                              textAlign: 'center',
-                              padding: '8px',
-                              cursor: past || free <= 0 ? 'not-allowed' : 'pointer',
-                            }}
-                          >
-                            {text}
-                          </button>
-                        </td>
-                      );
-                    })}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+      {!loading && !error && fields.length > 0 && isMobileCalendar && (
+        <div className="card">
+          <div className="calendar-mobile-grid">
+            {fields.map((field) => (
+              <article key={field.id} className="calendar-mobile-field-card">
+                <h3 style={{ margin: 0 }}>{field.name}</h3>
+                <p className="calendar-mobile-slot-label">Data: {selectedDate}</p>
+                <div className="calendar-mobile-slot-grid">
+                  {ORET.map((time) => {
+                    const slot = availability?.[selectedDate]?.[time]?.[field.id];
+                    const free = Number(slot?.free || 0);
+                    const total = Number(slot?.total || field.courts_count || 1);
+                    const past = isSlotStartInPast(selectedDate, time);
+                    let text = 'Lirë';
+                    let bg = 'rgba(39, 174, 96, 0.25)';
+                    if (past || free <= 0) {
+                      text = 'Zënë';
+                      bg = 'rgba(192, 57, 43, 0.35)';
+                    } else if (free < total) {
+                      text = `${free} lirë`;
+                      bg = 'rgba(243, 156, 18, 0.30)';
+                    }
+                    return (
+                      <button
+                        key={`${field.id}-${selectedDate}-${time}`}
+                        type="button"
+                        disabled={past || free <= 0}
+                        onClick={() => onSlotClick(field.id, selectedDate, time, free)}
+                        className="calendar-slot-btn"
+                        style={{
+                          width: '100%',
+                          border: '1px solid var(--border-color)',
+                          borderRadius: 6,
+                          background: bg,
+                          textAlign: 'center',
+                          padding: '8px',
+                          cursor: past || free <= 0 ? 'not-allowed' : 'pointer',
+                        }}
+                      >
+                        {time} - {text}
+                      </button>
+                    );
+                  })}
+                </div>
+              </article>
+            ))}
           </div>
+        </div>
+      )}
+
+      {!loading && !error && fields.length > 0 && !isMobileCalendar && (
+        <div className="card calendar-table-wrap">
+          <table className="table calendar-table">
+            <thead>
+              <tr>
+                <th>Ora</th>
+                {fields.map((field) => (
+                  <th key={field.id}>
+                    {field.name}<br />
+                    <span className="calendar-selected-date">{selectedDate}</span>
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {ORET.map((time) => (
+                <tr key={time}>
+                  <td style={{ fontWeight: 600 }}>{time}</td>
+                  {fields.map((field) => {
+                    const slot = availability?.[selectedDate]?.[time]?.[field.id];
+                    const free = Number(slot?.free || 0);
+                    const total = Number(slot?.total || field.courts_count || 1);
+                    const past = isSlotStartInPast(selectedDate, time);
+                    let text = 'Lirë';
+                    let bg = 'rgba(39, 174, 96, 0.25)';
+                    if (past || free <= 0) {
+                      text = 'Zënë';
+                      bg = 'rgba(192, 57, 43, 0.35)';
+                    } else if (free < total) {
+                      text = `${free} lirë`;
+                      bg = 'rgba(243, 156, 18, 0.30)';
+                    }
+                    return (
+                      <td key={`${field.id}-${selectedDate}-${time}`}>
+                        <button
+                          type="button"
+                          disabled={past || free <= 0}
+                          onClick={() => onSlotClick(field.id, selectedDate, time, free)}
+                          className="calendar-slot-btn"
+                          style={{
+                            width: '100%',
+                            border: '1px solid var(--border-color)',
+                            borderRadius: 6,
+                            background: bg,
+                            textAlign: 'center',
+                            padding: '8px',
+                            cursor: past || free <= 0 ? 'not-allowed' : 'pointer',
+                          }}
+                        >
+                          {text}
+                        </button>
+                      </td>
+                    );
+                  })}
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       )}
     </div>
