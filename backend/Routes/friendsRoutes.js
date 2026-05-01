@@ -152,7 +152,10 @@ router.post('/invite-to-match', async (req, res) => {
     if (ok.rows.length === 0) return res.status(403).json({ error: 'Miqësia duhet të jetë e pranuar.' });
 
     const m = await pool.query(
-      `SELECT id, start_time FROM bookings
+      `SELECT b.id, b.start_time, f.name AS field_name, u.name AS organizer_name
+       FROM bookings b
+       JOIN fields f ON f.id = b.field_id
+       JOIN users u ON u.id = b.organizer_id
        WHERE organizer_id = $1 AND status IN ('pending', 'confirmed')
        ORDER BY start_time ASC
        LIMIT 1`,
@@ -162,15 +165,22 @@ router.post('/invite-to-match', async (req, res) => {
       return res.status(400).json({ error: 'Nuk keni ndeshje aktive për ta ndarë.' });
     }
     const bookingId = m.rows[0].id;
+    const fieldName = m.rows[0].field_name;
+    const organizerName = m.rows[0].organizer_name;
+    const dateLabel = new Date(m.rows[0].start_time).toLocaleDateString('sq-AL');
+    const timeLabel = new Date(m.rows[0].start_time).toLocaleTimeString('sq-AL', {
+      hour: '2-digit',
+      minute: '2-digit',
+    });
     const path = `/match/${bookingId}`;
     const base = (process.env.PUBLIC_APP_URL || '').replace(/\/+$/, '');
     const abs = base ? `${base}${path}` : path;
-    const body = `Ti je ftuar në ndeshje. Hap linkun: ${abs}`;
+    const body = `${organizerName} të fton të luash në ${fieldName} më ${dateLabel} ora ${timeLabel}`;
 
-    await notifications.createNotification(
+    await notifications.createUserNotification(
       friendId,
-      'reminder',
-      'Ftesë në ndeshje — MatchDay',
+      'invite',
+      'U ftove në lojë',
       body,
       bookingId
     );

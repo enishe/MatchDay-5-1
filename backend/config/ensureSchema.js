@@ -141,6 +141,34 @@ async function ensureSchema() {
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )
   `);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS notifications (
+      id SERIAL PRIMARY KEY,
+      recipient_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+      recipient_type VARCHAR(10) NOT NULL DEFAULT 'user' CHECK (recipient_type IN ('user', 'admin')),
+      type VARCHAR(50) NOT NULL,
+      title VARCHAR(200) NOT NULL,
+      message TEXT NOT NULL,
+      booking_id INTEGER REFERENCES bookings(id) ON DELETE SET NULL,
+      is_read BOOLEAN NOT NULL DEFAULT false,
+      created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+  await pool.query(`ALTER TABLE notifications ADD COLUMN IF NOT EXISTS recipient_id INTEGER REFERENCES users(id) ON DELETE CASCADE`);
+  await pool.query(`ALTER TABLE notifications ADD COLUMN IF NOT EXISTS recipient_type VARCHAR(10) NOT NULL DEFAULT 'user'`);
+  await pool.query(`ALTER TABLE notifications ADD COLUMN IF NOT EXISTS type VARCHAR(50)`);
+  await pool.query(`ALTER TABLE notifications ADD COLUMN IF NOT EXISTS title VARCHAR(200)`);
+  await pool.query(`ALTER TABLE notifications ADD COLUMN IF NOT EXISTS message TEXT`);
+  await pool.query(`ALTER TABLE notifications ADD COLUMN IF NOT EXISTS booking_id INTEGER REFERENCES bookings(id) ON DELETE SET NULL`);
+  await pool.query(`ALTER TABLE notifications ADD COLUMN IF NOT EXISTS is_read BOOLEAN NOT NULL DEFAULT false`);
+  await pool.query(`ALTER TABLE notifications ADD COLUMN IF NOT EXISTS created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP`);
+  await pool.query(`UPDATE notifications SET recipient_type = 'user' WHERE recipient_type IS NULL`);
+
+  await pool.query(`
+    CREATE INDEX IF NOT EXISTS idx_notifications_recipient
+    ON notifications(recipient_id, is_read)
+  `);
 }
 
 async function seedMitrovicaFields() {

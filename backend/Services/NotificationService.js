@@ -1,17 +1,76 @@
 const pool = require('../config/db');
 
 class NotificationService {
+    async createUserNotification(recipientId, type, title, message, bookingId = null) {
+        const result = await pool.query(
+            `INSERT INTO notifications (recipient_id, recipient_type, type, title, message, booking_id, is_read)
+             VALUES ($1, 'user', $2, $3, $4, $5, false)
+             RETURNING *`,
+            [recipientId, type, title, message, bookingId]
+        );
+        return result.rows[0];
+    }
+
+    async createAdminNotification(type, title, message, bookingId = null) {
+        const result = await pool.query(
+            `INSERT INTO notifications (recipient_id, recipient_type, type, title, message, booking_id, is_read)
+             VALUES (NULL, 'admin', $1, $2, $3, $4, false)
+             RETURNING *`,
+            [type, title, message, bookingId]
+        );
+        return result.rows[0];
+    }
+
+    async getMyNotifications(recipientId, limit = 20) {
+        const result = await pool.query(
+            `SELECT id, recipient_id, recipient_type, type, title, message, booking_id, is_read, created_at
+             FROM notifications
+             WHERE recipient_id = $1
+             ORDER BY created_at DESC
+             LIMIT $2`,
+            [recipientId, limit]
+        );
+        return result.rows;
+    }
+
+    async getMyUnreadCount(recipientId) {
+        const result = await pool.query(
+            `SELECT COUNT(*)::int AS c
+             FROM notifications
+             WHERE recipient_id = $1 AND is_read = false`,
+            [recipientId]
+        );
+        return Number(result.rows[0]?.c || 0);
+    }
+
+    async markMyNotificationRead(recipientId, notificationId) {
+        const result = await pool.query(
+            `UPDATE notifications
+             SET is_read = true
+             WHERE id = $1 AND recipient_id = $2
+             RETURNING id`,
+            [notificationId, recipientId]
+        );
+        if (result.rows.length === 0) {
+            throw new Error('Njoftimi nuk u gjet.');
+        }
+        return { ok: true };
+    }
+
+    async markAllMyNotificationsRead(recipientId) {
+        await pool.query(
+            `UPDATE notifications
+             SET is_read = true
+             WHERE recipient_id = $1 AND is_read = false`,
+            [recipientId]
+        );
+        return { ok: true };
+    }
+
     // Create notification
     async createNotification(userId, type, subject, body, bookingId = null) {
         try {
-            const result = await pool.query(
-                `INSERT INTO Notifications (user_id, booking_id, type, subject, body) 
-                 VALUES ($1, $2, $3, $4, $5) 
-                 RETURNING *`,
-                [userId, bookingId, type, subject, body]
-            );
-            
-            return result.rows[0];
+            return await this.createUserNotification(userId, type, subject, body, bookingId);
         } catch (error) {
             console.error('Error creating notification:', error);
             throw error;
@@ -21,15 +80,8 @@ class NotificationService {
     // Get user notifications
     async getUserNotifications(userId, limit = 20, offset = 0) {
         try {
-            const result = await pool.query(
-                `SELECT * FROM Notifications 
-                 WHERE user_id = $1 
-                 ORDER BY created_at DESC 
-                 LIMIT $2 OFFSET $3`,
-                [userId, limit, offset]
-            );
-            
-            return result.rows;
+            const rows = await this.getMyNotifications(userId, limit + offset);
+            return rows.slice(offset, offset + limit);
         } catch (error) {
             console.error('Error getting user notifications:', error);
             throw error;
@@ -39,12 +91,7 @@ class NotificationService {
     // Get unread notifications count
     async getUnreadCount(userId) {
         try {
-            const result = await pool.query(
-                'SELECT COUNT(*) as count FROM Notifications WHERE user_id = $1 AND is_sent = false',
-                [userId]
-            );
-            
-            return parseInt(result.rows[0].count);
+            return await this.getMyUnreadCount(userId);
         } catch (error) {
             console.error('Error getting unread count:', error);
             return 0;
@@ -54,15 +101,13 @@ class NotificationService {
     // Mark notifications as sent/read
     async markAsSent(userId, notificationIds = null) {
         try {
-            let query = 'UPDATE Notifications SET is_sent = true WHERE user_id = $1';
-            const params = [userId];
-            
             if (notificationIds && notificationIds.length > 0) {
-                query += ' AND id = ANY($2)';
-                params.push(notificationIds);
+                for (const id of notificationIds) {
+                    await this.markMyNotificationRead(userId, id);
+                }
+            } else {
+                await this.markAllMyNotificationsRead(userId);
             }
-            
-            await pool.query(query, params);
             return true;
         } catch (error) {
             console.error('Error marking notifications as sent:', error);

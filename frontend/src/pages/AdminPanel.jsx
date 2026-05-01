@@ -33,9 +33,10 @@ export default function AdminPanel({ section = 'dashboard' }) {
   const [todayByField, setTodayByField] = useState([]);
   const [fields, setFields] = useState([]);
   const [users, setUsers] = useState([]);
-  const [inventoryByField, setInventoryByField] = useState([]);
-  const [inventoryDraft, setInventoryDraft] = useState({});
-  const [inventorySavingFieldId, setInventorySavingFieldId] = useState(null);
+  const [selectedInventoryFieldId, setSelectedInventoryFieldId] = useState('');
+  const [selectedFieldInventory, setSelectedFieldInventory] = useState([]);
+  const [bulkInventoryDraft, setBulkInventoryDraft] = useState({});
+  const [inventorySaving, setInventorySaving] = useState(false);
   const [filtri, setFiltri] = useState('');
   const [fieldForm, setFieldForm] = useState({ name: '', location: '', terrain_type: 'artificial_grass', price_per_hour: '', courts_count: '1' });
   const [loading, setLoading] = useState(true);
@@ -77,26 +78,6 @@ export default function AdminPanel({ section = 'dashboard' }) {
     return apiFetch('/fields', { token }).then((f) => setFields(Array.isArray(f) ? f : []));
   }, [token]);
 
-  const fetchShoes = useCallback(() => {
-    if (!token) return;
-    return apiFetch('/fields/inventory', { token }).then((s) => {
-      const grouped = Array.isArray(s) ? s : [];
-      setInventoryByField(grouped);
-      const draft = {};
-      grouped.forEach((g) => {
-        draft[g.field_id] = {};
-        SIZES.forEach((size) => {
-          const found = (g.inventory || []).find((r) => Number(r.shoe_size) === size);
-          draft[g.field_id][size] = {
-            quantity_available: found ? Number(found.quantity_available) : 0,
-            rent_price: found ? Number(found.rent_price) : 2,
-          };
-        });
-      });
-      setInventoryDraft(draft);
-    });
-  }, [token]);
-
   const fetchUsers = useCallback(() => {
     if (!token) return;
     return apiFetch('/admin/users', { token }).then((u) => setUsers(Array.isArray(u) ? u : []));
@@ -105,10 +86,10 @@ export default function AdminPanel({ section = 'dashboard' }) {
   useEffect(() => {
     if (!token) return;
     setLoading(true);
-    Promise.all([fetchBookings(), fetchAdminStats(), fetchTodayByField(), fetchFields(), fetchShoes(), fetchUsers()])
+    Promise.all([fetchBookings(), fetchAdminStats(), fetchTodayByField(), fetchFields(), fetchUsers()])
       .catch(() => tregoBust('Gabim gjatë ngarkimit.', 'error'))
       .finally(() => setLoading(false));
-  }, [token, fetchBookings, fetchAdminStats, fetchTodayByField, fetchFields, fetchShoes, fetchUsers, tregoBust]);
+  }, [token, fetchBookings, fetchAdminStats, fetchTodayByField, fetchFields, fetchUsers, tregoBust]);
 
   const handleFshi = async (id) => {
     if (!window.confirm(`Fshi rezervimin #${id}?`)) return;
@@ -144,7 +125,6 @@ export default function AdminPanel({ section = 'dashboard' }) {
       setFieldForm({ name: '', location: '', terrain_type: 'artificial_grass', price_per_hour: '', courts_count: '1' });
       tregoBust('Fusha u krijua.');
       fetchFields();
-      fetchShoes();
     } catch (e2) {
       tregoBust(e2.message, 'error');
     }
@@ -172,56 +152,47 @@ export default function AdminPanel({ section = 'dashboard' }) {
     }
   };
 
-  const updateInventoryDraft = (fieldId, size, key, value) => {
-    const raw = String(value ?? '');
-    const parsed = raw === '' ? '' : Number(raw);
-    const safeValue =
-      raw === ''
-        ? ''
-        : Number.isFinite(parsed)
-          ? key === 'quantity_available'
-            ? Math.max(0, Math.floor(parsed))
-            : Math.max(0, parsed)
-          : 0;
-    setInventoryDraft((prev) => ({
-      ...prev,
-      [fieldId]: {
-        ...(prev[fieldId] || {}),
-        [size]: {
-          ...(prev[fieldId]?.[size] || { quantity_available: 0, rent_price: 2 }),
-          [key]: safeValue,
-        },
-      },
-    }));
+  const loadFieldInventory = async (fieldId) => {
+    if (!fieldId) {
+      setSelectedFieldInventory([]);
+      setBulkInventoryDraft({});
+      return;
+    }
+    try {
+      const field = await apiFetch(`/fields/${fieldId}`, { token });
+      const inv = Array.isArray(field?.shoes_inventory) ? field.shoes_inventory : [];
+      setSelectedFieldInventory(inv);
+      const draft = {};
+      SIZES.forEach((size) => {
+        const row = inv.find((r) => Number(r.shoe_size) === size);
+        draft[size] = Number(row?.quantity_available ?? 0);
+      });
+      setBulkInventoryDraft(draft);
+    } catch (e2) {
+      tregoBust(e2.message || 'Gabim gjatë ngarkimit të inventarit.', 'error');
+    }
   };
 
-  const handleSaveInventory = async (fieldId) => {
+  const handleSaveBulkInventory = async () => {
+    if (!selectedInventoryFieldId) return;
     try {
-      setInventorySavingFieldId(fieldId);
-      const source = inventoryDraft[fieldId] || {};
+      setInventorySaving(true);
       const payload = SIZES.map((size) => ({
-        shoe_size: size,
-        quantity_available: Number(source[size]?.quantity_available ?? 0),
-        rent_price: Number(source[size]?.rent_price ?? 2),
+        size,
+        quantity: Number(bulkInventoryDraft[size] ?? 0),
       }));
-      const hasInvalid = payload.some(
-        (row) => !Number.isFinite(row.quantity_available) || row.quantity_available < 0 || !Number.isFinite(row.rent_price) || row.rent_price < 0
-      );
-      if (hasInvalid) {
-        tregoBust('Kontrollo vlerat e inventarit: sasia dhe çmimi duhet të jenë numra jo negativë.', 'error');
-        return;
-      }
-      await apiFetch(`/fields/${fieldId}/shoes`, {
+      await apiFetch(`/fields/${selectedInventoryFieldId}/shoes/bulk`, {
         token,
         method: 'PUT',
         body: { inventory: payload },
       });
-      tregoBust('Inventari u përditësua.');
-      fetchShoes();
+      const selectedField = fields.find((f) => String(f.id) === String(selectedInventoryFieldId));
+      tregoBust(`Inventari u ruajt për ${selectedField?.name || 'fushën'}`);
+      await loadFieldInventory(selectedInventoryFieldId);
     } catch (e2) {
-      tregoBust(e2.message, 'error');
+      tregoBust('Gabim gjatë ruajtjes. Provo përsëri.', 'error');
     } finally {
-      setInventorySavingFieldId(null);
+      setInventorySaving(false);
     }
   };
 
@@ -435,46 +406,72 @@ export default function AdminPanel({ section = 'dashboard' }) {
             </table>
           </div>
 
-          <h3 style={{ marginTop: 16 }}>Inventari i patikave për secilën fushë</h3>
-          {inventoryByField.map((group) => (
-            <div key={group.field_id} style={{ marginBottom: 16 }}>
-              <h4 style={{ marginBottom: 8 }}>{group.field_name}</h4>
+          <h3 style={{ marginTop: 16 }}>Inventari i patikave</h3>
+          <div className="form-group" style={{ maxWidth: 460 }}>
+            <label className="label" htmlFor="inventory-field-select">Zgjidhni fushën</label>
+            <select
+              id="inventory-field-select"
+              className="input"
+              value={selectedInventoryFieldId}
+              onChange={(e) => {
+                const id = e.target.value;
+                setSelectedInventoryFieldId(id);
+                loadFieldInventory(id);
+              }}
+            >
+              <option value="">-- Zgjidhni fushën --</option>
+              {fields.filter((f) => f.is_active).map((f) => (
+                <option key={f.id} value={String(f.id)}>
+                  {f.name} — {f.location}
+                </option>
+              ))}
+            </select>
+          </div>
+          {selectedInventoryFieldId && (
+            <>
               <div className="table-wrap">
                 <table className="table">
-                  <thead><tr><th>Madhësia</th><th>Sasia</th><th>Çmimi i qirasë</th></tr></thead>
+                  <thead>
+                    <tr>
+                      <th>Madhësia</th>
+                      <th>Sasia në dispozicion</th>
+                      <th>Çmimi i qirasë</th>
+                      <th>Sasia e re</th>
+                    </tr>
+                  </thead>
                   <tbody>
-                    {SIZES.map((size) => (
-                      <tr key={`${group.field_id}-${size}`}>
-                        <td>{size}</td>
-                        <td>
-                          <input
-                            className="input"
-                            type="number"
-                            min="0"
-                            value={inventoryDraft[group.field_id]?.[size]?.quantity_available ?? 0}
-                            onChange={(e) => updateInventoryDraft(group.field_id, size, 'quantity_available', e.target.value)}
-                          />
-                        </td>
-                        <td>
-                          <input
-                            className="input"
-                            type="number"
-                            min="0"
-                            step="0.01"
-                            value={inventoryDraft[group.field_id]?.[size]?.rent_price ?? 2}
-                            onChange={(e) => updateInventoryDraft(group.field_id, size, 'rent_price', e.target.value)}
-                          />
-                        </td>
-                      </tr>
-                    ))}
+                    {SIZES.map((size) => {
+                      const row = selectedFieldInventory.find((r) => Number(r.shoe_size) === size);
+                      return (
+                        <tr key={`bulk-${size}`}>
+                          <td>{size}</td>
+                          <td>{Number(row?.quantity_available ?? 0)}</td>
+                          <td>{Number(row?.rent_price ?? 2).toFixed(2)}€</td>
+                          <td>
+                            <input
+                              className="input"
+                              type="number"
+                              min="0"
+                              value={bulkInventoryDraft[size] ?? 0}
+                              onChange={(e) =>
+                                setBulkInventoryDraft((prev) => ({
+                                  ...prev,
+                                  [size]: Math.max(0, Number(e.target.value || 0)),
+                                }))
+                              }
+                            />
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
-              <button type="button" className="btn btn-accent" disabled={inventorySavingFieldId === group.field_id} onClick={() => handleSaveInventory(group.field_id)}>
-                {inventorySavingFieldId === group.field_id ? 'Duke ruajtur…' : 'Ruaj inventarin'}
+              <button type="button" className="btn btn-accent" onClick={handleSaveBulkInventory} disabled={inventorySaving}>
+                {inventorySaving ? 'Duke ruajtur…' : 'Ruaj inventarin për këtë fushë'}
               </button>
-            </div>
-          ))}
+            </>
+          )}
         </div>
       )}
 

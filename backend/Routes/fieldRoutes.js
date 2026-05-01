@@ -178,4 +178,25 @@ router.put('/fields/:id/shoes', authenticateToken, requireRole(['admin']), async
   }
 });
 
+router.put('/fields/:id/shoes/bulk', authenticateToken, requireRole(['admin']), async (req, res) => {
+  try {
+    const fieldId = Number(req.params.id);
+    const rows = Array.isArray(req.body?.inventory) ? req.body.inventory : [];
+    if (!Number.isInteger(fieldId) || fieldId <= 0) {
+      return res.status(400).json({ error: 'ID e fushës nuk është valide.' });
+    }
+    if (rows.length === 0) {
+      return res.status(400).json({ error: 'Dërgoni inventarin për ruajtje.' });
+    }
+    const updated = await fieldService.updateShoesInventoryBulk(fieldId, rows);
+    res.json(updated.map((r) => ({
+      size: Number(r.shoe_size),
+      quantity: Number(r.quantity_available),
+      rent_price: Number(r.rent_price),
+    })));
+  } catch (error) {
+    res.status(400).json({ error: error.message || 'Gabim gjatë ruajtjes. Provo përsëri.' });
+  }
+});
+
 module.exports = router;

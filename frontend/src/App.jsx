@@ -14,6 +14,7 @@ import FriendsPage from './pages/FriendsPage';
 import ProfilePage from './pages/ProfilePage';
 import JoinBookingPage from './pages/JoinBookingPage';
 import AdminNotificationsPage from './pages/AdminNotificationsPage';
+import NotificationsPage from './pages/NotificationsPage';
 
 function AppShell({ children }) {
   const location = useLocation();
@@ -127,6 +128,16 @@ export default function App() {
             element={
               <ProtectedRoute>
                 <ProfilePage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/notifications"
+            element={
+              <ProtectedRoute>
+                <PlayerOnlyRoute>
+                  <NotificationsPage />
+                </PlayerOnlyRoute>
               </ProtectedRoute>
             }
           />

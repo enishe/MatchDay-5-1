@@ -1,11 +1,21 @@
 const crypto = require('crypto');
 const pool = require('../config/db');
+const NotificationService = require('./NotificationService');
 
 class BookingService {
+  constructor() {
+    this.notificationService = new NotificationService();
+  }
+
   async createAdminNotification(client, { type, title, message, bookingId = null }) {
     await client.query(
       `INSERT INTO admin_notifications (type, title, message, booking_id)
        VALUES ($1, $2, $3, $4)`,
+      [type, title, message, bookingId]
+    );
+    await client.query(
+      `INSERT INTO notifications (recipient_id, recipient_type, type, title, message, booking_id, is_read)
+       VALUES (NULL, 'admin', $1, $2, $3, $4, false)`,
       [type, title, message, bookingId]
     );
   }
@@ -50,6 +60,25 @@ class BookingService {
     return rows
       .map((s) => ({ size: Number(s.size), count: Number(s.count) }))
       .filter((s) => Number.isInteger(s.size) && s.size >= 36 && s.size <= 45 && Number.isInteger(s.count) && s.count > 0);
+  }
+
+  async notifyBookingParticipants(client, bookingId, type, title, messageBuilder) {
+    const participants = await client.query(
+      `SELECT DISTINCT user_id
+       FROM booking_participants
+       WHERE booking_id = $1 AND user_id IS NOT NULL`,
+      [bookingId]
+    );
+    for (const row of participants.rows) {
+      const userId = Number(row.user_id);
+      await this.notificationService.createUserNotification(
+        userId,
+        type,
+        title,
+        messageBuilder(userId),
+        bookingId
+      );
+    }
   }
 
   async createCashBooking(organizerId, bookingData) {
@@ -241,6 +270,15 @@ class BookingService {
             [booking.id, userId, Number(booking.price_per_player || 0)]
           );
         }
+        const player = await client.query(`SELECT name FROM users WHERE id = $1`, [userId]);
+        const playerName = player.rows[0]?.name || `Lojtari #${userId}`;
+        await this.notificationService.createUserNotification(
+          Number(booking.organizer_id),
+          'invite_accepted',
+          'Ftesa u pranua',
+          `${playerName} pranoi ftesën për ndeshjen në ${booking.field_name}.`,
+          booking.id
+        );
         await client.query('COMMIT');
       }
 
@@ -327,6 +365,13 @@ class BookingService {
           message: `Rezervimi te "${booking.field_name}" u konfirmua. Të hyrat: ${Number(totalRevenue).toFixed(2)}€.`,
           bookingId,
         });
+        await this.notifyBookingParticipants(
+          client,
+          bookingId,
+          'booking_confirmed',
+          'Rezervimi u konfirmua!',
+          () => `Rezervimi juaj në ${booking.field_name} më ${new Date(booking.start_time).toLocaleDateString('sq-AL')} ora ${new Date(booking.start_time).toLocaleTimeString('sq-AL', { hour: '2-digit', minute: '2-digit' })} u konfirmua.`
+        );
       } else {
         await client.query(
           `UPDATE bookings SET payment_status = 'partial' WHERE id = $1 AND payment_status = 'pending'`,
@@ -380,6 +425,13 @@ class BookingService {
           message: `Rezervimi te "${booking.field_name}" u anulua automatikisht. Pagesa të kryera: ${paidCount}/12.`,
           bookingId,
         });
+        await this.notifyBookingParticipants(
+          client,
+          bookingId,
+          'booking_canceled',
+          'Rezervimi u anulua',
+          () => `Rezervimi në ${booking.field_name} u anulua automatikisht.`
+        );
         await client.query('COMMIT');
         return { canceled: true, paid_count: paidCount };
       }

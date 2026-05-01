@@ -123,6 +123,25 @@ class FieldService {
     return this.getShoesByField(fieldId);
   }
 
+  async updateShoesInventoryBulk(fieldId, inventory) {
+    const rows = Array.isArray(inventory) ? inventory : [];
+    for (const row of rows) {
+      const size = Number(row.size);
+      const quantity = Number(row.quantity);
+      if (!Number.isInteger(size) || size < 36 || size > 45) continue;
+      if (!Number.isFinite(quantity) || quantity < 0) continue;
+      await pool.query(
+        `INSERT INTO field_shoes_inventory (field_id, shoe_size, quantity_available, rent_price)
+         VALUES ($1, $2, $3, 2.00)
+         ON CONFLICT (field_id, shoe_size)
+         DO UPDATE SET quantity_available = EXCLUDED.quantity_available,
+                       updated_at = CURRENT_TIMESTAMP`,
+        [fieldId, size, Math.floor(quantity)]
+      );
+    }
+    return this.getShoesByField(fieldId);
+  }
+
   async getShoesByField(fieldId) {
     const result = await pool.query(
       `SELECT shoe_size, quantity_available, rent_price
