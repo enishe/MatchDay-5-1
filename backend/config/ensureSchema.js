@@ -163,6 +163,7 @@ async function ensureSchema() {
   await pool.query(`ALTER TABLE notifications ADD COLUMN IF NOT EXISTS message TEXT`);
   await pool.query(`ALTER TABLE notifications ADD COLUMN IF NOT EXISTS subject VARCHAR(255)`);
   await pool.query(`ALTER TABLE notifications ADD COLUMN IF NOT EXISTS body TEXT`);
+  await pool.query(`ALTER TABLE notifications ADD COLUMN IF NOT EXISTS is_sent BOOLEAN NOT NULL DEFAULT false`);
   await pool.query(`ALTER TABLE notifications ADD COLUMN IF NOT EXISTS booking_id INTEGER REFERENCES bookings(id) ON DELETE SET NULL`);
   await pool.query(`ALTER TABLE notifications ADD COLUMN IF NOT EXISTS is_read BOOLEAN NOT NULL DEFAULT false`);
   await pool.query(`ALTER TABLE notifications ADD COLUMN IF NOT EXISTS created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP`);
@@ -171,6 +172,8 @@ async function ensureSchema() {
   await pool.query(`UPDATE notifications SET message = COALESCE(message, body, '') WHERE message IS NULL`);
   await pool.query(`UPDATE notifications SET subject = COALESCE(subject, title, type, 'Njoftim') WHERE subject IS NULL`);
   await pool.query(`UPDATE notifications SET body = COALESCE(body, message, '') WHERE body IS NULL`);
+  await pool.query(`UPDATE notifications SET is_read = COALESCE(is_read, false)`);
+  await pool.query(`UPDATE notifications SET is_sent = COALESCE(is_sent, is_read, false)`);
   await pool.query(`UPDATE notifications SET user_id = recipient_id WHERE user_id IS NULL AND recipient_id IS NOT NULL`);
   await pool.query(`UPDATE notifications SET recipient_id = user_id WHERE recipient_id IS NULL AND user_id IS NOT NULL`);
   await pool.query(`
@@ -186,6 +189,54 @@ async function ensureSchema() {
   await pool.query(`
     CREATE INDEX IF NOT EXISTS idx_notifications_recipient
     ON notifications(recipient_id, is_read)
+  `);
+  await pool.query(`
+    CREATE INDEX IF NOT EXISTS idx_notifications_user_sent
+    ON notifications(user_id, is_sent)
+  `);
+  await pool.query(`
+    DO $$
+    DECLARE r record;
+    BEGIN
+      FOR r IN
+        SELECT c.conname
+        FROM pg_constraint c
+        JOIN pg_class t ON t.oid = c.conrelid
+        JOIN pg_namespace n ON n.oid = t.relnamespace
+        WHERE n.nspname = 'public'
+          AND t.relname = 'notifications'
+          AND c.contype = 'c'
+          AND pg_get_constraintdef(c.oid) ILIKE '%type%'
+      LOOP
+        EXECUTE format('ALTER TABLE public.notifications DROP CONSTRAINT %I', r.conname);
+      END LOOP;
+      IF NOT EXISTS (
+        SELECT 1
+        FROM pg_constraint c
+        JOIN pg_class t ON t.oid = c.conrelid
+        JOIN pg_namespace n ON n.oid = t.relnamespace
+        WHERE n.nspname = 'public'
+          AND t.relname = 'notifications'
+          AND c.conname = 'notifications_type_check'
+      ) THEN
+        ALTER TABLE public.notifications
+        ADD CONSTRAINT notifications_type_check
+        CHECK (
+          type IN (
+            'new_booking',
+            'booking_confirmed',
+            'booking_canceled',
+            'invite_accepted',
+            'invite',
+            'invitation',
+            'confirmation',
+            'cancellation',
+            'reminder',
+            'refund'
+          )
+        );
+      END IF;
+    END $$;
   `);
 
   await pool.query(`
