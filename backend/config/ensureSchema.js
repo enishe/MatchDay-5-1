@@ -30,7 +30,8 @@ async function ensureSchema() {
   await pool.query('ALTER TABLE bookings ADD COLUMN IF NOT EXISTS court_number INTEGER');
   try {
     await pool.query('BEGIN');
-    await pool.query('DROP VIEW IF EXISTS bookingpaymentsummary');
+    await pool.query('DROP VIEW IF EXISTS pendingautocancel CASCADE');
+    await pool.query('DROP VIEW IF EXISTS bookingpaymentsummary CASCADE');
     await pool.query(`
       ALTER TABLE bookings
       ALTER COLUMN start_time TYPE TIMESTAMPTZ USING
@@ -56,7 +57,7 @@ async function ensureSchema() {
         END
     `);
     await pool.query(`
-      CREATE VIEW bookingpaymentsummary AS
+      CREATE OR REPLACE VIEW bookingpaymentsummary AS
       SELECT
           b.id AS booking_id,
           b.field_id,
@@ -74,6 +75,21 @@ async function ensureSchema() {
       FROM bookings b
       LEFT JOIN playerpayments pp ON pp.booking_id = b.id
       GROUP BY b.id
+    `);
+    await pool.query(`
+      CREATE OR REPLACE VIEW pendingautocancel AS
+      SELECT
+          b.id AS booking_id,
+          b.start_time,
+          b.organizer_id,
+          bps.paid_count,
+          bps.total_players,
+          bps.remaining_amount
+      FROM bookings b
+      JOIN bookingpaymentsummary bps ON bps.booking_id = b.id
+      WHERE b.status = 'pending'
+        AND b.start_time BETWEEN NOW() AND NOW() + INTERVAL '2 hours'
+        AND bps.paid_count < 12
     `);
     await pool.query('COMMIT');
   } catch (error) {
