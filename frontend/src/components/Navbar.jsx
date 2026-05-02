@@ -35,7 +35,7 @@ export default function Navbar() {
   const [userOpen, setUserOpen] = useState(false);
   const [dark, setDark] = useState(() => getStoredTheme() === 'dark');
   const [notifOpen, setNotifOpen] = useState(false);
-  const [notifCount, setNotifCount] = useState(0);
+  const [unreadCount, setUnreadCount] = useState(0);
   const [notifications, setNotifications] = useState([]);
   const avatarSrc = avatarSource(user);
   const ddRef = useRef(null);
@@ -63,8 +63,8 @@ export default function Navbar() {
     const load = () => {
       const endpoint = isAdmin ? '/notifications/count' : '/notifications/my/count';
       apiFetch(endpoint, { token })
-        .then((r) => active && setNotifCount(Number(r.count || 0)))
-        .catch(() => active && setNotifCount(0));
+        .then((r) => active && setUnreadCount(Number(r?.count) || 0))
+        .catch(() => active && setUnreadCount(0));
     };
     load();
     const id = setInterval(load, 30000);
@@ -88,15 +88,24 @@ export default function Navbar() {
   const loadNotifications = () => {
     const endpoint = isAdmin ? '/notifications' : '/notifications/my';
     apiFetch(endpoint, { token })
-      .then((r) => setNotifications(Array.isArray(r) ? r.slice(0, 5) : []))
+      .then((r) => {
+        const nextList = Array.isArray(r) ? r.slice(0, 5) : [];
+        const nextUnreadCount = nextList.filter((n) => !n.is_read).length;
+        setNotifications(nextList);
+        setUnreadCount(nextUnreadCount);
+      })
       .catch(() => setNotifications([]));
   };
 
   const markRead = async (id) => {
     const endpoint = isAdmin ? `/notifications/${id}/read` : `/notifications/my/${id}/read`;
     await apiFetch(endpoint, { token, method: 'PUT' });
-    setNotifications((prev) => prev.map((x) => (x.id === id ? { ...x, is_read: true } : x)));
-    setNotifCount((prev) => Math.max(0, prev - 1));
+    setNotifications((prev) => {
+      const updatedList = prev.map((x) => (x.id === id ? { ...x, is_read: true } : x));
+      const newCount = updatedList.filter((n) => !n.is_read).length;
+      setUnreadCount(newCount);
+      return updatedList;
+    });
     setNotifOpen(false);
   };
 
@@ -213,9 +222,9 @@ export default function Navbar() {
               }}
             >
               <span aria-hidden style={{ fontSize: 18 }}>🔔</span>
-              {notifCount > 0 && (
+              {unreadCount > 0 && (
                 <span style={{ position: 'absolute', top: -3, right: -3, background: '#e74c3c', color: '#fff', borderRadius: 999, padding: '1px 6px', fontSize: 11, fontWeight: 700 }}>
-                  {notifCount}
+                  {unreadCount}
                 </span>
               )}
             </button>

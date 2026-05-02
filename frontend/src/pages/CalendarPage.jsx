@@ -39,7 +39,9 @@ function startOfWeekMondayYmd(ymd) {
 export default function CalendarPage() {
   const { token } = useAuth();
   const navigate = useNavigate();
-  const [weekStart, setWeekStart] = useState(() => startOfWeekMondayYmd(getBelgradeTodayYmd()));
+  const currentWeekStart = useMemo(() => startOfWeekMondayYmd(getBelgradeTodayYmd()), []);
+  const todayYmd = useMemo(() => getBelgradeTodayYmd(), []);
+  const [weekStart, setWeekStart] = useState(() => currentWeekStart);
   const [fields, setFields] = useState([]);
   const [availability, setAvailability] = useState({});
   const [selectedDate, setSelectedDate] = useState(() => startOfWeekMondayYmd(getBelgradeTodayYmd()));
@@ -77,6 +79,7 @@ export default function CalendarPage() {
   const maxDayOffset = Math.max(0, 7 - daysToShow);
   const visibleWeekDays = useMemo(() => weekDays.slice(dayOffset, dayOffset + daysToShow), [weekDays, dayOffset, daysToShow]);
   const isMobileCalendar = daysToShow <= 3;
+  const isAtCurrentWeek = weekStart <= currentWeekStart;
 
   const goPrevDays = () => setDayOffset((o) => Math.max(0, o - 1));
   const goNextDays = () => setDayOffset((o) => Math.min(maxDayOffset, o + 1));
@@ -131,7 +134,17 @@ export default function CalendarPage() {
 
       <div className="card" style={{ marginBottom: 16 }}>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, alignItems: 'center' }}>
-          <button type="button" className="btn btn-ghost" onClick={() => setWeekStart((w) => addDaysYmd(w, -7))}>
+          <button
+            type="button"
+            className="btn btn-ghost"
+            disabled={isAtCurrentWeek}
+            onClick={() => {
+              setWeekStart((w) => {
+                const prev = addDaysYmd(w, -7);
+                return prev < currentWeekStart ? currentWeekStart : prev;
+              });
+            }}
+          >
             ← Java e kaluar
           </button>
           <button type="button" className="btn btn-ghost" onClick={() => setWeekStart((w) => addDaysYmd(w, 7))}>
@@ -176,12 +189,20 @@ export default function CalendarPage() {
               const i = dayOffset + visibleIndex;
               const ymd = d;
               const active = ymd === selectedDate;
+              const isToday = ymd === todayYmd;
               return (
                 <button
                   key={ymd}
                   type="button"
                   className={`btn ${active ? 'btn-accent' : 'btn-ghost'}`}
-                  style={{ height: 'auto', padding: '8px 6px', display: 'flex', flexDirection: 'column' }}
+                  style={{
+                    height: 'auto',
+                    padding: '8px 6px',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    borderColor: isToday ? 'var(--accent)' : undefined,
+                    borderWidth: isToday ? 2 : undefined,
+                  }}
                   onClick={() => setSelectedDate(ymd)}
                 >
                   <span className="calendar-day-dow">{DITET_SH[i]}</span>

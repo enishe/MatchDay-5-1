@@ -1,6 +1,7 @@
 const express = require('express');
 const { authenticateToken, requireRole } = require('../middleware/auth');
 const NotificationService = require('../Services/NotificationService');
+const pool = require('../config/db');
 
 const router = express.Router();
 const notificationService = new NotificationService();
@@ -16,7 +17,13 @@ router.get('/my', authenticateToken, async (req, res) => {
 
 router.get('/my/count', authenticateToken, async (req, res) => {
   try {
-    const count = await notificationService.getMyUnreadCount(Number(req.user.id));
+    const result = await pool.query(
+      `SELECT COUNT(*)::int AS count
+       FROM notifications
+       WHERE recipient_id = $1 AND is_read = false`,
+      [Number(req.user.id)]
+    );
+    const count = parseInt(result.rows?.[0]?.count, 10) || 0;
     res.json({ count });
   } catch (error) {
     res.status(400).json({ error: error.message });
@@ -27,7 +34,7 @@ router.put('/my/:id/read', authenticateToken, async (req, res) => {
   try {
     const data = await notificationService.markMyNotificationRead(
       Number(req.user.id),
-      Number(req.params.id)
+      String(req.params.id)
     );
     res.json(data);
   } catch (error) {

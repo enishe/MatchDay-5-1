@@ -2,6 +2,7 @@ import React, {
   createContext,
   useCallback,
   useContext,
+  useEffect,
   useMemo,
   useState,
 } from 'react';
@@ -158,6 +159,35 @@ export function AuthProvider({ children }) {
   const refreshUser = useCallback(() => {
     setUser(readStoredUser());
     syncZustandAuth();
+  }, []);
+
+  useEffect(() => {
+    if (!token) return;
+    const base = getApiBase();
+    fetch(`${base}/auth/verify`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+      .then((r) => r.json())
+      .then((data) => {
+        if (!data?.valid || !data?.user) {
+          localStorage.removeItem(STORAGE_USER);
+          localStorage.removeItem(STORAGE_TOKEN);
+          setUser(null);
+          setToken(null);
+          syncZustandAuth();
+          return;
+        }
+        if (data.user.id !== user?.id || data.user.role !== user?.role) {
+          localStorage.setItem(STORAGE_USER, JSON.stringify(data.user));
+          setUser(data.user);
+          syncZustandAuth();
+        }
+      })
+      .catch(() => {
+        // Keep existing session on transient network errors.
+      });
+    // Run once on initial mount to validate restored session.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const authHeader = useCallback(() => {
