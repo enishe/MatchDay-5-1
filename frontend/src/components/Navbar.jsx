@@ -207,9 +207,6 @@ export default function Navbar() {
           <NavLink to="/profile" className={navClass} onClick={() => setMenuOpen(false)}>
             Profili
           </NavLink>
-          <NavLink to="/notifications" className={navClass} onClick={() => setMenuOpen(false)}>
-            Njoftimet
-          </NavLink>
         </>
       )}
     </>
