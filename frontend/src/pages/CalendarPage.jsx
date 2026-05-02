@@ -9,7 +9,8 @@ import {
 } from '../lib/timezone';
 
 const ORET = ['12:00', '13:00', '14:00', '15:00', '16:00', '17:00', '18:00', '19:00', '20:00', '21:00', '22:00', '23:00'];
-const DITET_SH = ['E Hënë', 'E Martë', 'E Mërkurë', 'E Enjte', 'E Premte', 'E Shtunë', 'E Diel'];
+const DITET = ['E Diel', 'E Hënë', 'E Martë', 'E Mërkurë', 'E Enjte', 'E Premte', 'E Shtunë'];
+const MUAJT = ['jan', 'shk', 'mar', 'pri', 'maj', 'qer', 'kor', 'gus', 'sht', 'tet', 'nën', 'dhj'];
 
 function parseBelgradeHourSlot(dateStr, hourLabel) {
   return createUtcDateFromBelgradeHourLabel(dateStr, hourLabel);
@@ -30,21 +31,21 @@ function getWeekdayFromYmd(ymd) {
   const [y, m, d] = String(ymd || '').split('-').map(Number);
   return new Date(Date.UTC(y, m - 1, d)).getUTCDay();
 }
-function startOfWeekMondayYmd(ymd) {
-  const day = getWeekdayFromYmd(ymd);
-  const diff = day === 0 ? -6 : 1 - day;
-  return addDaysYmd(ymd, diff);
+function formatDayYmd(ymd) {
+  const [y, m, d] = String(ymd || '').split('-').map(Number);
+  const dayIndex = new Date(Date.UTC(y, m - 1, d)).getUTCDay();
+  return `${DITET[dayIndex]} ${String(d).padStart(2, '0')} ${MUAJT[m - 1]}`;
 }
 
 export default function CalendarPage() {
   const { token } = useAuth();
   const navigate = useNavigate();
-  const currentWeekStart = useMemo(() => startOfWeekMondayYmd(getBelgradeTodayYmd()), []);
   const todayYmd = useMemo(() => getBelgradeTodayYmd(), []);
-  const [weekStart, setWeekStart] = useState(() => currentWeekStart);
+  const minBackLimitYmd = useMemo(() => addDaysYmd(todayYmd, 7), [todayYmd]);
+  const [weekStart, setWeekStart] = useState(() => todayYmd);
   const [fields, setFields] = useState([]);
   const [availability, setAvailability] = useState({});
-  const [selectedDate, setSelectedDate] = useState(() => startOfWeekMondayYmd(getBelgradeTodayYmd()));
+  const [selectedDate, setSelectedDate] = useState(() => todayYmd);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [reloadKey, setReloadKey] = useState(0);
@@ -79,7 +80,7 @@ export default function CalendarPage() {
   const maxDayOffset = Math.max(0, 7 - daysToShow);
   const visibleWeekDays = useMemo(() => weekDays.slice(dayOffset, dayOffset + daysToShow), [weekDays, dayOffset, daysToShow]);
   const isMobileCalendar = daysToShow <= 3;
-  const isAtCurrentWeek = weekStart <= currentWeekStart;
+  const canGoBack = weekStart > minBackLimitYmd;
 
   const goPrevDays = () => setDayOffset((o) => Math.max(0, o - 1));
   const goNextDays = () => setDayOffset((o) => Math.min(maxDayOffset, o + 1));
@@ -130,18 +131,18 @@ export default function CalendarPage() {
   return (
     <div className="page">
       <h1 className="page-title">Kalendari</h1>
-      <p className="page-subtitle">Pamje javore me fusha dhe orare 12:00 - 23:00 (Europe/Belgrade).</p>
+      <p className="page-subtitle">Pamje javore me fusha dhe orare të disponueshme.</p>
 
       <div className="card" style={{ marginBottom: 16 }}>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, alignItems: 'center' }}>
           <button
             type="button"
             className="btn btn-ghost"
-            disabled={isAtCurrentWeek}
+            disabled={!canGoBack}
             onClick={() => {
               setWeekStart((w) => {
                 const prev = addDaysYmd(w, -7);
-                return prev < currentWeekStart ? currentWeekStart : prev;
+                return prev < todayYmd ? todayYmd : prev;
               });
             }}
           >
@@ -186,7 +187,6 @@ export default function CalendarPage() {
             }}
           >
             {visibleWeekDays.map((d, visibleIndex) => {
-              const i = dayOffset + visibleIndex;
               const ymd = d;
               const active = ymd === selectedDate;
               const isToday = ymd === todayYmd;
@@ -200,12 +200,13 @@ export default function CalendarPage() {
                     padding: '8px 6px',
                     display: 'flex',
                     flexDirection: 'column',
+                    background: isToday ? 'rgba(39, 174, 96, 0.18)' : undefined,
                     borderColor: isToday ? 'var(--accent)' : undefined,
                     borderWidth: isToday ? 2 : undefined,
                   }}
                   onClick={() => setSelectedDate(ymd)}
                 >
-                  <span className="calendar-day-dow">{DITET_SH[i]}</span>
+                  <span className="calendar-day-dow">{DITET[getWeekdayFromYmd(ymd)]}</span>
                   <span>{formatBelgradeDate(`${ymd}T12:00:00.000Z`, 'sq-AL', { day: '2-digit', month: 'short' })}</span>
                 </button>
               );
@@ -242,7 +243,7 @@ export default function CalendarPage() {
                   {ORET.map((time) => {
                     const slot = availability?.[selectedDate]?.[time]?.[field.id];
                     const free = Number(slot?.free || 0);
-                    const past = isSlotStartInPast(selectedDate, time);
+                    const past = selectedDate === todayYmd && isSlotStartInPast(selectedDate, time);
                     let text = 'Lirë';
                     let bg = 'rgba(39, 174, 96, 0.25)'; // GREEN
                     if (past) {
@@ -281,15 +282,15 @@ export default function CalendarPage() {
       )}
 
       {!loading && !error && fields.length > 0 && !isMobileCalendar && (
-        <div className="card calendar-table-wrap">
-          <table className="table calendar-table">
+        <div className="card calendar-table-wrap" style={{ overflowX: 'auto', width: '100%' }}>
+          <table className="table calendar-table" style={{ minWidth: '900px' }}>
             <thead>
               <tr>
                 <th>Ora</th>
                 {fields.map((field) => (
                   <th key={field.id}>
                     {field.name}<br />
-                    <span className="calendar-selected-date">{selectedDate}</span>
+                    <span className="calendar-selected-date">{formatDayYmd(selectedDate)}</span>
                   </th>
                 ))}
               </tr>
@@ -301,7 +302,7 @@ export default function CalendarPage() {
                   {fields.map((field) => {
                     const slot = availability?.[selectedDate]?.[time]?.[field.id];
                     const free = Number(slot?.free || 0);
-                    const past = isSlotStartInPast(selectedDate, time);
+                    const past = selectedDate === todayYmd && isSlotStartInPast(selectedDate, time);
                     let text = 'Lirë';
                     let bg = 'rgba(39, 174, 96, 0.25)'; // GREEN
                     if (past) {
