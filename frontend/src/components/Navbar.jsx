@@ -35,13 +35,16 @@ export default function Navbar() {
   const [userOpen, setUserOpen] = useState(false);
   const [dark, setDark] = useState(() => getStoredTheme() === 'dark');
   const [notifOpen, setNotifOpen] = useState(false);
+  const [bellOpen, setBellOpen] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
   const [notifications, setNotifications] = useState([]);
+  const [playerNotifications, setPlayerNotifications] = useState([]);
   const avatarSrc = avatarSource(user);
   const ddRef = useRef(null);
   const navRef = useRef(null);
   const menuButtonRef = useRef(null);
   const notifRef = useRef(null);
+  const bellRef = useRef(null);
 
   useEffect(() => {
     // Avoid cascading renders warning by deferring the state update.
@@ -58,12 +61,25 @@ export default function Navbar() {
   }, []);
 
   useEffect(() => {
+    function handleClickOutside(e) {
+      if (bellRef.current && !bellRef.current.contains(e.target)) {
+        setBellOpen(false);
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  useEffect(() => {
     if (!token) return;
     let active = true;
     const load = () => {
       const endpoint = isAdmin ? '/notifications/count' : '/notifications/my/count';
       apiFetch(endpoint, { token })
-        .then((r) => active && setUnreadCount(Number(r?.count) || 0))
+        .then((r) => {
+          const count = parseInt(r?.count, 10) || 0;
+          if (active) setUnreadCount(count);
+        })
         .catch(() => active && setUnreadCount(0));
     };
     load();
@@ -107,6 +123,27 @@ export default function Navbar() {
       return updatedList;
     });
     setNotifOpen(false);
+  };
+
+  const loadPlayerNotifications = () => {
+    apiFetch('/notifications/my', { token })
+      .then((r) => {
+        const nextList = Array.isArray(r) ? r.slice(0, 5) : [];
+        const nextUnreadCount = nextList.filter((n) => !n.is_read).length;
+        setPlayerNotifications(nextList);
+        setUnreadCount(nextUnreadCount);
+      })
+      .catch(() => setPlayerNotifications([]));
+  };
+
+  const markPlayerRead = async (id) => {
+    await apiFetch(`/notifications/my/${id}/read`, { token, method: 'PUT' });
+    setPlayerNotifications((prev) => {
+      const updatedList = prev.map((x) => (x.id === id ? { ...x, is_read: true } : x));
+      const newCount = updatedList.filter((n) => !n.is_read).length;
+      setUnreadCount(newCount);
+      return updatedList;
+    });
   };
 
   useEffect(() => {
@@ -209,7 +246,7 @@ export default function Navbar() {
         <button type="button" className="icon-btn" aria-label="Dark mode" onClick={onToggleTheme}>
           {dark ? <Sun size={20} /> : <Moon size={20} />}
         </button>
-        {!!user && (
+        {!!user && isAdmin && (
           <div ref={notifRef} style={{ position: 'relative' }}>
             <button
               type="button"
@@ -255,7 +292,113 @@ export default function Navbar() {
                     <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{formatAgo(n.created_at)}</div>
                   </button>
                 ))}
-                <button type="button" onClick={() => navigate(isAdmin ? '/admin/notifications' : '/notifications')}>
+                <button type="button" onClick={() => navigate('/admin/notifications')}>
+                  Shiko të gjitha
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+        {!!user && !isAdmin && (
+          <div ref={bellRef} style={{ position: 'relative' }}>
+            <button
+              type="button"
+              className="icon-btn"
+              aria-label="Njoftimet"
+              onClick={() => {
+                const next = !bellOpen;
+                setBellOpen(next);
+                if (next) loadPlayerNotifications();
+              }}
+            >
+              <span aria-hidden style={{ fontSize: 18 }}>🔔</span>
+              {unreadCount > 0 && (
+                <span
+                  style={{
+                    position: 'absolute',
+                    top: -6,
+                    right: -6,
+                    background: '#e74c3c',
+                    color: '#fff',
+                    borderRadius: '50%',
+                    width: 18,
+                    height: 18,
+                    fontSize: 11,
+                    fontWeight: 700,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                >
+                  {unreadCount}
+                </span>
+              )}
+            </button>
+            {bellOpen && (
+              <div
+                style={{
+                  position: 'absolute',
+                  top: '100%',
+                  right: 0,
+                  width: 320,
+                  background: 'var(--bg-card)',
+                  border: '1px solid var(--border-color)',
+                  borderRadius: 'var(--radius-md)',
+                  boxShadow: 'var(--shadow-md)',
+                  zIndex: 1000,
+                  maxHeight: 400,
+                  overflowY: 'auto',
+                  marginTop: 6,
+                }}
+              >
+                {playerNotifications.length === 0 ? (
+                  <div style={{ padding: '10px 12px', color: 'var(--text-muted)', fontSize: 13 }}>
+                    Nuk keni njoftime të reja.
+                  </div>
+                ) : (
+                  playerNotifications.map((n) => (
+                    <button
+                      key={n.id}
+                      type="button"
+                      onClick={() => markPlayerRead(n.id)}
+                      style={{
+                        width: '100%',
+                        textAlign: 'left',
+                        borderLeft: n.is_read ? '3px solid transparent' : '3px solid #3498db',
+                        marginBottom: 4,
+                        borderBottom: '1px solid var(--border-color)',
+                        padding: '10px',
+                      }}
+                    >
+                      <div style={{ fontWeight: 700 }}>
+                        {n.type === 'invite'
+                          ? '📅'
+                          : n.type === 'invite_accepted'
+                            ? '✅'
+                            : n.type === 'booking_confirmed'
+                              ? '✅'
+                              : n.type === 'booking_canceled'
+                                ? '❌'
+                                : n.type === 'new_booking'
+                                  ? '📅'
+                                  : '🔔'}{' '}
+                        {n.title}
+                      </div>
+                      <div style={{ fontSize: 12, color: 'var(--text-secondary)', whiteSpace: 'normal' }}>
+                        {String(n.message || '').length > 60 ? `${String(n.message || '').slice(0, 60)}...` : String(n.message || '')}
+                      </div>
+                      <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{formatAgo(n.created_at)}</div>
+                    </button>
+                  ))
+                )}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setBellOpen(false);
+                    navigate('/notifications');
+                  }}
+                  style={{ width: '100%', textAlign: 'left', padding: '10px 12px' }}
+                >
                   Shiko të gjitha
                 </button>
               </div>
