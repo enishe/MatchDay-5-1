@@ -1,22 +1,10 @@
 const { Pool } = require('pg');
 
-const connectionString = process.env.DATABASE_URL;
-if (!connectionString) {
-  console.warn('[DB] DATABASE_URL is not set. Falling back to local postgres defaults.');
-}
-
-const isLocalConnection =
-  !connectionString ||
-  /localhost|127\.0\.0\.1/i.test(connectionString) ||
-  process.env.DB_SSL === 'false';
+const isSSL = process.env.DB_SSL !== 'false';
 
 const pool = new Pool({
-  connectionString,
-  ssl: isLocalConnection ? false : { rejectUnauthorized: false },
-});
-
-pool.on('connect', (client) => {
-  client.query("SET TIME ZONE 'Europe/Belgrade'").catch(() => {});
+    connectionString: process.env.DATABASE_URL,
+    ssl: isSSL ? { rejectUnauthorized: false } : false
 });
 
 module.exports = pool;
