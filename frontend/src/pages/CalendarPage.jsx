@@ -10,6 +10,7 @@ import {
 
 const ORET = ['12:00', '13:00', '14:00', '15:00', '16:00', '17:00', '18:00', '19:00', '20:00', '21:00', '22:00', '23:00'];
 const DITET = ['E Diel', 'E Hënë', 'E Martë', 'E Mërkurë', 'E Enjte', 'E Premte', 'E Shtunë'];
+const DITET_SHORT = ['Die', 'Hën', 'Mar', 'Mër', 'Enj', 'Pre', 'Sht'];
 const MUAJT = ['jan', 'shk', 'mar', 'pri', 'maj', 'qer', 'kor', 'gus', 'sht', 'tet', 'nën', 'dhj'];
 
 function parseBelgradeHourSlot(dateStr, hourLabel) {
@@ -79,7 +80,6 @@ export default function CalendarPage() {
 
   const maxDayOffset = Math.max(0, 7 - daysToShow);
   const visibleWeekDays = useMemo(() => weekDays.slice(dayOffset, dayOffset + daysToShow), [weekDays, dayOffset, daysToShow]);
-  const isMobileCalendar = daysToShow <= 3;
   const canGoBack = weekStart > minBackLimitYmd;
 
   const goPrevDays = () => setDayOffset((o) => Math.max(0, o - 1));
@@ -134,7 +134,7 @@ export default function CalendarPage() {
       <p className="page-subtitle">Pamje javore me fusha dhe orare të disponueshme.</p>
 
       <div className="card" style={{ marginBottom: 16 }}>
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, alignItems: 'center' }}>
+        <div className="mobile-tabs-row" style={{ display: 'flex', flexWrap: 'wrap', gap: 10, alignItems: 'center' }}>
           <button
             type="button"
             className="btn btn-ghost"
@@ -206,7 +206,7 @@ export default function CalendarPage() {
                   }}
                   onClick={() => setSelectedDate(ymd)}
                 >
-                  <span className="calendar-day-dow">{DITET[getWeekdayFromYmd(ymd)]}</span>
+                  <span className="calendar-day-dow">{daysToShow <= 3 ? DITET_SHORT[getWeekdayFromYmd(ymd)] : DITET[getWeekdayFromYmd(ymd)]}</span>
                   <span>{formatBelgradeDate(`${ymd}T12:00:00.000Z`, 'sq-AL', { day: '2-digit', month: 'short' })}</span>
                 </button>
               );
@@ -232,65 +232,18 @@ export default function CalendarPage() {
         </div>
       )}
 
-      {!loading && !error && fields.length > 0 && isMobileCalendar && (
-        <div className="card">
-          <div className="calendar-mobile-grid">
-            {fields.map((field) => (
-              <article key={field.id} className="calendar-mobile-field-card">
-                <h3 style={{ margin: 0 }}>{field.name}</h3>
-                <p className="calendar-mobile-slot-label">Data: {selectedDate}</p>
-                <div className="calendar-mobile-slot-grid">
-                  {ORET.map((time) => {
-                    const slot = availability?.[selectedDate]?.[time]?.[field.id];
-                    const free = Number(slot?.free || 0);
-                    const past = selectedDate === todayYmd && isSlotStartInPast(selectedDate, time);
-                    let text = 'Lirë';
-                    let bg = 'rgba(39, 174, 96, 0.25)'; // GREEN
-                    if (past) {
-                      text = 'Ka kaluar';
-                      bg = 'rgba(128, 128, 128, 0.40)'; // GRAY
-                    } else if (free <= 0) {
-                      text = 'Zënë';
-                      bg = 'rgba(192, 57, 43, 0.35)'; // RED
-                    }
-                    return (
-                      <button
-                        key={`${field.id}-${selectedDate}-${time}`}
-                        type="button"
-                        disabled={past || free <= 0}
-                        onClick={() => onSlotClick(field.id, selectedDate, time, free)}
-                        className="calendar-slot-btn"
-                        style={{
-                          width: '100%',
-                          border: '1px solid var(--border-color)',
-                          borderRadius: 6,
-                          background: bg,
-                          textAlign: 'center',
-                          padding: '8px',
-                          cursor: past || free <= 0 ? 'not-allowed' : 'pointer',
-                        }}
-                      >
-                        {time} - {text}
-                      </button>
-                    );
-                  })}
-                </div>
-              </article>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {!loading && !error && fields.length > 0 && !isMobileCalendar && (
-        <div className="card calendar-table-wrap" style={{ overflowX: 'auto', width: '100%' }}>
-          <table className="table calendar-table" style={{ minWidth: '900px' }}>
+      {!loading && !error && fields.length > 0 && (
+        <div className="card calendar-table-wrap" style={{ overflowX: 'auto', width: '100%', WebkitOverflowScrolling: 'touch' }}>
+          <table className="table calendar-table" style={{ minWidth: '800px' }}>
             <thead>
               <tr>
                 <th>Ora</th>
                 {fields.map((field) => (
                   <th key={field.id}>
                     {field.name}<br />
-                    <span className="calendar-selected-date">{formatDayYmd(selectedDate)}</span>
+                    <span className={`calendar-selected-date${daysToShow <= 3 ? ' calendar-mobile-dow' : ''}`}>
+                      {daysToShow <= 3 ? DITET_SHORT[getWeekdayFromYmd(selectedDate)] : formatDayYmd(selectedDate)}
+                    </span>
                   </th>
                 ))}
               </tr>

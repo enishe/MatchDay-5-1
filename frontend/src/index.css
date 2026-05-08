@@ -59,6 +59,7 @@
 
 html {
   scroll-behavior: smooth;
+  overflow-x: hidden;
 }
 
 body {
@@ -69,7 +70,7 @@ body {
   color: var(--text-primary);
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
-  overflow-x: clip;
+  overflow-x: hidden;
 }
 
 a {
@@ -86,7 +87,7 @@ a:hover {
   min-height: 100dvh;
   display: flex;
   flex-direction: column;
-  overflow-x: clip;
+  overflow-x: visible;
 }
 
 .app-main {
@@ -253,6 +254,20 @@ a:hover {
   overflow-y: auto;
   overflow-x: hidden;
 }
+@media (max-width: 640px) {
+  .notif-dropdown {
+    position: fixed;
+    top: 60px;
+    left: 0;
+    right: 0;
+    width: 100%;
+    max-height: 70vh;
+    margin-top: 0;
+    border-radius: 0;
+    border-left: none;
+    border-right: none;
+  }
+}
 .user-dropdown.open {
   display: block;
 }
@@ -275,32 +290,45 @@ a:hover {
   display: none;
 }
 
-@media (max-width: 900px) {
+@media (max-width: 1024px) {
   .navbar {
     position: relative;
   }
   .navbar-toggle {
     display: inline-flex;
+    background: transparent;
+    border: none;
+    color: #fff;
+    font-size: 24px;
+    cursor: pointer;
+    padding: 8px;
+    min-height: 44px;
+    min-width: 44px;
   }
   .navbar-nav {
     display: none;
     position: absolute;
-    top: 100%;
+    top: 60px;
     left: 0;
     right: 0;
     background: var(--color-primary);
-    padding: 12px;
+    padding: 8px 0;
     flex-direction: column;
     align-items: stretch;
-    gap: 4px;
-    box-shadow: var(--shadow-sm);
+    gap: 0;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
     z-index: 210;
   }
   .navbar-nav.open {
     display: flex;
   }
   .navbar-nav .nav-link {
-    padding: 14px 12px;
+    display: block;
+    padding: 14px 20px;
+    color: rgba(255, 255, 255, 0.85);
+    font-size: 15px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 0;
   }
   .navbar-brand {
     font-size: 0.95rem;
@@ -536,6 +564,9 @@ a:hover {
   .table-wrap {
     margin: 0;
   }
+  .table-wrap .table {
+    min-width: 600px;
+  }
 }
 .table {
   width: 100%;
@@ -606,7 +637,7 @@ a:hover {
   }
   .auth-card {
     max-width: 100%;
-    padding: 16px;
+    padding: 24px;
   }
 }
 
@@ -626,6 +657,26 @@ a:hover {
 .summary-sticky {
   position: sticky;
   top: calc(var(--navbar-height) + 12px);
+}
+
+@media (max-width: 640px) {
+  .summary-sticky {
+    position: static;
+    top: auto;
+  }
+
+  .booking-terrain-buttons,
+  .booking-payment-buttons,
+  .booking-invite-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .booking-terrain-buttons .btn,
+  .booking-payment-buttons .btn,
+  .booking-invite-row .btn {
+    width: 100%;
+  }
 }
 
 .hour-grid {
@@ -679,6 +730,15 @@ a:hover {
   margin-bottom: 16px;
   border-bottom: 1px solid var(--border-color);
   padding-bottom: 4px;
+}
+
+@media (max-width: 640px) {
+  .tabs {
+    overflow-x: auto;
+    white-space: nowrap;
+    flex-wrap: nowrap;
+    -webkit-overflow-scrolling: touch;
+  }
 }
 .tab {
   padding: 10px 16px;
@@ -810,6 +870,10 @@ a:hover {
   white-space: nowrap;
 }
 
+.show-mobile-only {
+  display: none;
+}
+
 @media (min-width: 641px) and (max-width: 1024px) {
   .friends-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -835,6 +899,19 @@ a:hover {
   .friend-card button {
     width: 100%;
   }
+
+  .show-mobile-only {
+    display: block;
+  }
+
+  .friend-request-row {
+    flex-direction: column;
+    align-items: stretch !important;
+  }
+
+  .friend-request-row .btn {
+    width: 100%;
+  }
 }
 
 /* Admin: add-field form grid */
@@ -842,7 +919,7 @@ a:hover {
   display: grid;
   gap: 8px;
   margin-bottom: 12px;
-  grid-template-columns: repeat(5, minmax(120px, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 .admin-calendar-filter-bar {
@@ -936,6 +1013,18 @@ a:hover {
 
 /* ─── Responsive touch targets ─── */
 @media (max-width: 640px) {
+  .hide-mobile {
+    display: none !important;
+  }
+
+  .full-mobile {
+    width: 100% !important;
+  }
+
+  .stack-mobile {
+    flex-direction: column !important;
+  }
+
   .btn {
     min-height: 44px;
     font-size: 14px !important;
@@ -1027,6 +1116,60 @@ a:hover {
   .table--stack-on-mobile td.actions-cell > div {
     flex-direction: column !important;
   }
+
+  .mobile-tabs-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .mobile-tabs-row .btn {
+    padding: 8px 12px !important;
+    font-size: 14px;
+  }
+
+  .calendar-mobile-dow {
+    font-size: 14px;
+    font-weight: 700;
+  }
+
+  .notifications-header {
+    flex-direction: column;
+    align-items: stretch !important;
+    gap: 8px;
+  }
+
+  .notifications-mark-all {
+    width: 100%;
+  }
+
+  .notification-row-content {
+    width: 100%;
+    display: grid;
+    gap: 4px;
+  }
+
+  .notification-row-title,
+  .notification-row-message,
+  .notification-row-time {
+    display: block;
+    width: 100%;
+  }
+
+  .match-player-row {
+    align-items: flex-start !important;
+  }
+
+  .match-player-main {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .profile-save-btn {
+    width: 100%;
+  }
 }
 
 /* ─── Calendar sticky time column ─── */
@@ -1067,7 +1210,7 @@ a:hover {
 
 @media (max-width: 640px) {
   .calendar-table-wrap table {
-    min-width: 0;
+    min-width: 800px;
   }
 
   .calendar-day-dow {
@@ -1081,6 +1224,37 @@ a:hover {
   .calendar-slot-btn {
     font-size: 14px !important;
     min-height: 44px;
+  }
+}
+
+.bell-dropdown {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  width: 320px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
+  z-index: 1000;
+  max-height: 400px;
+  overflow-y: auto;
+  margin-top: 6px;
+}
+
+@media (max-width: 640px) {
+  .bell-dropdown {
+    position: fixed;
+    top: 60px;
+    left: 0;
+    right: 0;
+    width: 100%;
+    max-height: 70vh;
+    overflow-y: auto;
+    margin-top: 0;
+    border-radius: 0;
+    border-left: none;
+    border-right: none;
   }
 }
 

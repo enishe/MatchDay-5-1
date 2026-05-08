@@ -217,7 +217,7 @@ export default function BookingPage() {
           <div>
             <div className="card">
               <div className="card-title">Hapi 1 — Lloji i terrenit</div>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+              <div className="booking-terrain-buttons" style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
                 <button type="button" className={`btn ${terreni === '' ? 'btn-primary' : 'btn-ghost'}`} onClick={() => setTerreni('')}>Të gjitha</button>
                 <button type="button" className={`btn ${terreni === 'artificial_grass' ? 'btn-primary' : 'btn-ghost'}`} onClick={() => setTerreni('artificial_grass')}>Bar artificial</button>
                 <button type="button" className={`btn ${terreni === 'indoor_hall' ? 'btn-primary' : 'btn-ghost'}`} onClick={() => setTerreni('indoor_hall')}>Sallë e mbyllur</button>
@@ -263,7 +263,7 @@ export default function BookingPage() {
           <div className="summary-sticky">
             <div className="card">
               <div className="card-title">Hapi 5-8 — Përmbledhja</div>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 12 }}>
+              <div className="booking-payment-buttons" style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 12 }}>
                 <button type="button" className={`btn ${paymentMethod === 'cash' ? 'btn-primary' : 'btn-ghost'}`} onClick={() => setPaymentMethod('cash')}>Para në dorë</button>
                 <button type="button" className={`btn ${paymentMethod === 'card' ? 'btn-primary' : 'btn-ghost'}`} onClick={() => setPaymentMethod('card')}>Kartelë</button>
               </div>
@@ -325,7 +325,7 @@ export default function BookingPage() {
                       {f.friend.name} ({f.friend.email})
                     </label>
                   ))}
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                  <div className="booking-invite-row" style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
                     <input className="input" value={manualEmail} onChange={(e) => setManualEmail(e.target.value)} placeholder="Shto me email" />
                     <button type="button" className="btn btn-ghost" onClick={addInviteEmail}>Shto</button>
                   </div>

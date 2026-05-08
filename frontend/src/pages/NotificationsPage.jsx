@@ -63,9 +63,9 @@ export default function NotificationsPage() {
       <h1 className="page-title">Njoftimet</h1>
       {error && <div className="feedback feedback-error">{error}</div>}
       <div className="card">
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+        <div className="notifications-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
           <div className="card-title" style={{ marginBottom: 0 }}>Njoftimet e mia</div>
-          <button type="button" className="btn btn-ghost" onClick={markAll}>Shëno të gjitha si të lexuara</button>
+          <button type="button" className="btn btn-ghost notifications-mark-all" onClick={markAll}>Shëno të gjitha si të lexuara</button>
         </div>
         {rows.length === 0 ? (
           <p style={{ color: 'var(--text-muted)', margin: 0 }}>Nuk keni njoftime të reja.</p>
@@ -79,10 +79,10 @@ export default function NotificationsPage() {
                 style={{ justifyContent: 'flex-start', textAlign: 'left', borderLeft: n.is_read ? '3px solid transparent' : '3px solid #3498db' }}
                 onClick={() => markRead(n.id)}
               >
-                <div>
-                  <div style={{ fontWeight: 700 }}>{iconForType(n.type)} {n.title}</div>
-                  <div style={{ color: 'var(--text-secondary)', fontSize: 13 }}>{n.message}</div>
-                  <div style={{ color: 'var(--text-muted)', fontSize: 12 }}>{formatAgo(n.created_at)} · {n.is_read ? 'Lexuar' : 'Palexuar'}</div>
+                <div className="notification-row-content">
+                  <div className="notification-row-title" style={{ fontWeight: 700 }}>{iconForType(n.type)} {n.title}</div>
+                  <div className="notification-row-message" style={{ color: 'var(--text-secondary)', fontSize: 13 }}>{n.message}</div>
+                  <div className="notification-row-time" style={{ color: 'var(--text-muted)', fontSize: 12 }}>{formatAgo(n.created_at)} · {n.is_read ? 'Lexuar' : 'Palexuar'}</div>
                 </div>
               </button>
             ))}

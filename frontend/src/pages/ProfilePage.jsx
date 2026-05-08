@@ -233,7 +233,7 @@ export default function ProfilePage() {
               ))}
             </select>
           </div>
-          <button type="submit" className="btn btn-accent" disabled={saving}>
+          <button type="submit" className="btn btn-accent profile-save-btn" disabled={saving}>
             {saving ? 'Duke ruajtur…' : 'Ruaj ndryshimet'}
           </button>
         </form>

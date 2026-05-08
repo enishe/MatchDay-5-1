@@ -125,6 +125,7 @@ export default function MatchDetail() {
             {players.map((p) => (
               <li
                 key={p.id}
+                className="match-player-row"
                 style={{
                   display: 'flex',
                   alignItems: 'center',
@@ -144,7 +145,7 @@ export default function MatchDetail() {
                 >
                   {p.initials}
                 </div>
-                <div style={{ flex: 1 }}>
+                <div className="match-player-main" style={{ flex: 1 }}>
                   <div style={{ fontWeight: 600 }}>{p.name}</div>
                   <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 4 }}>
                     <span className={`badge ${p.paid ? 'badge-confirmed' : 'badge-pending'}`}>

@@ -153,7 +153,7 @@ export default function FriendsPage() {
         <div className="card" style={{ marginBottom: 16 }}>
           <div className="card-title">Ftesa në pritje</div>
           {pending.map((p) => (
-            <div key={p.id} style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center', marginBottom: 10 }}>
+            <div key={p.id} className="friend-request-row" style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center', marginBottom: 10 }}>
               <span>
                 {p.from.name} ({p.from.email})
               </span>

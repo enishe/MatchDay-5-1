@@ -332,22 +332,7 @@ export default function Navbar() {
               )}
             </button>
             {bellOpen && (
-              <div
-                style={{
-                  position: 'absolute',
-                  top: '100%',
-                  right: 0,
-                  width: 320,
-                  background: 'var(--bg-card)',
-                  border: '1px solid var(--border-color)',
-                  borderRadius: 'var(--radius-md)',
-                  boxShadow: 'var(--shadow-md)',
-                  zIndex: 1000,
-                  maxHeight: 400,
-                  overflowY: 'auto',
-                  marginTop: 6,
-                }}
-              >
+              <div className="bell-dropdown">
                 {playerNotifications.length === 0 ? (
                   <div style={{ padding: '10px 12px', color: 'var(--text-muted)', fontSize: 13 }}>
                     Nuk keni njoftime të reja.

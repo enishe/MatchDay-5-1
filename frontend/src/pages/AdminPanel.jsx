@@ -305,7 +305,8 @@ export default function AdminPanel({ section = 'dashboard' }) {
                 {group.bookings.length === 0 ? (
                   <p style={{ color: 'var(--text-muted)', marginBottom: 0 }}>Sot nuk ka rezervime të konfirmuara.</p>
                 ) : (
-                  <div className="table-wrap">
+                  <>
+                  <div className="table-wrap hide-mobile">
                     <table className="table table--stack-on-mobile">
                       <thead>
                         <tr><th>Numri i fushës</th><th>Ora</th><th>Vlera</th></tr>
@@ -321,6 +322,18 @@ export default function AdminPanel({ section = 'dashboard' }) {
                       </tbody>
                     </table>
                   </div>
+                  <div className="show-mobile-only" style={{ display: 'grid', gap: 8 }}>
+                    {group.bookings.map((b) => (
+                      <div key={`mobile-${b.booking_id}`} className="card" style={{ marginBottom: 0, padding: 12 }}>
+                        <div style={{ fontWeight: 700, marginBottom: 6 }}>Fusha #{b.court_number || '—'}</div>
+                        <div style={{ fontSize: 14, color: 'var(--text-secondary)' }}>
+                          {formatBelgradeDateTime(b.start_time, 'sq-AL', { hour: '2-digit', minute: '2-digit' })} - {formatBelgradeDateTime(b.end_time, 'sq-AL', { hour: '2-digit', minute: '2-digit' })}
+                        </div>
+                        <div style={{ marginTop: 6, fontWeight: 700 }}>{Number(b.total_price || 0).toFixed(2)}€</div>
+                      </div>
+                    ))}
+                  </div>
+                  </>
                 )}
               </div>
             ))}
