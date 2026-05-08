@@ -126,7 +126,7 @@ class NotificationService {
 
         if (sourceMaybe === 'admin') {
             await pool.query(`UPDATE admin_notifications SET is_read = true WHERE id = $1`, [numericId]);
-            return { ok: true };
+            return { success: true, ok: true };
         }
         if (sourceMaybe === 'unified') {
             if (userId == null) {
@@ -134,7 +134,7 @@ class NotificationService {
             } else {
                 await pool.query(`UPDATE notifications SET is_read = true WHERE id = $1 AND COALESCE(recipient_id, user_id) = $2`, [numericId, userId]);
             }
-            return { ok: true };
+            return { success: true, ok: true };
         }
 
         if (userId == null) {
@@ -150,7 +150,7 @@ class NotificationService {
                 [numericId, userId]
             );
         }
-        return { ok: true };
+        return { success: true, ok: true };
     }
 
     async createUserNotification(recipientId, type, title, message, bookingId = null) {
@@ -208,7 +208,23 @@ class NotificationService {
              WHERE COALESCE(recipient_id, user_id) = $1 AND is_read = false`,
             [recipientId]
         );
-        return { ok: true };
+        return { success: true, ok: true };
+    }
+
+    async markAllAdminNotificationsRead() {
+        await Promise.all([
+            pool.query(
+                `UPDATE admin_notifications
+                 SET is_read = true
+                 WHERE is_read = false`
+            ),
+            pool.query(
+                `UPDATE notifications
+                 SET is_read = true
+                 WHERE recipient_type = 'admin' AND is_read = false`
+            ),
+        ]);
+        return { success: true, ok: true };
     }
 
     // Create notification

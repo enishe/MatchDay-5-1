@@ -30,6 +30,18 @@ router.get('/my/count', authenticateToken, async (req, res) => {
   }
 });
 
+router.get('/unread-count', authenticateToken, async (req, res) => {
+  try {
+    const userId = Number(req.user.id);
+    const count = req.user.role === 'admin'
+      ? await notificationService.getUnreadCount(null)
+      : await notificationService.getMyUnreadCount(userId);
+    res.json({ count: Number(count) || 0 });
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
 router.put('/my/:id/read', authenticateToken, async (req, res) => {
   try {
     const data = await notificationService.markMyNotificationRead(
@@ -42,10 +54,31 @@ router.put('/my/:id/read', authenticateToken, async (req, res) => {
   }
 });
 
+router.patch('/my/:id/read', authenticateToken, async (req, res) => {
+  try {
+    const data = await notificationService.markMyNotificationRead(
+      Number(req.user.id),
+      String(req.params.id)
+    );
+    res.json({ success: true, ...data });
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
 router.put('/my/read-all', authenticateToken, async (req, res) => {
   try {
     const data = await notificationService.markAllMyNotificationsRead(Number(req.user.id));
     res.json(data);
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
+router.patch('/my/read-all', authenticateToken, async (req, res) => {
+  try {
+    const data = await notificationService.markAllMyNotificationsRead(Number(req.user.id));
+    res.json({ success: true, ...data });
   } catch (error) {
     res.status(400).json({ error: error.message });
   }
@@ -72,11 +105,42 @@ router.put('/:id/read', authenticateToken, requireRole(['admin']), async (req, r
   }
 });
 
+router.patch('/:id/read', authenticateToken, async (req, res) => {
+  try {
+    const data = req.user.role === 'admin'
+      ? await notificationService.markAsRead(String(req.params.id), null)
+      : await notificationService.markMyNotificationRead(Number(req.user.id), String(req.params.id));
+    res.json({ success: true, ...data });
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
+router.patch('/read-all', authenticateToken, async (req, res) => {
+  try {
+    const data = req.user.role === 'admin'
+      ? await notificationService.markAllAdminNotificationsRead()
+      : await notificationService.markAllMyNotificationsRead(Number(req.user.id));
+    res.json({ success: true, ...data });
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
 router.get('/count', authenticateToken, requireRole(['admin']), async (req, res) => {
   try {
     console.warn('[notifications] Legacy admin endpoint in use: GET /api/notifications/count');
     const count = await notificationService.getUnreadCount(null);
     res.json({ count });
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
+router.get('/admin/unread-count', authenticateToken, requireRole(['admin']), async (req, res) => {
+  try {
+    const count = await notificationService.getUnreadCount(null);
+    res.json({ count: Number(count) || 0 });
   } catch (error) {
     res.status(400).json({ error: error.message });
   }

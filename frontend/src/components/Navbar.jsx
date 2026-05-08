@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { LogOut, Menu, Moon, Sun, X } from 'lucide-react';
 import { getStoredTheme, toggleTheme, useAuth } from '../context/AuthContext';
@@ -70,17 +70,24 @@ export default function Navbar() {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
+  const fetchUnreadCount = useCallback(async () => {
+    if (!token) return;
+    const endpoint = isAdmin ? '/notifications/count' : '/notifications/my/count';
+    try {
+      const r = await apiFetch(endpoint, { token });
+      const count = parseInt(r?.count, 10) || 0;
+      setUnreadCount(count);
+    } catch {
+      setUnreadCount(0);
+    }
+  }, [isAdmin, token]);
+
   useEffect(() => {
     if (!token) return;
     let active = true;
-    const load = () => {
-      const endpoint = isAdmin ? '/notifications/count' : '/notifications/my/count';
-      apiFetch(endpoint, { token })
-        .then((r) => {
-          const count = parseInt(r?.count, 10) || 0;
-          if (active) setUnreadCount(count);
-        })
-        .catch(() => active && setUnreadCount(0));
+    const load = async () => {
+      if (!active) return;
+      await fetchUnreadCount();
     };
     load();
     const id = setInterval(load, 30000);
@@ -88,7 +95,7 @@ export default function Navbar() {
       active = false;
       clearInterval(id);
     };
-  }, [isAdmin, token]);
+  }, [fetchUnreadCount, token]);
 
   const formatAgo = (value) => {
     const ms = Date.now() - new Date(value).getTime();
@@ -106,44 +113,70 @@ export default function Navbar() {
     apiFetch(endpoint, { token })
       .then((r) => {
         const nextList = Array.isArray(r) ? r.slice(0, 5) : [];
-        const nextUnreadCount = nextList.filter((n) => !n.is_read).length;
         setNotifications(nextList);
-        setUnreadCount(nextUnreadCount);
+        fetchUnreadCount();
       })
       .catch(() => setNotifications([]));
   };
 
   const markRead = async (id) => {
     const endpoint = isAdmin ? `/notifications/${id}/read` : `/notifications/my/${id}/read`;
-    await apiFetch(endpoint, { token, method: 'PUT' });
+    setUnreadCount((prev) => Math.max(0, prev - 1));
     setNotifications((prev) => {
       const updatedList = prev.map((x) => (x.id === id ? { ...x, is_read: true } : x));
-      const newCount = updatedList.filter((n) => !n.is_read).length;
-      setUnreadCount(newCount);
       return updatedList;
     });
-    setNotifOpen(false);
+    try {
+      await apiFetch(endpoint, { token, method: 'PUT' });
+    } finally {
+      fetchUnreadCount();
+    }
+  };
+
+  const markAllRead = async () => {
+    const endpoint = isAdmin ? '/notifications/read-all' : '/notifications/my/read-all';
+    setUnreadCount(0);
+    setNotifications((prev) => prev.map((x) => ({ ...x, is_read: true })));
+    try {
+      await apiFetch(endpoint, { token, method: 'PATCH' });
+      loadNotifications();
+    } finally {
+      fetchUnreadCount();
+    }
   };
 
   const loadPlayerNotifications = () => {
     apiFetch('/notifications/my', { token })
       .then((r) => {
         const nextList = Array.isArray(r) ? r.slice(0, 5) : [];
-        const nextUnreadCount = nextList.filter((n) => !n.is_read).length;
         setPlayerNotifications(nextList);
-        setUnreadCount(nextUnreadCount);
+        fetchUnreadCount();
       })
       .catch(() => setPlayerNotifications([]));
   };
 
   const markPlayerRead = async (id) => {
-    await apiFetch(`/notifications/my/${id}/read`, { token, method: 'PUT' });
+    setUnreadCount((prev) => Math.max(0, prev - 1));
     setPlayerNotifications((prev) => {
       const updatedList = prev.map((x) => (x.id === id ? { ...x, is_read: true } : x));
-      const newCount = updatedList.filter((n) => !n.is_read).length;
-      setUnreadCount(newCount);
       return updatedList;
     });
+    try {
+      await apiFetch(`/notifications/my/${id}/read`, { token, method: 'PUT' });
+    } finally {
+      fetchUnreadCount();
+    }
+  };
+
+  const markAllPlayerRead = async () => {
+    setUnreadCount(0);
+    setPlayerNotifications((prev) => prev.map((x) => ({ ...x, is_read: true })));
+    try {
+      await apiFetch('/notifications/my/read-all', { token, method: 'PATCH' });
+      loadPlayerNotifications();
+    } finally {
+      fetchUnreadCount();
+    }
   };
 
   useEffect(() => {
@@ -264,6 +297,9 @@ export default function Navbar() {
             </button>
             {notifOpen && (
               <div className="user-dropdown notif-dropdown open">
+                <button type="button" onClick={markAllRead} style={{ fontWeight: 700 }}>
+                  Shëno të gjitha si të lexuara
+                </button>
                 {notifications.map((n) => (
                   <button
                     key={n.id}
@@ -333,6 +369,13 @@ export default function Navbar() {
             </button>
             {bellOpen && (
               <div className="bell-dropdown">
+                <button
+                  type="button"
+                  onClick={markAllPlayerRead}
+                  style={{ width: '100%', textAlign: 'left', padding: '10px 12px', fontWeight: 700 }}
+                >
+                  Shëno të gjitha si të lexuara
+                </button>
                 {playerNotifications.length === 0 ? (
                   <div style={{ padding: '10px 12px', color: 'var(--text-muted)', fontSize: 13 }}>
                     Nuk keni njoftime të reja.
