@@ -74,59 +74,24 @@ async function ensureSchema() {
           b.price_per_player,
           b.status AS booking_status,
           u.name AS organizer_name,
-          up.username AS organizer_username,
-          COUNT(mp.id) AS total_players,
-          COUNT(CASE WHEN mp.invitation_status = 'accepted' THEN 1 END) AS accepted_players,
-          COUNT(CASE WHEN mp.invitation_status = 'pending' THEN 1 END) AS pending_players,
-          COUNT(CASE WHEN mp.check_in_status = 'checked_in' THEN 1 END) AS checked_in_players,
-          SUM(pp.total_amount) AS total_collected,
           b.created_at
-      FROM Bookings b
-      JOIN Fields f ON b.field_id = f.id
-      JOIN Users u ON b.organizer_id = u.id
-      LEFT JOIN UserProfiles up ON u.id = up.user_id
-      LEFT JOIN MatchPlayers mp ON b.id = mp.booking_id
-      LEFT JOIN PlayerPayments pp ON b.id = pp.booking_id AND mp.user_id = pp.user_id
-      GROUP BY b.id, f.name, f.terrain_type, f.location, u.name, up.username;
+      FROM bookings b
+      JOIN fields f ON b.field_id = f.id
+      JOIN users u ON b.organizer_id = u.id
     `);
     await pool.query(`
       CREATE VIEW PlayerUpcomingMatches AS
-
       SELECT
-
           b.id AS booking_id,
-
           b.start_time,
-
           b.end_time,
-
           f.name AS field_name,
-
           f.location,
-
-          b.price_per_player,
-
-          mp.invitation_status,
-
-          pp.status AS payment_status,
-
-          pp.total_amount,
-
-          mp.check_in_status
-
-      FROM Bookings b
-
-      JOIN Fields f ON b.field_id = f.id
-
-      JOIN MatchPlayers mp ON b.id = mp.booking_id
-
-      LEFT JOIN PlayerPayments pp ON b.id = pp.booking_id AND mp.user_id = pp.user_id
-
+          b.price_per_player
+      FROM bookings b
+      JOIN fields f ON b.field_id = f.id
       WHERE b.start_time >= CURRENT_DATE
-
         AND b.status IN ('pending', 'confirmed')
-
-        AND mp.invitation_status IN ('invited', 'pending', 'accepted');
     `);
     await pool.query(`
       CREATE OR REPLACE VIEW bookingpaymentsummary AS
