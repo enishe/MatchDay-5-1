@@ -179,6 +179,28 @@ export default function Navbar() {
     }
   };
 
+  const onAdminBellToggle = () => {
+    const next = !notifOpen;
+    setNotifOpen(next);
+    if (next) {
+      loadNotifications();
+      markAllRead();
+    } else {
+      fetchUnreadCount();
+    }
+  };
+
+  const onUserBellToggle = () => {
+    const next = !bellOpen;
+    setBellOpen(next);
+    if (next) {
+      loadPlayerNotifications();
+      markAllPlayerRead();
+    } else {
+      fetchUnreadCount();
+    }
+  };
+
   useEffect(() => {
     if (!menuOpen) return undefined;
 
@@ -282,11 +304,7 @@ export default function Navbar() {
               type="button"
               className="icon-btn"
               aria-label="Njoftimet"
-              onClick={() => {
-                const next = !notifOpen;
-                setNotifOpen(next);
-                if (next) loadNotifications();
-              }}
+              onClick={onAdminBellToggle}
             >
               <span aria-hidden style={{ fontSize: 18 }}>🔔</span>
               {unreadCount > 0 && (
@@ -338,11 +356,7 @@ export default function Navbar() {
               type="button"
               className="icon-btn"
               aria-label="Njoftimet"
-              onClick={() => {
-                const next = !bellOpen;
-                setBellOpen(next);
-                if (next) loadPlayerNotifications();
-              }}
+              onClick={onUserBellToggle}
             >
               <span aria-hidden style={{ fontSize: 18 }}>🔔</span>
               {unreadCount > 0 && (

@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { apiFetch } from '../lib/api';
 import { useAuth } from '../context/AuthContext';
-import { BELGRADE_TIMEZONE, formatBelgradeDateTime, getBelgradeTodayYmd } from '../lib/timezone';
+import { formatBelgradeDateTime, getBelgradeTodayYmd } from '../lib/timezone';
 
 function statusBadgeClass(status) {
   if (status === 'confirmed') return 'badge-confirmed';
@@ -630,7 +630,7 @@ export default function AdminPanel({ section = 'dashboard' }) {
 
           {calendarData?.field && (
             <p style={{ color: 'var(--text-secondary)', marginTop: 0 }}>
-              Fusha: <strong>{calendarData.field.name}</strong> — {calendarData.field.location || 'Pa lokacion'} | Data: <strong>{calendarData.date}</strong> | Zona: <strong>{BELGRADE_TIMEZONE}</strong>
+              Fusha: <strong>{calendarData.field.name}</strong> — {calendarData.field.location || 'Pa lokacion'} | Data: <strong>{calendarData.date}</strong>
             </p>
           )}
 
