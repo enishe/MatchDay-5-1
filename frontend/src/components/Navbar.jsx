@@ -85,15 +85,21 @@ export default function Navbar() {
   useEffect(() => {
     if (!token) return;
     let active = true;
-    const load = async () => {
-      if (!active) return;
-      await fetchUnreadCount();
+    const pollMs = 60000;
+    const tick = () => {
+      if (!active || document.visibilityState !== 'visible') return;
+      fetchUnreadCount();
     };
-    load();
-    const id = setInterval(load, 30000);
+    fetchUnreadCount();
+    const id = setInterval(tick, pollMs);
+    const onVisibility = () => {
+      if (document.visibilityState === 'visible') fetchUnreadCount();
+    };
+    document.addEventListener('visibilitychange', onVisibility);
     return () => {
       active = false;
       clearInterval(id);
+      document.removeEventListener('visibilitychange', onVisibility);
     };
   }, [fetchUnreadCount, token]);
 

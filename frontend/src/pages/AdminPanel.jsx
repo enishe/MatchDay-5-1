@@ -59,12 +59,8 @@ export default function AdminPanel({ section = 'dashboard' }) {
   const fetchBookings = useCallback(() => {
     if (!token) return;
     const q = filtri ? `?status=${encodeURIComponent(filtri)}` : '';
-    return Promise.all([
-      apiFetch(`/matches${q}`, { token }),
-      apiFetch('/matches/stats', { token }),
-    ]).then(([m, s]) => {
+    return apiFetch(`/matches${q}`, { token }).then((m) => {
       setMatches(Array.isArray(m) ? m : []);
-      setStats(s && typeof s === 'object' ? s : null);
     });
   }, [token, filtri]);
 
