@@ -83,35 +83,33 @@ export default function NotificationsPage() {
         {rows.length === 0 ? (
           <p style={{ color: 'var(--text-muted)', margin: 0 }}>Nuk keni njoftime të reja.</p>
         ) : (
-          <div style={{ display: 'grid', gap: 8 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
             {rows.map((n) => (
               <div
                 key={n.id}
-                style={{
-                  display: 'flex',
-                  alignItems: 'flex-start',
-                  gap: 8,
-                  borderLeft: n.is_read ? '3px solid transparent' : '3px solid #3498db',
-                }}
+                className={`notification-item${n.is_read ? '' : ' notification-item--unread'}`}
               >
                 <button
                   type="button"
-                  className="btn btn-ghost"
-                  style={{ flex: 1, justifyContent: 'flex-start', textAlign: 'left', minWidth: 0 }}
+                  className="notification-item__click"
                   onClick={() => markRead(n.id)}
                 >
-                  <div className="notification-row-content">
-                    <div className="notification-row-title" style={{ fontWeight: 700 }}>{iconForType(n.type)} {n.title}</div>
-                    <div className="notification-row-message" style={{ color: 'var(--text-secondary)', fontSize: 13 }}>{n.message}</div>
-                    <div className="notification-row-time" style={{ color: 'var(--text-muted)', fontSize: 12 }}>{formatAgo(n.created_at)} · {n.is_read ? 'Lexuar' : 'Palexuar'}</div>
+                  <span className="notification-item__icon" aria-hidden>
+                    {iconForType(n.type)}
+                  </span>
+                  <div className="notification-item__main">
+                    <div className="notification-item__top">
+                      <span className="notification-item__title">{n.title}</span>
+                      <span className="notification-item__time">{formatAgo(n.created_at)}</span>
+                    </div>
+                    <div className="notification-item__msg">{n.message}</div>
                   </div>
                 </button>
                 <button
                   type="button"
-                  className="icon-btn btn-ghost"
+                  className="icon-btn btn-ghost notification-item__delete"
                   aria-label="Fshi njoftimin"
                   onClick={(e) => removeOne(n.id, e)}
-                  style={{ flexShrink: 0, marginTop: 4 }}
                 >
                   <Trash2 size={18} />
                 </button>
