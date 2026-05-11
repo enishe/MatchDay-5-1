@@ -84,6 +84,16 @@ router.patch('/my/read-all', authenticateToken, async (req, res) => {
   }
 });
 
+router.delete('/my/:id', authenticateToken, async (req, res) => {
+  try {
+    await notificationService.deleteNotification(String(req.params.id), Number(req.user.id));
+    res.json({ success: true });
+  } catch (error) {
+    const status = error.statusCode || 400;
+    res.status(status).json({ error: error.message });
+  }
+});
+
 router.get('/', authenticateToken, requireRole(['admin']), async (req, res) => {
   try {
     console.warn('[notifications] Legacy admin endpoint in use: GET /api/notifications');
@@ -143,6 +153,16 @@ router.get('/admin/unread-count', authenticateToken, requireRole(['admin']), asy
     res.json({ count: Number(count) || 0 });
   } catch (error) {
     res.status(400).json({ error: error.message });
+  }
+});
+
+router.delete('/:id', authenticateToken, requireRole(['admin']), async (req, res) => {
+  try {
+    await notificationService.deleteNotification(String(req.params.id), null);
+    res.json({ success: true });
+  } catch (error) {
+    const status = error.statusCode || 400;
+    res.status(status).json({ error: error.message });
   }
 });
 

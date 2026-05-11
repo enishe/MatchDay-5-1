@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
-import { LogOut, Menu, Moon, Sun, X } from 'lucide-react';
+import { LogOut, Menu, Moon, Sun, Trash2, X } from 'lucide-react';
 import { getStoredTheme, toggleTheme, useAuth } from '../context/AuthContext';
 import { apiFetch } from '../lib/api';
 
@@ -126,7 +126,7 @@ export default function Navbar() {
   };
 
   const markRead = async (id) => {
-    const endpoint = isAdmin ? `/notifications/${id}/read` : `/notifications/my/${id}/read`;
+    const endpoint = isAdmin ? `/notifications/${encodeURIComponent(id)}/read` : `/notifications/my/${encodeURIComponent(id)}/read`;
     setUnreadCount((prev) => Math.max(0, prev - 1));
     setNotifications((prev) => {
       const updatedList = prev.map((x) => (x.id === id ? { ...x, is_read: true } : x));
@@ -168,7 +168,7 @@ export default function Navbar() {
       return updatedList;
     });
     try {
-      await apiFetch(`/notifications/my/${id}/read`, { token, method: 'PUT' });
+      await apiFetch(`/notifications/my/${encodeURIComponent(id)}/read`, { token, method: 'PUT' });
     } finally {
       fetchUnreadCount();
     }
@@ -190,7 +190,6 @@ export default function Navbar() {
     setNotifOpen(next);
     if (next) {
       loadNotifications();
-      markAllRead();
     } else {
       fetchUnreadCount();
     }
@@ -201,8 +200,31 @@ export default function Navbar() {
     setBellOpen(next);
     if (next) {
       loadPlayerNotifications();
-      markAllPlayerRead();
     } else {
+      fetchUnreadCount();
+    }
+  };
+
+  const deleteAdminNotif = async (id, e) => {
+    e?.stopPropagation?.();
+    if (!window.confirm('Të fshihet ky njoftim?')) return;
+    try {
+      await apiFetch(`/notifications/${encodeURIComponent(id)}`, { token, method: 'DELETE' });
+      setNotifications((prev) => prev.filter((x) => x.id !== id));
+      fetchUnreadCount();
+    } catch {
+      fetchUnreadCount();
+    }
+  };
+
+  const deletePlayerNotif = async (id, e) => {
+    e?.stopPropagation?.();
+    if (!window.confirm('Të fshihet ky njoftim?')) return;
+    try {
+      await apiFetch(`/notifications/my/${encodeURIComponent(id)}`, { token, method: 'DELETE' });
+      setPlayerNotifications((prev) => prev.filter((x) => x.id !== id));
+      fetchUnreadCount();
+    } catch {
       fetchUnreadCount();
     }
   };
@@ -325,29 +347,48 @@ export default function Navbar() {
                   Shëno të gjitha si të lexuara
                 </button>
                 {notifications.map((n) => (
-                  <button
+                  <div
                     key={n.id}
-                    type="button"
-                    onClick={() => markRead(n.id)}
-                    style={{ borderLeft: n.is_read ? '3px solid transparent' : '3px solid #3498db', marginBottom: 4 }}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'flex-start',
+                      gap: 6,
+                      borderLeft: n.is_read ? '3px solid transparent' : '3px solid #3498db',
+                      marginBottom: 4,
+                    }}
                   >
-                    <div style={{ fontWeight: 700 }}>
-                      {n.type === 'invite'
-                        ? '📅'
-                        : n.type === 'invite_accepted'
-                          ? '✅'
-                          : n.type === 'booking_confirmed'
+                    <button
+                      type="button"
+                      onClick={() => markRead(n.id)}
+                      style={{ flex: 1, textAlign: 'left', minWidth: 0 }}
+                    >
+                      <div style={{ fontWeight: 700 }}>
+                        {n.type === 'invite'
+                          ? '📅'
+                          : n.type === 'invite_accepted'
                             ? '✅'
-                            : n.type === 'booking_canceled'
-                              ? '❌'
-                              : n.type === 'new_booking'
-                                ? '📅'
-                                : '🔔'}{' '}
-                      {n.title}
-                    </div>
-                    <div style={{ fontSize: 12, color: 'var(--text-secondary)', whiteSpace: 'normal' }}>{n.message}</div>
-                    <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{formatAgo(n.created_at)}</div>
-                  </button>
+                            : n.type === 'booking_confirmed'
+                              ? '✅'
+                              : n.type === 'booking_canceled'
+                                ? '❌'
+                                : n.type === 'new_booking'
+                                  ? '📅'
+                                  : '🔔'}{' '}
+                        {n.title}
+                      </div>
+                      <div style={{ fontSize: 12, color: 'var(--text-secondary)', whiteSpace: 'normal' }}>{n.message}</div>
+                      <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{formatAgo(n.created_at)}</div>
+                    </button>
+                    <button
+                      type="button"
+                      className="icon-btn"
+                      aria-label="Fshi njoftimin"
+                      onClick={(e) => deleteAdminNotif(n.id, e)}
+                      style={{ flexShrink: 0, marginTop: 2 }}
+                    >
+                      <Trash2 size={16} />
+                    </button>
+                  </div>
                 ))}
                 <button type="button" onClick={() => navigate('/admin/notifications')}>
                   Shiko të gjitha
@@ -402,38 +443,52 @@ export default function Navbar() {
                   </div>
                 ) : (
                   playerNotifications.map((n) => (
-                    <button
+                    <div
                       key={n.id}
-                      type="button"
-                      onClick={() => markPlayerRead(n.id)}
                       style={{
-                        width: '100%',
-                        textAlign: 'left',
+                        display: 'flex',
+                        alignItems: 'flex-start',
+                        gap: 6,
                         borderLeft: n.is_read ? '3px solid transparent' : '3px solid #3498db',
                         marginBottom: 4,
                         borderBottom: '1px solid var(--border-color)',
                         padding: '10px',
                       }}
                     >
-                      <div style={{ fontWeight: 700 }}>
-                        {n.type === 'invite'
-                          ? '📅'
-                          : n.type === 'invite_accepted'
-                            ? '✅'
-                            : n.type === 'booking_confirmed'
+                      <button
+                        type="button"
+                        onClick={() => markPlayerRead(n.id)}
+                        style={{ flex: 1, textAlign: 'left', minWidth: 0 }}
+                      >
+                        <div style={{ fontWeight: 700 }}>
+                          {n.type === 'invite'
+                            ? '📅'
+                            : n.type === 'invite_accepted'
                               ? '✅'
-                              : n.type === 'booking_canceled'
-                                ? '❌'
-                                : n.type === 'new_booking'
-                                  ? '📅'
-                                  : '🔔'}{' '}
-                        {n.title}
-                      </div>
-                      <div style={{ fontSize: 12, color: 'var(--text-secondary)', whiteSpace: 'normal' }}>
-                        {String(n.message || '').length > 60 ? `${String(n.message || '').slice(0, 60)}...` : String(n.message || '')}
-                      </div>
-                      <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{formatAgo(n.created_at)}</div>
-                    </button>
+                              : n.type === 'booking_confirmed'
+                                ? '✅'
+                                : n.type === 'booking_canceled'
+                                  ? '❌'
+                                  : n.type === 'new_booking'
+                                    ? '📅'
+                                    : '🔔'}{' '}
+                          {n.title}
+                        </div>
+                        <div style={{ fontSize: 12, color: 'var(--text-secondary)', whiteSpace: 'normal' }}>
+                          {String(n.message || '').length > 60 ? `${String(n.message || '').slice(0, 60)}...` : String(n.message || '')}
+                        </div>
+                        <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{formatAgo(n.created_at)}</div>
+                      </button>
+                      <button
+                        type="button"
+                        className="icon-btn"
+                        aria-label="Fshi njoftimin"
+                        onClick={(e) => deletePlayerNotif(n.id, e)}
+                        style={{ flexShrink: 0, marginTop: 2 }}
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    </div>
                   ))
                 )}
                 <button

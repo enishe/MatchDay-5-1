@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { Trash2 } from 'lucide-react';
 import { apiFetch } from '../lib/api';
 import { useAuth } from '../context/AuthContext';
 
@@ -42,10 +43,22 @@ export default function NotificationsPage() {
 
   const markRead = async (id) => {
     try {
-      await apiFetch(`/notifications/my/${id}/read`, { token, method: 'PUT' });
+      await apiFetch(`/notifications/my/${encodeURIComponent(id)}/read`, { token, method: 'PUT' });
       setRows((prev) => prev.map((n) => (n.id === id ? { ...n, is_read: true } : n)));
     } catch (e) {
       setError(e.message || 'Nuk u shënua si i lexuar.');
+    }
+  };
+
+  const removeOne = async (id, e) => {
+    e?.stopPropagation?.();
+    if (!window.confirm('Të fshihet ky njoftim?')) return;
+    try {
+      await apiFetch(`/notifications/my/${encodeURIComponent(id)}`, { token, method: 'DELETE' });
+      setRows((prev) => prev.filter((n) => n.id !== id));
+      setError('');
+    } catch (err) {
+      setError(err.message || 'Nuk u fshi njoftimi.');
     }
   };
 
@@ -72,19 +85,37 @@ export default function NotificationsPage() {
         ) : (
           <div style={{ display: 'grid', gap: 8 }}>
             {rows.map((n) => (
-              <button
+              <div
                 key={n.id}
-                type="button"
-                className="btn btn-ghost"
-                style={{ justifyContent: 'flex-start', textAlign: 'left', borderLeft: n.is_read ? '3px solid transparent' : '3px solid #3498db' }}
-                onClick={() => markRead(n.id)}
+                style={{
+                  display: 'flex',
+                  alignItems: 'flex-start',
+                  gap: 8,
+                  borderLeft: n.is_read ? '3px solid transparent' : '3px solid #3498db',
+                }}
               >
-                <div className="notification-row-content">
-                  <div className="notification-row-title" style={{ fontWeight: 700 }}>{iconForType(n.type)} {n.title}</div>
-                  <div className="notification-row-message" style={{ color: 'var(--text-secondary)', fontSize: 13 }}>{n.message}</div>
-                  <div className="notification-row-time" style={{ color: 'var(--text-muted)', fontSize: 12 }}>{formatAgo(n.created_at)} · {n.is_read ? 'Lexuar' : 'Palexuar'}</div>
-                </div>
-              </button>
+                <button
+                  type="button"
+                  className="btn btn-ghost"
+                  style={{ flex: 1, justifyContent: 'flex-start', textAlign: 'left', minWidth: 0 }}
+                  onClick={() => markRead(n.id)}
+                >
+                  <div className="notification-row-content">
+                    <div className="notification-row-title" style={{ fontWeight: 700 }}>{iconForType(n.type)} {n.title}</div>
+                    <div className="notification-row-message" style={{ color: 'var(--text-secondary)', fontSize: 13 }}>{n.message}</div>
+                    <div className="notification-row-time" style={{ color: 'var(--text-muted)', fontSize: 12 }}>{formatAgo(n.created_at)} · {n.is_read ? 'Lexuar' : 'Palexuar'}</div>
+                  </div>
+                </button>
+                <button
+                  type="button"
+                  className="icon-btn btn-ghost"
+                  aria-label="Fshi njoftimin"
+                  onClick={(e) => removeOne(n.id, e)}
+                  style={{ flexShrink: 0, marginTop: 4 }}
+                >
+                  <Trash2 size={18} />
+                </button>
+              </div>
             ))}
           </div>
         )}

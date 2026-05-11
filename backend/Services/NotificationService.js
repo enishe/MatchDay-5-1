@@ -153,6 +153,88 @@ class NotificationService {
         return { success: true, ok: true };
     }
 
+    /**
+     * Delete a single notification. Mirrors {@link markAsRead} id parsing (admin:/unified:/legacy).
+     * Rows in `notifications` with is_sent = false are kept for the email pipeline (409)
+     * when deleting **admin** unified rows (`recipient_type = 'admin'`). User inbox deletes
+     * are always allowed for that user's rows.
+     */
+    async deleteNotification(notificationId, userId = null) {
+        const asString = String(notificationId || '');
+        const [sourceMaybe, idMaybe] = asString.includes(':') ? asString.split(':') : [null, asString];
+        const numericId = Number(idMaybe);
+        if (!Number.isInteger(numericId) || numericId <= 0) {
+            throw new Error('ID e njoftimit nuk është valide.');
+        }
+
+        const pendingEmailError = () => {
+            const err = new Error('Njoftimi është në radhë për email; nuk mund të fshihet ende.');
+            err.statusCode = 409;
+            return err;
+        };
+
+        if (sourceMaybe === 'admin') {
+            const r = await pool.query(`DELETE FROM admin_notifications WHERE id = $1 RETURNING id`, [numericId]);
+            if (r.rowCount === 0) {
+                throw new Error('Njoftimi nuk u gjet.');
+            }
+            return { success: true, ok: true };
+        }
+
+        if (sourceMaybe === 'unified') {
+            if (userId == null) {
+                const check = await pool.query(
+                    `SELECT is_sent FROM notifications WHERE id = $1 AND recipient_type = 'admin'`,
+                    [numericId]
+                );
+                if (check.rows.length === 0) {
+                    throw new Error('Njoftimi nuk u gjet.');
+                }
+                if (check.rows[0].is_sent === false) {
+                    throw pendingEmailError();
+                }
+                await pool.query(`DELETE FROM notifications WHERE id = $1 AND recipient_type = 'admin'`, [numericId]);
+                return { success: true, ok: true };
+            }
+            const r = await pool.query(
+                `DELETE FROM notifications WHERE id = $1 AND COALESCE(recipient_id, user_id) = $2 RETURNING id`,
+                [numericId, userId]
+            );
+            if (r.rowCount === 0) {
+                throw new Error('Njoftimi nuk u gjet.');
+            }
+            return { success: true, ok: true };
+        }
+
+        if (userId == null) {
+            const checkUni = await pool.query(
+                `SELECT is_sent FROM notifications WHERE id = $1 AND recipient_type = 'admin'`,
+                [numericId]
+            );
+            if (checkUni.rows.length > 0 && checkUni.rows[0].is_sent === false) {
+                throw pendingEmailError();
+            }
+            const delLegacy = await pool.query(`DELETE FROM admin_notifications WHERE id = $1 RETURNING id`, [numericId]);
+            const delUni = await pool.query(
+                `DELETE FROM notifications WHERE id = $1 AND recipient_type = 'admin'`,
+                [numericId]
+            );
+            if (delLegacy.rowCount === 0 && delUni.rowCount === 0) {
+                throw new Error('Njoftimi nuk u gjet.');
+            }
+            return { success: true, ok: true };
+        }
+
+        const r = await pool.query(
+            `DELETE FROM notifications WHERE id = $1 AND COALESCE(recipient_id, user_id) = $2 RETURNING id`,
+            [numericId, userId]
+        );
+        if (r.rowCount === 0) {
+            throw new Error('Njoftimi nuk u gjet.');
+        }
+        return { success: true, ok: true };
+    }
+
     async createUserNotification(recipientId, type, title, message, bookingId = null) {
         const safeRecipientId = Number(recipientId);
         if (!Number.isInteger(safeRecipientId) || safeRecipientId <= 0) {
