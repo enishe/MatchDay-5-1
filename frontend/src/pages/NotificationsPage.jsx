@@ -83,7 +83,7 @@ export default function NotificationsPage() {
         {rows.length === 0 ? (
           <p style={{ color: 'var(--text-muted)', margin: 0 }}>Nuk keni njoftime të reja.</p>
         ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          <div className="notification-list">
             {rows.map((n) => (
               <div
                 key={n.id}
@@ -107,7 +107,7 @@ export default function NotificationsPage() {
                 </button>
                 <button
                   type="button"
-                  className="icon-btn btn-ghost notification-item__delete"
+                  className="icon-btn notification-item__delete"
                   aria-label="Fshi njoftimin"
                   onClick={(e) => removeOne(n.id, e)}
                 >

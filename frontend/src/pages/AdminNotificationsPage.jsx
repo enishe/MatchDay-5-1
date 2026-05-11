@@ -4,6 +4,15 @@ import { apiFetch } from '../lib/api';
 import { useAuth } from '../context/AuthContext';
 import { formatBelgradeDateTime } from '../lib/timezone';
 
+function iconForType(type) {
+  if (type === 'invite') return '📅';
+  if (type === 'invite_accepted') return '✅';
+  if (type === 'booking_confirmed') return '✅';
+  if (type === 'booking_canceled') return '❌';
+  if (type === 'new_booking') return '📅';
+  return '🔔';
+}
+
 export default function AdminNotificationsPage() {
   const { token } = useAuth();
   const [rows, setRows] = useState([]);
@@ -29,14 +38,15 @@ export default function AdminNotificationsPage() {
     }
   };
 
-  const removeOne = async (id) => {
+  const removeOne = async (id, e) => {
+    e?.stopPropagation?.();
     if (!window.confirm('Të fshihet ky njoftim?')) return;
     try {
       await apiFetch(`/notifications/${encodeURIComponent(id)}`, { token, method: 'DELETE' });
       setError('');
       load();
-    } catch (e) {
-      setError(e.message || 'Nuk u fshi njoftimi.');
+    } catch (err) {
+      setError(err.message || 'Nuk u fshi njoftimi.');
     }
   };
 
@@ -45,34 +55,42 @@ export default function AdminNotificationsPage() {
       <h1 className="page-title">Njoftimet e adminit</h1>
       {error && <div className="feedback feedback-error">{error}</div>}
       <div className="card">
-        <div className="table-wrap">
-          <table className="table">
-            <thead>
-              <tr><th>Lloji</th><th>Titulli</th><th>Mesazhi</th><th>Koha</th><th>Statusi</th><th>Veprime</th></tr>
-            </thead>
-            <tbody>
-              {rows.map((n) => (
-                <tr key={n.id}>
-                  <td>{n.type}</td>
-                  <td>{n.title}</td>
-                  <td>{n.message}</td>
-                  <td>{formatBelgradeDateTime(n.created_at, 'sq-AL')}</td>
-                  <td>{n.is_read ? 'Lexuar' : 'Palexuar'}</td>
-                  <td>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                      {!n.is_read ? (
-                        <button type="button" className="btn btn-ghost" onClick={() => markRead(n.id)}>Shëno si lexuar</button>
-                      ) : null}
-                      <button type="button" className="icon-btn btn-ghost" aria-label="Fshi" onClick={() => removeOne(n.id)}>
-                        <Trash2 size={18} />
-                      </button>
+        {rows.length === 0 ? (
+          <p style={{ color: 'var(--text-muted)', margin: 0 }}>Nuk ka njoftime.</p>
+        ) : (
+          <div className="notification-list">
+            {rows.map((n) => (
+              <div
+                key={n.id}
+                className={`notification-item${n.is_read ? '' : ' notification-item--unread'}`}
+              >
+                <button type="button" className="notification-item__click" onClick={() => markRead(n.id)}>
+                  <span className="notification-item__icon" aria-hidden>
+                    {iconForType(n.type)}
+                  </span>
+                  <div className="notification-item__main">
+                    <span className="notification-item__type-badge">{n.type}</span>
+                    <div className="notification-item__top">
+                      <span className="notification-item__title">{n.title}</span>
+                      <span className="notification-item__time">
+                        {formatBelgradeDateTime(n.created_at, 'sq-AL')}
+                      </span>
                     </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+                    <div className="notification-item__msg">{n.message}</div>
+                  </div>
+                </button>
+                <button
+                  type="button"
+                  className="icon-btn notification-item__delete"
+                  aria-label="Fshi njoftimin"
+                  onClick={(e) => removeOne(n.id, e)}
+                >
+                  <Trash2 size={18} />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );

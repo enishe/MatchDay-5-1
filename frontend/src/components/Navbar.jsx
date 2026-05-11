@@ -4,6 +4,15 @@ import { LogOut, Menu, Moon, Sun, Trash2, X } from 'lucide-react';
 import { getStoredTheme, toggleTheme, useAuth } from '../context/AuthContext';
 import { apiFetch } from '../lib/api';
 
+function iconForNotificationType(type) {
+  if (type === 'invite') return '📅';
+  if (type === 'invite_accepted') return '✅';
+  if (type === 'booking_confirmed') return '✅';
+  if (type === 'booking_canceled') return '❌';
+  if (type === 'new_booking') return '📅';
+  return '🔔';
+}
+
 function displayName(user) {
   if (!user) return '';
   if (user.name) return user.name;
@@ -346,50 +355,35 @@ export default function Navbar() {
                 <button type="button" onClick={markAllRead} style={{ fontWeight: 700 }}>
                   Shëno të gjitha si të lexuara
                 </button>
-                {notifications.map((n) => (
-                  <div
-                    key={n.id}
-                    style={{
-                      display: 'flex',
-                      alignItems: 'flex-start',
-                      gap: 6,
-                      borderLeft: n.is_read ? '3px solid transparent' : '3px solid #3498db',
-                      marginBottom: 4,
-                    }}
-                  >
-                    <button
-                      type="button"
-                      onClick={() => markRead(n.id)}
-                      style={{ flex: 1, textAlign: 'left', minWidth: 0 }}
+                <div className="notification-list">
+                  {notifications.map((n) => (
+                    <div
+                      key={n.id}
+                      className={`notification-item${n.is_read ? '' : ' notification-item--unread'}`}
                     >
-                      <div style={{ fontWeight: 700 }}>
-                        {n.type === 'invite'
-                          ? '📅'
-                          : n.type === 'invite_accepted'
-                            ? '✅'
-                            : n.type === 'booking_confirmed'
-                              ? '✅'
-                              : n.type === 'booking_canceled'
-                                ? '❌'
-                                : n.type === 'new_booking'
-                                  ? '📅'
-                                  : '🔔'}{' '}
-                        {n.title}
-                      </div>
-                      <div style={{ fontSize: 12, color: 'var(--text-secondary)', whiteSpace: 'normal' }}>{n.message}</div>
-                      <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{formatAgo(n.created_at)}</div>
-                    </button>
-                    <button
-                      type="button"
-                      className="icon-btn"
-                      aria-label="Fshi njoftimin"
-                      onClick={(e) => deleteAdminNotif(n.id, e)}
-                      style={{ flexShrink: 0, marginTop: 2 }}
-                    >
-                      <Trash2 size={16} />
-                    </button>
-                  </div>
-                ))}
+                      <button type="button" className="notification-item__click" onClick={() => markRead(n.id)}>
+                        <span className="notification-item__icon" aria-hidden>
+                          {iconForNotificationType(n.type)}
+                        </span>
+                        <div className="notification-item__main">
+                          <div className="notification-item__top">
+                            <span className="notification-item__title">{n.title}</span>
+                            <span className="notification-item__time">{formatAgo(n.created_at)}</span>
+                          </div>
+                          <div className="notification-item__msg">{n.message}</div>
+                        </div>
+                      </button>
+                      <button
+                        type="button"
+                        className="icon-btn notification-item__delete"
+                        aria-label="Fshi njoftimin"
+                        onClick={(e) => deleteAdminNotif(n.id, e)}
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
                 <button type="button" onClick={() => navigate('/admin/notifications')}>
                   Shiko të gjitha
                 </button>
@@ -442,54 +436,35 @@ export default function Navbar() {
                     Nuk keni njoftime të reja.
                   </div>
                 ) : (
-                  playerNotifications.map((n) => (
-                    <div
-                      key={n.id}
-                      style={{
-                        display: 'flex',
-                        alignItems: 'flex-start',
-                        gap: 6,
-                        borderLeft: n.is_read ? '3px solid transparent' : '3px solid #3498db',
-                        marginBottom: 4,
-                        borderBottom: '1px solid var(--border-color)',
-                        padding: '10px',
-                      }}
-                    >
-                      <button
-                        type="button"
-                        onClick={() => markPlayerRead(n.id)}
-                        style={{ flex: 1, textAlign: 'left', minWidth: 0 }}
+                  <div className="notification-list">
+                    {playerNotifications.map((n) => (
+                      <div
+                        key={n.id}
+                        className={`notification-item${n.is_read ? '' : ' notification-item--unread'}`}
                       >
-                        <div style={{ fontWeight: 700 }}>
-                          {n.type === 'invite'
-                            ? '📅'
-                            : n.type === 'invite_accepted'
-                              ? '✅'
-                              : n.type === 'booking_confirmed'
-                                ? '✅'
-                                : n.type === 'booking_canceled'
-                                  ? '❌'
-                                  : n.type === 'new_booking'
-                                    ? '📅'
-                                    : '🔔'}{' '}
-                          {n.title}
-                        </div>
-                        <div style={{ fontSize: 12, color: 'var(--text-secondary)', whiteSpace: 'normal' }}>
-                          {String(n.message || '').length > 60 ? `${String(n.message || '').slice(0, 60)}...` : String(n.message || '')}
-                        </div>
-                        <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{formatAgo(n.created_at)}</div>
-                      </button>
-                      <button
-                        type="button"
-                        className="icon-btn"
-                        aria-label="Fshi njoftimin"
-                        onClick={(e) => deletePlayerNotif(n.id, e)}
-                        style={{ flexShrink: 0, marginTop: 2 }}
-                      >
-                        <Trash2 size={16} />
-                      </button>
-                    </div>
-                  ))
+                        <button type="button" className="notification-item__click" onClick={() => markPlayerRead(n.id)}>
+                          <span className="notification-item__icon" aria-hidden>
+                            {iconForNotificationType(n.type)}
+                          </span>
+                          <div className="notification-item__main">
+                            <div className="notification-item__top">
+                              <span className="notification-item__title">{n.title}</span>
+                              <span className="notification-item__time">{formatAgo(n.created_at)}</span>
+                            </div>
+                            <div className="notification-item__msg">{n.message || ''}</div>
+                          </div>
+                        </button>
+                        <button
+                          type="button"
+                          className="icon-btn notification-item__delete"
+                          aria-label="Fshi njoftimin"
+                          onClick={(e) => deletePlayerNotif(n.id, e)}
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
                 )}
                 <button
                   type="button"
