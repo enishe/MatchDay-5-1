@@ -12,7 +12,6 @@ import AdminPanel from './pages/AdminPanel';
 import CalendarPage from './pages/CalendarPage';
 import FriendsPage from './pages/FriendsPage';
 import ProfilePage from './pages/ProfilePage';
-import JoinBookingPage from './pages/JoinBookingPage';
 import AdminNotificationsPage from './pages/AdminNotificationsPage';
 import NotificationsPage from './pages/NotificationsPage';
 
@@ -71,16 +70,6 @@ export default function App() {
               <ProtectedRoute>
                 <PlayerOnlyRoute>
                   <BookingPage />
-                </PlayerOnlyRoute>
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/booking/join/:token"
-            element={
-              <ProtectedRoute>
-                <PlayerOnlyRoute>
-                  <JoinBookingPage />
                 </PlayerOnlyRoute>
               </ProtectedRoute>
             }

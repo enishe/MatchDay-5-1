@@ -2,7 +2,6 @@ import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { apiFetch } from '../lib/api';
 import { useAuth } from '../context/AuthContext';
-import BookingStatusBadge from '../components/BookingStatusBadge';
 import { formatBelgradeDateTime } from '../lib/timezone';
 
 const DITET = ['Hën', 'Mar', 'Mër', 'Enj', 'Pre', 'Sht', 'Die'];
@@ -22,6 +21,18 @@ function formatDate(d) {
 
 function isSameDay(a, b) {
   return new Date(a).toDateString() === new Date(b).toDateString();
+}
+
+function parseShoesSummaryRow(m) {
+  let s = m?.shoes_summary;
+  if (typeof s === 'string') {
+    try {
+      s = JSON.parse(s);
+    } catch {
+      return [];
+    }
+  }
+  return Array.isArray(s) ? s : [];
 }
 
 function statsFromMatches(matches) {
@@ -85,7 +96,7 @@ export default function Dashboard() {
 
   useEffect(() => {
     // TODO: Replace this fallback with socket event listener when realtime auto-cancel event is available.
-    const autoCanceled = matches.find((m) => m.status === 'canceled' && m.payment_method === 'card');
+    const autoCanceled = matches.find((m) => m.status === 'canceled');
     if (!autoCanceled) return;
     const key = `autocancel-notice-${autoCanceled.id}`;
     if (sessionStorage.getItem(key)) return;
@@ -281,44 +292,23 @@ export default function Dashboard() {
                     <td data-label="Çmimi">{m.total_price}€</td>
                     <td data-label="Smart Split">{m.price_per_player}€</td>
                     <td data-label="Status">
-                      {m.payment_method === 'card' && m.status === 'pending' ? (
-                        <div>
-                          <BookingStatusBadge
-                            status={m.status}
-                            expiresAt={m.start_time ? new Date(new Date(m.start_time).getTime() - 2 * 60 * 60 * 1000).toISOString() : null}
-                          />
-                          <div style={{ fontSize: 12, marginTop: 4 }}>{Number(m.participants_paid || 0)}/12 të paguar</div>
-                          {m.invite_token && (
-                            <button
-                              type="button"
-                              className="btn btn-ghost"
-                              style={{ marginTop: 6, fontSize: 12, padding: '4px 8px' }}
-                              onClick={(ev) => {
-                                ev.stopPropagation();
-                                const link = `${window.location.origin}/booking/join/${m.invite_token}`;
-                                navigator.clipboard.writeText(link);
-                              }}
-                            >
-                              Kopjo linkun e ftesës
-                            </button>
-                          )}
-                        </div>
-                      ) : (
-                        <div>
-                          <span
-                            className={`badge ${
-                              m.status === 'confirmed' ? 'badge-confirmed' : m.status === 'pending' ? 'badge-pending' : 'badge-canceled'
-                            }`}
-                          >
-                            {m.status === 'confirmed' ? 'Konfirmuar ✓' : m.status === 'pending' ? 'Në pritje' : 'Anuluar'}
-                          </span>
-                          {m.payment_method === 'cash' && Array.isArray(m.shoes_summary) && m.shoes_summary.length > 0 && (
-                            <div style={{ fontSize: 12, marginTop: 4 }}>
-                              Patika: {m.shoes_summary.map((s) => `${s.count}x nr.${s.size}`).join(', ')}
-                            </div>
-                          )}
-                        </div>
-                      )}
+                      <div>
+                        <span
+                          className={`badge ${
+                            m.status === 'confirmed' ? 'badge-confirmed' : m.status === 'pending' ? 'badge-pending' : 'badge-canceled'
+                          }`}
+                        >
+                          {m.status === 'confirmed' ? 'Konfirmuar ✓' : m.status === 'pending' ? 'Në pritje' : 'Anuluar'}
+                        </span>
+                        {parseShoesSummaryRow(m).length > 0 && (
+                          <div style={{ fontSize: 12, marginTop: 4 }}>
+                            Patika:{' '}
+                            {parseShoesSummaryRow(m)
+                              .map((s) => `${s.count} palë nr.${s.size}`)
+                              .join(', ')}
+                          </div>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 ))}

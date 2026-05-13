@@ -28,6 +28,12 @@ function initials(name) {
   return (p[0][0] + p[p.length - 1][0]).toUpperCase();
 }
 
+function truncateNotificationMessage(text, maxLen = 100) {
+  const s = String(text || '');
+  if (s.length <= maxLen) return s;
+  return `${s.slice(0, maxLen)}…`;
+}
+
 function avatarSource(user) {
   const src = String(user?.avatar_url || user?.profile_photo_url || '').trim();
   if (!src) return '';
@@ -123,24 +129,69 @@ export default function Navbar() {
     return `${d} ditë më parë`;
   };
 
-  const loadNotifications = () => {
+  const fetchBellNotifications = useCallback(async () => {
+    if (!token) return;
     const endpoint = isAdmin ? '/notifications' : '/notifications/my';
-    apiFetch(endpoint, { token })
-      .then((r) => {
-        const nextList = Array.isArray(r) ? r.slice(0, 5) : [];
-        setNotifications(nextList);
-        fetchUnreadCount();
-      })
-      .catch(() => setNotifications([]));
-  };
+    try {
+      const r = await apiFetch(endpoint, { token });
+      const nextList = Array.isArray(r) ? r.slice(0, 5) : [];
+      if (isAdmin) setNotifications(nextList);
+      else setPlayerNotifications(nextList);
+    } catch {
+      if (isAdmin) setNotifications([]);
+      else setPlayerNotifications([]);
+    }
+  }, [token, isAdmin]);
+
+  const markAllBellNotificationsRead = useCallback(async () => {
+    if (!token) return;
+    setUnreadCount(0);
+    if (isAdmin) setNotifications((prev) => prev.map((x) => ({ ...x, is_read: true })));
+    else setPlayerNotifications((prev) => prev.map((x) => ({ ...x, is_read: true })));
+    const path = isAdmin ? '/notifications/admin/read-all' : '/notifications/my/read-all';
+    try {
+      await apiFetch(path, { token, method: 'PUT' });
+    } catch {
+      fetchUnreadCount();
+    }
+  }, [token, isAdmin, fetchUnreadCount]);
+
+  const bellDropdownOpen = isAdmin ? notifOpen : bellOpen;
+
+  useEffect(() => {
+    if (!bellDropdownOpen || !token) return undefined;
+    fetchBellNotifications();
+    const timer = setTimeout(() => {
+      markAllBellNotificationsRead();
+    }, 2000);
+    return () => clearTimeout(timer);
+  }, [bellDropdownOpen, token, fetchBellNotifications, markAllBellNotificationsRead]);
 
   const markRead = async (id) => {
-    const endpoint = isAdmin ? `/notifications/${encodeURIComponent(id)}/read` : `/notifications/my/${encodeURIComponent(id)}/read`;
-    setUnreadCount((prev) => Math.max(0, prev - 1));
-    setNotifications((prev) => {
-      const updatedList = prev.map((x) => (x.id === id ? { ...x, is_read: true } : x));
-      return updatedList;
+    if (isAdmin) {
+      const endpoint = `/notifications/${encodeURIComponent(id)}/read`;
+      let wasUnread = false;
+      setNotifications((prev) => {
+        const row = prev.find((x) => x.id === id);
+        wasUnread = Boolean(row && !row.is_read);
+        return prev.map((x) => (x.id === id ? { ...x, is_read: true } : x));
+      });
+      if (wasUnread) setUnreadCount((prev) => Math.max(0, prev - 1));
+      try {
+        await apiFetch(endpoint, { token, method: 'PUT' });
+      } finally {
+        fetchUnreadCount();
+      }
+      return;
+    }
+    const endpoint = `/notifications/my/${encodeURIComponent(id)}/read`;
+    let wasUnread = false;
+    setPlayerNotifications((prev) => {
+      const row = prev.find((x) => x.id === id);
+      wasUnread = Boolean(row && !row.is_read);
+      return prev.map((x) => (x.id === id ? { ...x, is_read: true } : x));
     });
+    if (wasUnread) setUnreadCount((prev) => Math.max(0, prev - 1));
     try {
       await apiFetch(endpoint, { token, method: 'PUT' });
     } finally {
@@ -148,70 +199,18 @@ export default function Navbar() {
     }
   };
 
-  const markAllRead = async () => {
-    const endpoint = isAdmin ? '/notifications/read-all' : '/notifications/my/read-all';
-    setUnreadCount(0);
-    setNotifications((prev) => prev.map((x) => ({ ...x, is_read: true })));
-    try {
-      await apiFetch(endpoint, { token, method: 'PATCH' });
-      loadNotifications();
-    } finally {
-      fetchUnreadCount();
-    }
-  };
-
-  const loadPlayerNotifications = () => {
-    apiFetch('/notifications/my', { token })
-      .then((r) => {
-        const nextList = Array.isArray(r) ? r.slice(0, 5) : [];
-        setPlayerNotifications(nextList);
-        fetchUnreadCount();
-      })
-      .catch(() => setPlayerNotifications([]));
-  };
-
-  const markPlayerRead = async (id) => {
-    setUnreadCount((prev) => Math.max(0, prev - 1));
-    setPlayerNotifications((prev) => {
-      const updatedList = prev.map((x) => (x.id === id ? { ...x, is_read: true } : x));
-      return updatedList;
-    });
-    try {
-      await apiFetch(`/notifications/my/${encodeURIComponent(id)}/read`, { token, method: 'PUT' });
-    } finally {
-      fetchUnreadCount();
-    }
-  };
-
-  const markAllPlayerRead = async () => {
-    setUnreadCount(0);
-    setPlayerNotifications((prev) => prev.map((x) => ({ ...x, is_read: true })));
-    try {
-      await apiFetch('/notifications/my/read-all', { token, method: 'PATCH' });
-      loadPlayerNotifications();
-    } finally {
-      fetchUnreadCount();
-    }
-  };
-
   const onAdminBellToggle = () => {
-    const next = !notifOpen;
-    setNotifOpen(next);
-    if (next) {
-      loadNotifications();
-    } else {
-      fetchUnreadCount();
-    }
+    setNotifOpen((prev) => {
+      if (prev) queueMicrotask(() => fetchUnreadCount());
+      return !prev;
+    });
   };
 
   const onUserBellToggle = () => {
-    const next = !bellOpen;
-    setBellOpen(next);
-    if (next) {
-      loadPlayerNotifications();
-    } else {
-      fetchUnreadCount();
-    }
+    setBellOpen((prev) => {
+      if (prev) queueMicrotask(() => fetchUnreadCount());
+      return !prev;
+    });
   };
 
   const deleteAdminNotif = async (id, e) => {
@@ -352,9 +351,6 @@ export default function Navbar() {
             </button>
             {notifOpen && (
               <div className="user-dropdown notif-dropdown open">
-                <button type="button" onClick={markAllRead} style={{ fontWeight: 700 }}>
-                  Shëno të gjitha si të lexuara
-                </button>
                 <div className="notification-list">
                   {notifications.map((n) => (
                     <div
@@ -370,7 +366,7 @@ export default function Navbar() {
                             <span className="notification-item__title">{n.title}</span>
                             <span className="notification-item__time">{formatAgo(n.created_at)}</span>
                           </div>
-                          <div className="notification-item__msg">{n.message}</div>
+                          <div className="notification-item__msg">{truncateNotificationMessage(n.message)}</div>
                         </div>
                       </button>
                       <button
@@ -424,13 +420,6 @@ export default function Navbar() {
             </button>
             {bellOpen && (
               <div className="bell-dropdown">
-                <button
-                  type="button"
-                  onClick={markAllPlayerRead}
-                  style={{ width: '100%', textAlign: 'left', padding: '10px 12px', fontWeight: 700 }}
-                >
-                  Shëno të gjitha si të lexuara
-                </button>
                 {playerNotifications.length === 0 ? (
                   <div style={{ padding: '10px 12px', color: 'var(--text-muted)', fontSize: 13 }}>
                     Nuk keni njoftime të reja.
@@ -442,7 +431,7 @@ export default function Navbar() {
                         key={n.id}
                         className={`notification-item${n.is_read ? '' : ' notification-item--unread'}`}
                       >
-                        <button type="button" className="notification-item__click" onClick={() => markPlayerRead(n.id)}>
+                        <button type="button" className="notification-item__click" onClick={() => markRead(n.id)}>
                           <span className="notification-item__icon" aria-hidden>
                             {iconForNotificationType(n.type)}
                           </span>
@@ -451,7 +440,7 @@ export default function Navbar() {
                               <span className="notification-item__title">{n.title}</span>
                               <span className="notification-item__time">{formatAgo(n.created_at)}</span>
                             </div>
-                            <div className="notification-item__msg">{n.message || ''}</div>
+                            <div className="notification-item__msg">{truncateNotificationMessage(n.message || '')}</div>
                           </div>
                         </button>
                         <button

@@ -5,6 +5,7 @@ import { useAuth } from '../context/AuthContext';
 import { createUtcDateFromBelgradeHourLabel, formatBelgradeDateTime, getBelgradeTodayYmd } from '../lib/timezone';
 
 const ORET = ['12:00', '13:00', '14:00', '15:00', '16:00', '17:00', '18:00', '19:00', '20:00', '21:00', '22:00', '23:00'];
+const SHOE_SIZES = Array.from({ length: 10 }, (_, i) => 36 + i);
 
 function parseBelgradeHourSlot(dateStr, hourLabel) {
   return createUtcDateFromBelgradeHourLabel(dateStr, hourLabel);
@@ -18,6 +19,46 @@ function terrainLabel(t) {
   return t || '—';
 }
 
+function parseShoesSummary(val) {
+  if (Array.isArray(val)) return val;
+  if (typeof val === 'string') {
+    try {
+      const p = JSON.parse(val);
+      return Array.isArray(p) ? p : [];
+    } catch {
+      return [];
+    }
+  }
+  return [];
+}
+
+function buildShoesDisplay(summary) {
+  const s = parseShoesSummary(summary);
+  if (s.length === 0) return 'Pa patika';
+  return s.map((x) => `${Number(x.count)} palë nr.${Number(x.size)}`).join(', ');
+}
+
+/** Max pairs allowed on this row given inventory and other rows' selections. */
+function maxPairsForRow(teamShoes, inventory, rowIndex) {
+  const row = teamShoes[rowIndex];
+  if (!row) return 0;
+  const size = Number(row.size);
+  const inv = inventory.find((i) => Number(i.shoe_size) === size);
+  const qty = inv ? Number(inv.quantity_available) : 0;
+  const usedElsewhere = teamShoes.reduce((sum, r, i) => {
+    if (i === rowIndex) return sum;
+    if (Number(r.size) !== size) return sum;
+    return sum + Math.max(0, Number(r.count) || 0);
+  }, 0);
+  return Math.max(0, qty - usedElsewhere);
+}
+
+function rentForSize(inventory, size) {
+  const inv = inventory.find((i) => Number(i.shoe_size) === Number(size));
+  const p = inv && inv.rent_price != null ? Number(inv.rent_price) : 2;
+  return Number.isFinite(p) && p >= 0 ? p : 2;
+}
+
 export default function BookingPage() {
   const { token } = useAuth();
   const navigate = useNavigate();
@@ -28,12 +69,8 @@ export default function BookingPage() {
   const [data, setData] = useState('');
   const [ora, setOra] = useState('');
   const [courtNumber, setCourtNumber] = useState('');
-  const [paymentMethod, setPaymentMethod] = useState('cash');
   const [teamShoes, setTeamShoes] = useState([{ size: 42, count: 1 }]);
   const [fieldInventory, setFieldInventory] = useState([]);
-  const [friends, setFriends] = useState([]);
-  const [selectedEmails, setSelectedEmails] = useState([]);
-  const [manualEmail, setManualEmail] = useState('');
   const [loadingFields, setLoadingFields] = useState(true);
   const [availabilityByHour, setAvailabilityByHour] = useState({});
   const [dukeShtuar, setDukeShtuar] = useState(false);
@@ -57,11 +94,8 @@ export default function BookingPage() {
   useEffect(() => {
     if (!token) return;
     setLoadingFields(true);
-    Promise.all([apiFetch('/fields'), apiFetch('/friends', { token })])
-      .then(([rows, f]) => {
-        setFields(Array.isArray(rows) ? rows.filter((x) => x.is_active) : []);
-        setFriends(Array.isArray(f) ? f : []);
-      })
+    apiFetch('/fields')
+      .then((rows) => setFields(Array.isArray(rows) ? rows.filter((x) => x.is_active) : []))
       .catch(() => tregoBust('Nuk u ngarkuan fushat.', 'error'))
       .finally(() => setLoadingFields(false));
   }, [token, tregoBust]);
@@ -70,9 +104,17 @@ export default function BookingPage() {
   const fusha = useMemo(() => fushat.find((f) => String(f.id) === String(fushaId)), [fushat, fushaId]);
   const cmimi = Number(fusha?.price_per_hour || 0);
   const splitPreview = Number((cmimi / 12).toFixed(2));
-  const totalShoes = teamShoes.reduce((s, row) => s + Number(row.count || 0), 0);
-  const shoesTotal = totalShoes * 2;
-  const cashTotal = Number((cmimi + shoesTotal).toFixed(2));
+
+  const shoesRentTotal = useMemo(
+    () =>
+      teamShoes.reduce((sum, row) => {
+        const c = Math.max(0, Number(row.count) || 0);
+        return sum + c * rentForSize(fieldInventory, row.size);
+      }, 0),
+    [teamShoes, fieldInventory]
+  );
+
+  const cashTotal = Number((cmimi + shoesRentTotal).toFixed(2));
 
   useEffect(() => {
     if (!fushaId || !data) {
@@ -85,18 +127,24 @@ export default function BookingPage() {
       ORET.map(async (h) => {
         const start = parseBelgradeHourSlot(data, h);
         const end = new Date(start.getTime() + 60 * 60 * 1000);
-        const r = await apiFetch(`/fields/${fushaId}/availability?start=${encodeURIComponent(start.toISOString())}&end=${encodeURIComponent(end.toISOString())}`);
+        const r = await apiFetch(
+          `/fields/${fushaId}/availability?start=${encodeURIComponent(start.toISOString())}&end=${encodeURIComponent(end.toISOString())}`
+        );
         return [h, r];
       })
     )
       .then((rows) => {
         if (cancelled) return;
         const next = {};
-        rows.forEach(([h, r]) => { next[h] = r; });
+        rows.forEach(([h, r]) => {
+          next[h] = r;
+        });
         setAvailabilityByHour(next);
       })
       .catch(() => !cancelled && setAvailabilityByHour({}));
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [fushaId, data]);
 
   useEffect(() => {
@@ -109,39 +157,71 @@ export default function BookingPage() {
       .catch(() => setFieldInventory([]));
   }, [fushaId]);
 
+  useEffect(() => {
+    setTeamShoes([{ size: 42, count: 1 }]);
+  }, [fushaId]);
+
+  useEffect(() => {
+    if (!fieldInventory.length) return;
+    setTeamShoes((prev) =>
+      prev.map((row, idx) => {
+        const capFor = (sz) => {
+          const inv = fieldInventory.find((i) => Number(i.shoe_size) === Number(sz));
+          const qty = inv ? Number(inv.quantity_available) : 0;
+          const usedElsewhere = prev.reduce((sum, r, i) => {
+            if (i === idx) return sum;
+            if (Number(r.size) !== Number(sz)) return sum;
+            return sum + Math.max(0, Number(r.count) || 0);
+          }, 0);
+          return Math.max(0, qty - usedElsewhere);
+        };
+        let size = Number(row.size);
+        if (capFor(size) <= 0) {
+          const alt = SHOE_SIZES.find((sz) => capFor(sz) > 0);
+          if (alt != null) size = alt;
+        }
+        const max = capFor(size);
+        const count = max <= 0 ? 1 : Math.min(Math.max(1, Number(row.count) || 1), max);
+        return { size, count };
+      })
+    );
+  }, [fieldInventory]);
+
   const hourOccupied = (hour) => (availabilityByHour[hour]?.available_courts || []).length === 0;
   const hourBlocked = (hour) => hourOccupied(hour) || (data && isSlotStartInPast(data, hour));
   const chosenHourAvailability = ora ? availabilityByHour[ora] : null;
   const courtTaken = ora && courtNumber && chosenHourAvailability && !(chosenHourAvailability.available_courts || []).includes(Number(courtNumber));
   const formComplete = fushaId && data && ora && courtNumber && !courtTaken && !hourBlocked(ora);
 
+  const capacityForSizeOption = (rowIndex, size) => {
+    const inv = fieldInventory.find((i) => Number(i.shoe_size) === Number(size));
+    const qty = inv ? Number(inv.quantity_available) : 0;
+    const usedElsewhere = teamShoes.reduce((sum, r, i) => {
+      if (i === rowIndex) return sum;
+      if (Number(r.size) !== Number(size)) return sum;
+      return sum + Math.max(0, Number(r.count) || 0);
+    }, 0);
+    return Math.max(0, qty - usedElsewhere);
+  };
+
   const handleRezervim = async (e) => {
     e.preventDefault();
     if (!formComplete) return tregoBust('Plotëso të gjitha fushat e detyrueshme.', 'error');
+    for (let i = 0; i < teamShoes.length; i += 1) {
+      const row = teamShoes[i];
+      const max = maxPairsForRow(teamShoes, fieldInventory, i);
+      if (max <= 0 || Number(row.count) > max) {
+        return tregoBust('Kontrolloni sasinë e patikave sipas inventarit të fushës.', 'error');
+      }
+    }
     const start = parseBelgradeHourSlot(data, ora);
     const end = new Date(start.getTime() + 60 * 60 * 1000);
+    const payloadShoes = teamShoes
+      .map((r) => ({ size: Number(r.size), count: Math.max(0, Number(r.count) || 0) }))
+      .filter((r) => Number.isInteger(r.size) && r.size >= 36 && r.size <= 45 && r.count > 0);
     setDukeShtuar(true);
     try {
-      if (paymentMethod === 'cash') {
-        const d = await apiFetch('/bookings/cash', {
-          token,
-          method: 'POST',
-          body: {
-            fieldId: Number(fushaId),
-            courtNumber: Number(courtNumber),
-            startTime: start.toISOString(),
-            endTime: end.toISOString(),
-            teamShoes,
-          },
-        });
-        setDone({
-          kind: 'cash',
-          title: 'Termini u konfirmua!',
-          booking: d,
-        });
-        return;
-      }
-      const d = await apiFetch('/bookings/card', {
+      const d = await apiFetch('/bookings/cash', {
         token,
         method: 'POST',
         body: {
@@ -149,12 +229,12 @@ export default function BookingPage() {
           courtNumber: Number(courtNumber),
           startTime: start.toISOString(),
           endTime: end.toISOString(),
-          inviteEmails: selectedEmails,
+          payment_method: 'cash',
+          teamShoes: payloadShoes,
         },
       });
       setDone({
-        kind: 'card',
-        title: 'Ftesat u dërguan!',
+        title: 'Termini u konfirmua!',
         booking: d,
       });
     } catch (err) {
@@ -164,45 +244,57 @@ export default function BookingPage() {
     }
   };
 
-  const addInviteEmail = () => {
-    const email = String(manualEmail || '').trim().toLowerCase();
-    const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!re.test(email)) return tregoBust('Shkruani një email të vlefshëm.', 'error');
-    if (selectedEmails.includes(email)) return;
-    if (selectedEmails.length >= 11) return tregoBust('Mund të ftoni maksimumi 11 lojtarë.', 'error');
-    setSelectedEmails((prev) => [...prev, email]);
-    setManualEmail('');
+  const updateShoeRow = (idx, patch) => {
+    setTeamShoes((prev) => {
+      const next = prev.map((row, i) => (i === idx ? { ...row, ...patch } : row));
+      return next.map((row, i) => {
+        const max = maxPairsForRow(next, fieldInventory, i);
+        if (max <= 0) return { ...row, count: 1 };
+        const cnt = Math.min(Math.max(1, Number(row.count) || 1), max);
+        return { ...row, count: cnt };
+      });
+    });
+  };
+
+  const addShoeRow = () => {
+    setTeamShoes((prev) => {
+      const capFor = (sz) => {
+        const inv = fieldInventory.find((i) => Number(i.shoe_size) === Number(sz));
+        const qty = inv ? Number(inv.quantity_available) : 0;
+        const used = prev.reduce((sum, r) => {
+          if (Number(r.size) !== Number(sz)) return sum;
+          return sum + Math.max(0, Number(r.count) || 0);
+        }, 0);
+        return Math.max(0, qty - used);
+      };
+      const first = SHOE_SIZES.find((sz) => capFor(sz) > 0) ?? 42;
+      return [...prev, { size: first, count: 1 }];
+    });
+  };
+
+  const removeShoeRow = (idx) => {
+    setTeamShoes((prev) => (prev.length <= 1 ? prev : prev.filter((_, i) => i !== idx)));
   };
 
   if (done) {
-    if (done.kind === 'cash') {
-      const summary = Array.isArray(done.booking?.shoes_summary) ? done.booking.shoes_summary : [];
-      return (
-        <div className="page">
-          <h1 className="page-title">{done.title}</h1>
-          <div className="card">
-            <p>Rezervimi u ruajt me sukses dhe është i konfirmuar.</p>
-            <p><strong>Fusha:</strong> {done.booking?.field_name || fusha?.name}</p>
-            <p><strong>Data dhe ora:</strong> {formatBelgradeDateTime(done.booking?.start_time || parseBelgradeHourSlot(data, ora), 'sq-AL')}</p>
-            <p><strong>Patika të nevojshme:</strong> {summary.map((s) => `${s.count} palë nr.${s.size}`).join(', ') || 'Pa patika'}</p>
-            <p><strong>Totali i paguar:</strong> {Number(done.booking?.total_amount || cashTotal).toFixed(2)}€</p>
-            <button type="button" className="btn btn-accent" onClick={() => navigate('/dashboard')}>Shko te Dashboard</button>
-          </div>
-        </div>
-      );
-    }
+    const b = done.booking || {};
+    const shoesText = buildShoesDisplay(b.shoes_summary);
+    const totalAmt = Number(b.total_amount ?? cashTotal).toFixed(2);
+    const smart = Number(b.price_per_player ?? splitPreview).toFixed(2);
     return (
       <div className="page">
         <h1 className="page-title">{done.title}</h1>
         <div className="card">
-          <p><strong>Linku i ftesës:</strong></p>
-          <p style={{ wordBreak: 'break-all' }}>{done.booking?.invite_link}</p>
-          <button type="button" className="btn btn-ghost" onClick={() => navigator.clipboard.writeText(done.booking?.invite_link || '')}>
-            Kopjo linkun
+          <p>Rezervimi u ruajt me sukses dhe është i konfirmuar (pagesa: para në dorë).</p>
+          <p><strong>Fusha:</strong> {b.field_name || fusha?.name || '—'}</p>
+          <p><strong>Data dhe ora:</strong> {formatBelgradeDateTime(b.start_time || parseBelgradeHourSlot(data, ora), 'sq-AL')}</p>
+          <p><strong>Fusha (court):</strong> {b.court_number != null ? b.court_number : courtNumber || '—'}</p>
+          <p><strong>Totali:</strong> {totalAmt}€</p>
+          <p><strong>Smart Split për lojtar:</strong> {smart}€</p>
+          <p><strong>Patika të rezervuara:</strong> {shoesText}</p>
+          <button type="button" className="btn btn-accent" onClick={() => navigate('/dashboard')}>
+            Shko te Dashboard
           </button>
-          <p style={{ marginTop: 12 }}>Termini do të konfirmohet automatikisht kur të 12 lojtarët të paguajnë.</p>
-          <p>Nëse 12 lojtarët nuk paguajnë deri 2 orë para ndeshjes, rezervimi anulohet automatikisht.</p>
-          <button type="button" className="btn btn-accent" onClick={() => navigate('/dashboard')}>Shko te Dashboard</button>
         </div>
       </div>
     );
@@ -218,23 +310,57 @@ export default function BookingPage() {
             <div className="card">
               <div className="card-title">Hapi 1 — Lloji i terrenit</div>
               <div className="booking-terrain-buttons" style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-                <button type="button" className={`btn ${terreni === '' ? 'btn-primary' : 'btn-ghost'}`} onClick={() => setTerreni('')}>Të gjitha</button>
-                <button type="button" className={`btn ${terreni === 'artificial_grass' ? 'btn-primary' : 'btn-ghost'}`} onClick={() => setTerreni('artificial_grass')}>Bar artificial</button>
-                <button type="button" className={`btn ${terreni === 'indoor_hall' ? 'btn-primary' : 'btn-ghost'}`} onClick={() => setTerreni('indoor_hall')}>Sallë e mbyllur</button>
+                <button type="button" className={`btn ${terreni === '' ? 'btn-primary' : 'btn-ghost'}`} onClick={() => setTerreni('')}>
+                  Të gjitha
+                </button>
+                <button
+                  type="button"
+                  className={`btn ${terreni === 'artificial_grass' ? 'btn-primary' : 'btn-ghost'}`}
+                  onClick={() => setTerreni('artificial_grass')}
+                >
+                  Bar artificial
+                </button>
+                <button type="button" className={`btn ${terreni === 'indoor_hall' ? 'btn-primary' : 'btn-ghost'}`} onClick={() => setTerreni('indoor_hall')}>
+                  Sallë e mbyllur
+                </button>
               </div>
             </div>
             <div className="card">
               <div className="card-title">Hapi 2 — Zgjidh lokacionin</div>
-              {loadingFields ? <div className="spinner" /> : (
-                <select className="input" value={fushaId} onChange={(e) => { setFushaId(e.target.value); setOra(''); setCourtNumber(''); }}>
+              {loadingFields ? (
+                <div className="spinner" />
+              ) : (
+                <select
+                  className="input"
+                  value={fushaId}
+                  onChange={(e) => {
+                    setFushaId(e.target.value);
+                    setOra('');
+                    setCourtNumber('');
+                  }}
+                >
                   <option value="">— Zgjidh fushën —</option>
-                  {fushat.map((f) => <option key={f.id} value={f.id}>{f.name} — {f.location} — {terrainLabel(f.terrain_type)} — {f.price_per_hour}€/orë</option>)}
+                  {fushat.map((f) => (
+                    <option key={f.id} value={f.id}>
+                      {f.name} — {f.location} — {terrainLabel(f.terrain_type)} — {f.price_per_hour}€/orë
+                    </option>
+                  ))}
                 </select>
               )}
             </div>
             <div className="card">
               <div className="card-title">Hapi 3 — Data</div>
-              <input className="input" type="date" value={data} onChange={(e) => { setData(e.target.value); setOra(''); setCourtNumber(''); }} min={getBelgradeTodayYmd()} />
+              <input
+                className="input"
+                type="date"
+                value={data}
+                onChange={(e) => {
+                  setData(e.target.value);
+                  setOra('');
+                  setCourtNumber('');
+                }}
+                min={getBelgradeTodayYmd()}
+              />
             </div>
             {data && (
               <div className="card">
@@ -242,7 +368,20 @@ export default function BookingPage() {
                 <div className="hour-grid">
                   {ORET.map((h) => {
                     const blocked = hourBlocked(h);
-                    return <button key={h} type="button" className={`hour-slot${ora === h ? ' hour-slot--active' : ''}${blocked ? ' hour-slot--disabled' : ''}`} disabled={blocked} onClick={() => { setOra(h); setCourtNumber(''); }}>{h}</button>;
+                    return (
+                      <button
+                        key={h}
+                        type="button"
+                        className={`hour-slot${ora === h ? ' hour-slot--active' : ''}${blocked ? ' hour-slot--disabled' : ''}`}
+                        disabled={blocked}
+                        onClick={() => {
+                          setOra(h);
+                          setCourtNumber('');
+                        }}
+                      >
+                        {h}
+                      </button>
+                    );
                   })}
                 </div>
                 {ora && chosenHourAvailability && (
@@ -252,7 +391,17 @@ export default function BookingPage() {
                       {Array.from({ length: Number(chosenHourAvailability.total_courts || 0) }).map((_, i) => {
                         const nr = i + 1;
                         const free = (chosenHourAvailability.available_courts || []).includes(nr);
-                        return <button key={nr} type="button" className={`btn ${String(nr) === String(courtNumber) ? 'btn-primary' : 'btn-ghost'}`} disabled={!free} onClick={() => setCourtNumber(String(nr))}>{nr}</button>;
+                        return (
+                          <button
+                            key={nr}
+                            type="button"
+                            className={`btn ${String(nr) === String(courtNumber) ? 'btn-primary' : 'btn-ghost'}`}
+                            disabled={!free}
+                            onClick={() => setCourtNumber(String(nr))}
+                          >
+                            {nr}
+                          </button>
+                        );
                       })}
                     </div>
                   </div>
@@ -262,80 +411,92 @@ export default function BookingPage() {
           </div>
           <div className="summary-sticky">
             <div className="card">
-              <div className="card-title">Hapi 5-8 — Përmbledhja</div>
-              <div className="booking-payment-buttons" style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 12 }}>
-                <button type="button" className={`btn ${paymentMethod === 'cash' ? 'btn-primary' : 'btn-ghost'}`} onClick={() => setPaymentMethod('cash')}>Para në dorë</button>
-                <button type="button" className={`btn ${paymentMethod === 'card' ? 'btn-primary' : 'btn-ghost'}`} onClick={() => setPaymentMethod('card')}>Kartelë</button>
+              <div className="card-title">Përmbledhja dhe konfirmimi</div>
+              <p style={{ color: 'var(--text-secondary)', marginTop: 0, marginBottom: 12 }}>
+                Pagesa bëhet vetëm <strong>para në dorë</strong> në fushë.
+              </p>
+
+              <div className="card-title" style={{ fontSize: '1rem', marginTop: 8 }}>
+                Patika me qira (+2€ për palë)
               </div>
-              {paymentMethod === 'cash' ? (
-                <>
-                  <h3 style={{ marginBottom: 8 }}>Patika për ekipin tënd</h3>
-                  <p style={{ color: 'var(--text-secondary)', marginTop: 0 }}>
-                    Zgjidhni sa lojtarë kanë nevojë për patika dhe numrin e tyre.
-                  </p>
-                  {teamShoes.map((row, idx) => (
-                    <div key={`shoe-${idx}`} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr auto', gap: 8, marginBottom: 8 }}>
-                      <input className="input" type="number" min="1" max="12" value={row.count} onChange={(e) => {
-                        const value = Number(e.target.value || 1);
-                        setTeamShoes((prev) => prev.map((x, i) => (i === idx ? { ...x, count: value } : x)));
-                      }} />
-                      <select className="input" value={row.size} onChange={(e) => {
-                        const value = Number(e.target.value || 42);
-                        setTeamShoes((prev) => prev.map((x, i) => (i === idx ? { ...x, size: value } : x)));
-                      }}>
-                        {Array.from({ length: 10 }).map((_, i) => <option key={i} value={36 + i}>Nr. {36 + i}</option>)}
+              <p style={{ color: 'var(--text-secondary)', marginTop: 0, fontSize: 14 }}>
+                Për çdo masë shtoni një rresht. Sasia nuk mund të kalojë inventarin e fushës.
+              </p>
+              {teamShoes.map((row, idx) => {
+                const maxPairs = maxPairsForRow(teamShoes, fieldInventory, idx);
+                return (
+                  <div
+                    key={`shoe-${idx}`}
+                    style={{
+                      display: 'grid',
+                      gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr) auto',
+                      gap: 8,
+                      marginBottom: 8,
+                      alignItems: 'center',
+                    }}
+                  >
+                    <div>
+                      <div className="label" style={{ fontSize: 11, marginBottom: 4 }}>
+                        Masa
+                      </div>
+                      <select
+                        className="input"
+                        value={row.size}
+                        onChange={(e) => updateShoeRow(idx, { size: Number(e.target.value) })}
+                      >
+                        {SHOE_SIZES.map((sz) => {
+                          const cap = capacityForSizeOption(idx, sz);
+                          return (
+                            <option key={sz} value={sz} disabled={cap <= 0}>
+                              Nr. {sz}
+                              {fieldInventory.length ? ` (${cap} të lira)` : ''}
+                            </option>
+                          );
+                        })}
                       </select>
-                      <button type="button" className="btn btn-danger" onClick={() => setTeamShoes((prev) => prev.filter((_, i) => i !== idx))}>x</button>
                     </div>
-                  ))}
-                  <button type="button" className="btn btn-ghost" onClick={() => setTeamShoes((prev) => [...prev, { size: 42, count: 1 }])}>
-                    + Shto numër tjetër
-                  </button>
-                  <p style={{ marginBottom: 4 }}>Totali i patikave: <strong>{totalShoes}</strong></p>
-                  <p style={{ color: 'var(--text-muted)', fontSize: 13 }}>
-                    Inventari i fushës: {fieldInventory.map((i) => `Nr.${i.shoe_size}: ${i.quantity_available}`).join(' · ') || 'Nuk ka të dhëna'}
-                  </p>
-                  <hr />
-                  <p><strong>Fusha:</strong> {fusha?.name || '—'}</p>
-                  <p><strong>Data dhe ora:</strong> {data && ora ? `${data} ${ora}` : '—'}</p>
-                  <p><strong>Çmimi i fushës:</strong> {cmimi.toFixed(2)}€</p>
-                  <p><strong>Patika:</strong> {totalShoes} palë × 2€ = {shoesTotal.toFixed(2)}€</p>
-                  <p><strong>TOTALI:</strong> {cashTotal.toFixed(2)}€</p>
-                  <p><strong>Metoda e pagesës:</strong> Para cash</p>
-                </>
-              ) : (
-                <>
-                  <h3 style={{ marginBottom: 8 }}>Fto 11 lojtarët e tjerë</h3>
-                  <p style={{ marginTop: 0, color: 'var(--text-secondary)' }}>{selectedEmails.length} / 11 të ftuar</p>
-                  <p>Çmimi për lojtar: <strong>{splitPreview.toFixed(2)}€</strong></p>
-                  {friends.map((f) => (
-                    <label key={f.friendshipId} style={{ display: 'flex', gap: 8, marginBottom: 6 }}>
+                    <div>
+                      <div className="label" style={{ fontSize: 11, marginBottom: 4 }}>
+                        Sasia (max {maxPairs || 0})
+                      </div>
                       <input
-                        type="checkbox"
-                        checked={selectedEmails.includes(f.friend.email)}
-                        onChange={(e) => {
-                          if (e.target.checked) {
-                            if (selectedEmails.length >= 11) return;
-                            setSelectedEmails((prev) => [...prev, f.friend.email]);
-                          } else {
-                            setSelectedEmails((prev) => prev.filter((x) => x !== f.friend.email));
-                          }
-                        }}
+                        className="input"
+                        type="number"
+                        min={1}
+                        max={Math.max(1, maxPairs)}
+                        value={row.count}
+                        onChange={(e) => updateShoeRow(idx, { count: Number(e.target.value || 1) })}
                       />
-                      {f.friend.name} ({f.friend.email})
-                    </label>
-                  ))}
-                  <div className="booking-invite-row" style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-                    <input className="input" value={manualEmail} onChange={(e) => setManualEmail(e.target.value)} placeholder="Shto me email" />
-                    <button type="button" className="btn btn-ghost" onClick={addInviteEmail}>Shto</button>
+                    </div>
+                    <button type="button" className="btn btn-danger" style={{ alignSelf: 'end' }} onClick={() => removeShoeRow(idx)}>
+                      ×
+                    </button>
                   </div>
-                  <p><strong>Çmimi juaj:</strong> {splitPreview.toFixed(2)}€</p>
-                  <p>11 lojtarë të tjerë do të paguajnë {splitPreview.toFixed(2)}€ secili.</p>
-                  <p><strong>Totali i pritur:</strong> {cmimi.toFixed(2)}€</p>
-                </>
-              )}
+                );
+              })}
+              <button type="button" className="btn btn-ghost" onClick={addShoeRow} style={{ marginBottom: 12 }}>
+                + Shto masë tjetër
+              </button>
+              <p style={{ color: 'var(--text-muted)', fontSize: 13, marginBottom: 12 }}>
+                Inventari:{' '}
+                {fieldInventory.length
+                  ? fieldInventory.map((i) => `Nr.${i.shoe_size}: ${i.quantity_available}`).join(' · ')
+                  : fushaId
+                    ? 'Duke ngarkuar…'
+                    : 'Zgjidh fushën'}
+              </p>
+
+              <hr />
+              <p><strong>Fusha:</strong> {fusha?.name || '—'}</p>
+              <p><strong>Data dhe ora:</strong> {data && ora ? `${data} ${ora}` : '—'}</p>
+              <p><strong>Fusha (court):</strong> {courtNumber || '—'}</p>
+              <p><strong>Çmimi i fushës:</strong> {cmimi.toFixed(2)}€</p>
+              <p><strong>Patika:</strong> {shoesRentTotal.toFixed(2)}€</p>
+              <p><strong>Smart Split për lojtar:</strong> {splitPreview.toFixed(2)}€</p>
+              <p><strong>TOTALI:</strong> {cashTotal.toFixed(2)}€</p>
+              <p><strong>Metoda e pagesës:</strong> Para në dorë (cash)</p>
               <button type="submit" className="btn btn-accent" style={{ width: '100%' }} disabled={!formComplete || dukeShtuar}>
-                {dukeShtuar ? 'Duke rezervuar…' : paymentMethod === 'cash' ? 'Konfirmo dhe Paguaj' : 'Krijo rezervimin dhe dërgo ftesat'}
+                {dukeShtuar ? 'Duke rezervuar…' : 'Konfirmo rezervimin'}
               </button>
             </div>
           </div>

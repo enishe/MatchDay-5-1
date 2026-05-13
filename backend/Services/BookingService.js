@@ -99,6 +99,26 @@ class BookingService {
       .filter((s) => Number.isInteger(s.size) && s.size >= 36 && s.size <= 45 && Number.isInteger(s.count) && s.count > 0);
   }
 
+  buildShoesText(shoesSummary) {
+    const rows = Array.isArray(shoesSummary) ? shoesSummary : [];
+    if (rows.length === 0) return 'Pa patika';
+    return rows.map((s) => `${s.count} palë nr.${s.size}`).join(', ');
+  }
+
+  parseShoesSummaryColumn(value) {
+    if (value == null) return [];
+    if (Array.isArray(value)) return value;
+    if (typeof value === 'string') {
+      try {
+        const parsed = JSON.parse(value);
+        return Array.isArray(parsed) ? parsed : [];
+      } catch {
+        return [];
+      }
+    }
+    return [];
+  }
+
   async notifyBookingParticipants(client, bookingId, type, title, messageBuilder) {
     const participants = await client.query(
       `SELECT DISTINCT user_id
@@ -154,7 +174,13 @@ class BookingService {
       );
       const booking = ins.rows[0];
       const organizerName = await this.getOrganizerName(client, organizerId);
-      const msg = `${organizerName} rezervoi "${field.name}" më ${formatBelgradeDate(startTime, 'sq-AL')} në ${formatBelgradeTime(startTime, 'sq-AL', { hour: '2-digit', minute: '2-digit' })}. Totali: ${totalAmount.toFixed(2)}€.`;
+      const dateStr = formatBelgradeDate(startTime, 'sq-AL', { day: '2-digit', month: '2-digit', year: 'numeric' });
+      const timeStr = formatBelgradeTime(startTime, 'sq-AL', { hour: '2-digit', minute: '2-digit' });
+      const shoesText = this.buildShoesText(shoesSummary);
+      const msg =
+        shoesSummary.length === 0
+          ? `${organizerName} rezervoi ${field.name} më ${dateStr} ora ${timeStr}. Totali: ${totalAmount.toFixed(2)}€. Pa patika.`
+          : `${organizerName} rezervoi ${field.name} më ${dateStr} ora ${timeStr}. Totali: ${totalAmount.toFixed(2)}€. Patika: ${shoesText}.`;
       await this.createAdminNotification(client, {
         type: 'new_booking',
         title: 'Rezervim i ri (Cash)',
@@ -164,10 +190,11 @@ class BookingService {
       });
 
       await client.query('COMMIT');
+      const shoesFromRow = this.parseShoesSummaryColumn(booking.shoes_summary);
       return {
         ...booking,
         field_name: field.name,
-        shoes_summary: shoesSummary,
+        shoes_summary: shoesFromRow.length ? shoesFromRow : shoesSummary,
         total_amount: totalAmount,
       };
     } catch (error) {

@@ -84,6 +84,15 @@ router.patch('/my/read-all', authenticateToken, async (req, res) => {
   }
 });
 
+router.put('/admin/read-all', authenticateToken, requireRole(['admin']), async (req, res) => {
+  try {
+    const data = await notificationService.markAllAdminNotificationsRead();
+    res.json({ success: true, ...data });
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
 router.delete('/my/:id', authenticateToken, async (req, res) => {
   try {
     await notificationService.deleteNotification(String(req.params.id), Number(req.user.id));
