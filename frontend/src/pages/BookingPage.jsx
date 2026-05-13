@@ -69,7 +69,7 @@ export default function BookingPage() {
   const [data, setData] = useState('');
   const [ora, setOra] = useState('');
   const [courtNumber, setCourtNumber] = useState('');
-  const [teamShoes, setTeamShoes] = useState([{ size: 42, count: 1 }]);
+  const [teamShoes, setTeamShoes] = useState([]);
   const [fieldInventory, setFieldInventory] = useState([]);
   const [loadingFields, setLoadingFields] = useState(true);
   const [availabilityByHour, setAvailabilityByHour] = useState({});
@@ -158,13 +158,14 @@ export default function BookingPage() {
   }, [fushaId]);
 
   useEffect(() => {
-    setTeamShoes([{ size: 42, count: 1 }]);
+    setTeamShoes([]);
   }, [fushaId]);
 
   useEffect(() => {
     if (!fieldInventory.length) return;
-    setTeamShoes((prev) =>
-      prev.map((row, idx) => {
+    setTeamShoes((prev) => {
+      if (prev.length === 0) return prev;
+      return prev.map((row, idx) => {
         const capFor = (sz) => {
           const inv = fieldInventory.find((i) => Number(i.shoe_size) === Number(sz));
           const qty = inv ? Number(inv.quantity_available) : 0;
@@ -183,8 +184,8 @@ export default function BookingPage() {
         const max = capFor(size);
         const count = max <= 0 ? 1 : Math.min(Math.max(1, Number(row.count) || 1), max);
         return { size, count };
-      })
-    );
+      });
+    });
   }, [fieldInventory]);
 
   const hourOccupied = (hour) => (availabilityByHour[hour]?.available_courts || []).length === 0;
@@ -273,7 +274,7 @@ export default function BookingPage() {
   };
 
   const removeShoeRow = (idx) => {
-    setTeamShoes((prev) => (prev.length <= 1 ? prev : prev.filter((_, i) => i !== idx)));
+    setTeamShoes((prev) => prev.filter((_, i) => i !== idx));
   };
 
   if (done) {
@@ -420,8 +421,14 @@ export default function BookingPage() {
                 Patika me qira (+2€ për palë)
               </div>
               <p style={{ color: 'var(--text-secondary)', marginTop: 0, fontSize: 14 }}>
-                Për çdo masë shtoni një rresht. Sasia nuk mund të kalojë inventarin e fushës.
+                Patikat janë opsionale. Nëse nuk ju duhen, mos shtoni asnjë rresht dhe vazhdoni me konfirmimin.
+                Nëse ju duhen, shtoni një masë nga një; sasia nuk mund të kalojë inventarin e fushës.
               </p>
+              {teamShoes.length === 0 && (
+                <p style={{ color: 'var(--text-muted)', fontSize: 13, marginBottom: 10 }}>
+                  Aktualisht pa patika — totali përfshin vetëm çmimin e orës së fushës.
+                </p>
+              )}
               {teamShoes.map((row, idx) => {
                 const maxPairs = maxPairsForRow(teamShoes, fieldInventory, idx);
                 return (
@@ -474,8 +481,14 @@ export default function BookingPage() {
                   </div>
                 );
               })}
-              <button type="button" className="btn btn-ghost" onClick={addShoeRow} style={{ marginBottom: 12 }}>
-                + Shto masë tjetër
+              <button
+                type="button"
+                className="btn btn-ghost"
+                onClick={addShoeRow}
+                style={{ marginBottom: 12 }}
+                disabled={!fushaId}
+              >
+                {teamShoes.length === 0 ? '+ Shto patika (opsionale)' : '+ Shto masë tjetër'}
               </button>
               <p style={{ color: 'var(--text-muted)', fontSize: 13, marginBottom: 12 }}>
                 Inventari:{' '}
