@@ -807,6 +807,27 @@ a:hover {
   box-shadow: none;
   transform: none;
 }
+.hour-slot--free {
+  background: rgba(0, 255, 135, 0.1);
+  color: var(--color-accent);
+  border-color: rgba(0, 255, 135, 0.45);
+}
+.hour-slot--loading {
+  opacity: 0.75;
+  cursor: wait;
+  animation: hour-slot-pulse 1.2s ease-in-out infinite;
+}
+@keyframes hour-slot-pulse {
+  0%,
+  100% {
+    opacity: 0.55;
+    box-shadow: none;
+  }
+  50% {
+    opacity: 1;
+    box-shadow: 0 0 10px rgba(0, 255, 135, 0.12);
+  }
+}
 .hour-slot--blocked {
   opacity: 0.55;
   cursor: not-allowed;

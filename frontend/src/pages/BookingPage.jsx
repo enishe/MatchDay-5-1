@@ -74,6 +74,7 @@ export default function BookingPage() {
   const [fieldInventory, setFieldInventory] = useState([]);
   const [loadingFields, setLoadingFields] = useState(true);
   const [availabilityByHour, setAvailabilityByHour] = useState({});
+  const [availabilityLoading, setAvailabilityLoading] = useState(false);
   const [dukeShtuar, setDukeShtuar] = useState(false);
   const [mesazhi, setMesazhi] = useState(null);
   const [done, setDone] = useState(null);
@@ -129,29 +130,39 @@ export default function BookingPage() {
   useEffect(() => {
     if (!fushaId || !data) {
       setAvailabilityByHour({});
+      setAvailabilityLoading(false);
       setCourtNumber('');
       return;
     }
     let cancelled = false;
+    setAvailabilityLoading(true);
+    setAvailabilityByHour({});
     Promise.all(
       ORET.map(async (h) => {
-        const start = parseBelgradeHourSlot(data, h);
-        const end = new Date(start.getTime() + 60 * 60 * 1000);
-        const r = await apiFetch(
-          `/fields/${fushaId}/availability?start=${encodeURIComponent(start.toISOString())}&end=${encodeURIComponent(end.toISOString())}`
-        );
-        return [h, r];
+        try {
+          const start = parseBelgradeHourSlot(data, h);
+          if (Number.isNaN(start.getTime())) return [h, null];
+          const end = new Date(start.getTime() + 60 * 60 * 1000);
+          const r = await apiFetch(
+            `/fields/${fushaId}/availability?start=${encodeURIComponent(start.toISOString())}&end=${encodeURIComponent(end.toISOString())}`
+          );
+          return [h, r];
+        } catch {
+          return [h, null];
+        }
       })
     )
       .then((rows) => {
         if (cancelled) return;
         const next = {};
         rows.forEach(([h, r]) => {
-          next[h] = r;
+          if (r != null) next[h] = r;
         });
         setAvailabilityByHour(next);
       })
-      .catch(() => !cancelled && setAvailabilityByHour({}));
+      .finally(() => {
+        if (!cancelled) setAvailabilityLoading(false);
+      });
     return () => {
       cancelled = true;
     };
@@ -199,11 +210,34 @@ export default function BookingPage() {
   }, [fieldInventory]);
 
   const hourAdminBlocked = (hour) => Boolean(availabilityByHour[hour]?.blocked);
-  const hourOccupied = (hour) => !hourAdminBlocked(hour) && (availabilityByHour[hour]?.available_courts || []).length === 0;
-  const hourBlocked = (hour) => hourOccupied(hour) || hourAdminBlocked(hour) || (data && isSlotStartInPast(data, hour));
+  const hourAvailabilityLoaded = (hour) => availabilityByHour[hour] !== undefined;
+  const hourOccupied = (hour) => {
+    const avail = availabilityByHour[hour];
+    if (avail === undefined || avail.blocked) return false;
+    return (avail.available_courts || []).length === 0;
+  };
+  const hourBlocked = (hour) => {
+    if (data && isSlotStartInPast(data, hour)) return true;
+    if (!hourAvailabilityLoaded(hour)) return false;
+    return hourOccupied(hour) || hourAdminBlocked(hour);
+  };
+  const hourLoading = (hour) =>
+    Boolean(fushaId && data && (availabilityLoading || !hourAvailabilityLoaded(hour)) && !isSlotStartInPast(data, hour));
+  const hourFree = (hour) => {
+    if (hourBlocked(hour) || hourLoading(hour)) return false;
+    const avail = availabilityByHour[hour];
+    return Boolean(avail && (avail.available_courts || []).length > 0);
+  };
   const chosenHourAvailability = ora ? availabilityByHour[ora] : null;
   const courtTaken = ora && courtNumber && chosenHourAvailability && !(chosenHourAvailability.available_courts || []).includes(Number(courtNumber));
-  const formComplete = fushaId && data && ora && courtNumber && !courtTaken && !hourBlocked(ora);
+  const formComplete =
+    fushaId &&
+    data &&
+    ora &&
+    courtNumber &&
+    hourAvailabilityLoaded(ora) &&
+    !courtTaken &&
+    !hourBlocked(ora);
 
   const capacityForSizeOption = (rowIndex, size) => {
     const inv = fieldInventory.find((i) => Number(i.shoe_size) === Number(size));
@@ -388,11 +422,13 @@ export default function BookingPage() {
                   {ORET.map((h) => {
                     const blocked = hourBlocked(h);
                     const adminBlocked = hourAdminBlocked(h);
+                    const loading = hourLoading(h);
+                    const free = hourFree(h);
                     return (
                       <button
                         key={h}
                         type="button"
-                        className={`hour-slot${ora === h ? ' hour-slot--active' : ''}${blocked ? ' hour-slot--disabled' : ''}${adminBlocked ? ' hour-slot--blocked' : ''}`}
+                        className={`hour-slot${ora === h ? ' hour-slot--active' : ''}${blocked ? ' hour-slot--disabled' : ''}${adminBlocked ? ' hour-slot--blocked' : ''}${loading ? ' hour-slot--loading' : ''}${free ? ' hour-slot--free' : ''}`}
                         disabled={blocked}
                         onClick={() => {
                           setOra(h);
