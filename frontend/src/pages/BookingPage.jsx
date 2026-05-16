@@ -60,6 +60,21 @@ function rentForSize(inventory, size) {
   return Number.isFinite(p) && p >= 0 ? p : 2;
 }
 
+function courtsListIncludes(list, nr) {
+  return (list || []).some((x) => Number(x) === Number(nr));
+}
+
+function isCourtTakenForAvailability(avail, nr) {
+  if (!avail) return false;
+  if (avail.blocked) return true;
+  if (courtsListIncludes(avail.taken_courts, nr)) return true;
+  if (Array.isArray(avail.available_courts)) {
+    if (avail.available_courts.length === 0) return true;
+    return !courtsListIncludes(avail.available_courts, nr);
+  }
+  return false;
+}
+
 export default function BookingPage() {
   const { token } = useAuth();
   const navigate = useNavigate();
@@ -113,6 +128,10 @@ export default function BookingPage() {
     return Object.entries(grouped).sort(([a], [b]) => a.localeCompare(b, 'sq'));
   }, [fushat]);
   const fusha = useMemo(() => fushat.find((f) => String(f.id) === String(fushaId)), [fushat, fushaId]);
+  const selectedField = useMemo(
+    () => fields.find((f) => String(f.id) === String(fushaId)) ?? null,
+    [fields, fushaId]
+  );
   const cmimi = Number(fusha?.price_per_hour || 0);
   const splitPreview = Number((cmimi / 12).toFixed(2));
 
@@ -229,7 +248,21 @@ export default function BookingPage() {
     return Boolean(avail && (avail.available_courts || []).length > 0);
   };
   const chosenHourAvailability = ora ? availabilityByHour[ora] : null;
-  const courtTaken = ora && courtNumber && chosenHourAvailability && !(chosenHourAvailability.available_courts || []).includes(Number(courtNumber));
+  const totalCourtsForOra = useMemo(() => {
+    if (!ora) return 1;
+    return Math.max(
+      1,
+      Number(
+        chosenHourAvailability?.total_courts ??
+          selectedField?.courts_count ??
+          fusha?.courts_count ??
+          1
+      )
+    );
+  }, [ora, chosenHourAvailability, selectedField, fusha]);
+  const courtTaken =
+    Boolean(ora && courtNumber && chosenHourAvailability) &&
+    isCourtTakenForAvailability(chosenHourAvailability, Number(courtNumber));
   const formComplete =
     fushaId &&
     data &&
@@ -238,6 +271,12 @@ export default function BookingPage() {
     hourAvailabilityLoaded(ora) &&
     !courtTaken &&
     !hourBlocked(ora);
+
+  useEffect(() => {
+    if (!ora || totalCourtsForOra !== 1) return;
+    if (isCourtTakenForAvailability(chosenHourAvailability, 1)) return;
+    if (!courtNumber) setCourtNumber('1');
+  }, [ora, totalCourtsForOra, courtNumber, chosenHourAvailability]);
 
   const capacityForSizeOption = (rowIndex, size) => {
     const inv = fieldInventory.find((i) => Number(i.shoe_size) === Number(size));
@@ -443,30 +482,39 @@ export default function BookingPage() {
                     );
                   })}
                 </div>
-                {ora && chosenHourAvailability && (
-                  <div style={{ marginTop: 12 }}>
-                    <div className="label">Zgjidh kortin</div>
-                    <div className="court-number-grid">
-                      {Array.from({ length: Number(chosenHourAvailability.total_courts || 0) }).map((_, i) => {
-                        const nr = i + 1;
-                        const free = (chosenHourAvailability.available_courts || []).includes(nr);
-                        const selected = String(nr) === String(courtNumber);
-                        return (
-                          <button
-                            key={nr}
-                            type="button"
-                            title={free ? `Court ${nr}` : 'I zënë'}
-                            className={`court-btn${selected ? ' court-btn--selected' : ''}${free ? ' court-btn--free' : ' court-btn--taken'}`}
-                            disabled={!free}
-                            onClick={() => free && setCourtNumber(String(nr))}
-                          >
-                            {free ? `Court ${nr}` : `🔒 Court ${nr}`}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
+              </div>
+            )}
+            {data && ora && fushaId && (
+              <div className="card">
+                <div className="card-title">Hapi 5 — Zgjidh kortin</div>
+                {hourLoading(ora) && !hourAvailabilityLoaded(ora) && (
+                  <p style={{ color: 'var(--text-muted)', fontSize: 13, marginTop: 0, marginBottom: 8 }}>
+                    Duke kontrolluar kortet e lira…
+                  </p>
                 )}
+                <div className="court-number-grid">
+                  {Array.from({ length: totalCourtsForOra }).map((_, i) => {
+                    const nr = i + 1;
+                    const taken = isCourtTakenForAvailability(chosenHourAvailability, nr);
+                    const free = !taken;
+                    const selected = String(nr) === String(courtNumber);
+                    return (
+                      <button
+                        key={nr}
+                        type="button"
+                        title={free ? `Court ${nr}` : 'I zënë'}
+                        className={`court-btn${selected ? ' court-btn--selected' : ''}${free ? ' court-btn--free' : ' court-btn--taken'}`}
+                        disabled={taken}
+                        onClick={() => !taken && setCourtNumber(String(nr))}
+                      >
+                        <span>Court {nr}</span>
+                        <span style={{ display: 'block', fontSize: 11, fontWeight: 400, marginTop: 4 }}>
+                          {taken ? '🔒 I zënë' : selected ? '✓ Zgjedhur' : 'E lirë'}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
             )}
           </div>
@@ -562,7 +610,7 @@ export default function BookingPage() {
               <hr />
               <p><strong>Fusha:</strong> {fusha?.name || '—'}</p>
               <p><strong>Data dhe ora:</strong> {data && ora ? `${data} ${ora}` : '—'}</p>
-              <p><strong>Fusha (court):</strong> {courtNumber || '—'}</p>
+              <p><strong>Korti:</strong> {courtNumber ? `Court ${courtNumber}` : '— Zgjidh kortin'}</p>
               <p><strong>Çmimi i fushës:</strong> {cmimi.toFixed(2)}€</p>
               <p><strong>Patika:</strong> {shoesRentTotal.toFixed(2)}€</p>
               <p><strong>Smart Split për lojtar:</strong> {splitPreview.toFixed(2)}€</p>
