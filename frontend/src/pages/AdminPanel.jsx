@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { apiFetch } from '../lib/api';
 import { useAuth } from '../context/AuthContext';
 import { formatBelgradeDateTime, getBelgradeTodayYmd } from '../lib/timezone';
+import FieldAdminDashboard from '../components/FieldAdminDashboard';
 
 function statusBadgeClass(status) {
   if (status === 'confirmed') return 'badge-confirmed';
@@ -21,7 +22,8 @@ const SIZES = [36, 37, 38, 39, 40, 41, 42, 43, 44, 45];
 
 function terrainLabel(value) {
   if (value === 'artificial_grass') return 'Bar Artificial';
-  if (value === 'indoor_hall') return 'Sallë Futsali';
+  if (value === 'indoor_hall') return 'Sallë e mbyllur';
+  if (value === 'futsal') return 'Futsal';
   return value || '—';
 }
 
@@ -39,7 +41,9 @@ export default function AdminPanel({ section = 'dashboard' }) {
   const [bulkInventoryDraft, setBulkInventoryDraft] = useState({});
   const [inventorySaving, setInventorySaving] = useState(false);
   const [filtri, setFiltri] = useState('');
-  const [fieldForm, setFieldForm] = useState({ name: '', location: '', terrain_type: 'artificial_grass', price_per_hour: '', courts_count: '1' });
+  const [fieldForm, setFieldForm] = useState({
+    name: '', location: '', terrain_type: 'artificial_grass', price_per_hour: '', courts_count: '1', is_active: true,
+  });
   const [loading, setLoading] = useState(true);
   const [mesazhi, setMesazhi] = useState(null);
   const [calendarFieldId, setCalendarFieldId] = useState('');
@@ -159,6 +163,12 @@ export default function AdminPanel({ section = 'dashboard' }) {
     }
   };
 
+  const resetFieldForm = () => {
+    setFieldForm({
+      name: '', location: '', terrain_type: 'artificial_grass', price_per_hour: '', courts_count: '1', is_active: true,
+    });
+  };
+
   const handleCreateField = async (e) => {
     e.preventDefault();
     const errors = [];
@@ -168,10 +178,21 @@ export default function AdminPanel({ section = 'dashboard' }) {
     if (!fieldForm.courts_count || Number(fieldForm.courts_count) <= 0) errors.push('Numri i fushave duhet të jetë pozitiv.');
     if (errors.length) return tregoBust(errors.join(' '), 'error');
     try {
-      await apiFetch('/fields', { token, method: 'POST', body: { ...fieldForm, price_per_hour: Number(fieldForm.price_per_hour), courts_count: Number(fieldForm.courts_count) } });
-      setFieldForm({ name: '', location: '', terrain_type: 'artificial_grass', price_per_hour: '', courts_count: '1' });
+      await apiFetch('/fields', {
+        token,
+        method: 'POST',
+        body: {
+          name: fieldForm.name.trim(),
+          location: fieldForm.location.trim(),
+          terrain_type: fieldForm.terrain_type,
+          price_per_hour: Number(fieldForm.price_per_hour),
+          courts_count: Number(fieldForm.courts_count),
+        },
+      });
+      resetFieldForm();
       tregoBust('Fusha u krijua.');
       fetchFields();
+      fetchTodayByField();
     } catch (e2) {
       tregoBust(e2.message, 'error');
     }
@@ -179,7 +200,18 @@ export default function AdminPanel({ section = 'dashboard' }) {
 
   const handleUpdateField = async (f) => {
     try {
-      await apiFetch(`/fields/${f.id}`, { token, method: 'PUT', body: { price_per_hour: Number(f.price_per_hour), courts_count: Number(f.courts_count) } });
+      await apiFetch(`/fields/${f.id}`, {
+        token,
+        method: 'PUT',
+        body: {
+          name: String(f.name || '').trim(),
+          location: String(f.location || '').trim(),
+          terrain_type: f.terrain_type,
+          price_per_hour: Number(f.price_per_hour),
+          courts_count: Number(f.courts_count),
+          is_active: Boolean(f.is_active),
+        },
+      });
       tregoBust('Fusha u përditësua.');
       fetchFields();
       fetchTodayByField();
@@ -188,12 +220,17 @@ export default function AdminPanel({ section = 'dashboard' }) {
     }
   };
 
-  const handleDeactivateField = async (id) => {
+  const handleDeleteField = async (id, fieldName) => {
+    const ok = window.confirm(
+      `Fshirja e "${fieldName || 'fushës'}" do të heqë përgjithmonë fushën dhe të gjitha rezervimet. A jeni i sigurt?`
+    );
+    if (!ok) return;
     try {
       await apiFetch(`/fields/${id}`, { token, method: 'DELETE' });
-      tregoBust('Fusha u çaktivizua.');
+      tregoBust('Fusha u fshi përgjithmonë.');
       fetchFields();
       fetchTodayByField();
+      fetchBookings();
     } catch (e2) {
       tregoBust(e2.message, 'error');
     }
@@ -288,6 +325,17 @@ export default function AdminPanel({ section = 'dashboard' }) {
 
       {tab === 'dashboard' && (
         <>
+          {isFieldAdmin && (
+            <FieldAdminDashboard
+              fields={fields}
+              onRefresh={() => {
+                fetchFields();
+                fetchTodayByField();
+                fetchBookings();
+              }}
+              onMessage={tregoBust}
+            />
+          )}
           <div className="stat-grid-4" style={{ marginBottom: 20 }}>
             {statCards.map((s) => (
               <div key={s.label} className="stat-card" style={{ '--stat-accent': s.accent }}>
@@ -434,7 +482,8 @@ export default function AdminPanel({ section = 'dashboard' }) {
             <input className="input" placeholder="Lokacioni" value={fieldForm.location} onChange={(e) => setFieldForm((p) => ({ ...p, location: e.target.value }))} />
             <select className="input" value={fieldForm.terrain_type} onChange={(e) => setFieldForm((p) => ({ ...p, terrain_type: e.target.value }))}>
               <option value="artificial_grass">Bar Artificial</option>
-              <option value="indoor_hall">Sallë Futsali</option>
+              <option value="indoor_hall">Sallë e mbyllur</option>
+              <option value="futsal">Futsal</option>
             </select>
             <input className="input" type="number" placeholder="Çmimi për orë" value={fieldForm.price_per_hour} onChange={(e) => setFieldForm((p) => ({ ...p, price_per_hour: e.target.value }))} />
             <input className="input" type="number" min="1" max="10" placeholder="Numri i fushave" value={fieldForm.courts_count} onChange={(e) => setFieldForm((p) => ({ ...p, courts_count: e.target.value }))} />
@@ -464,7 +513,7 @@ export default function AdminPanel({ section = 'dashboard' }) {
                           if (p == null || c == null) return;
                           handleUpdateField({ ...f, price_per_hour: p, courts_count: c });
                         }}>Ndrysho</button>
-                        {f.is_active && <button type="button" className="btn btn-danger" onClick={() => handleDeactivateField(f.id)}>Çaktivizo</button>}
+                        <button type="button" className="btn btn-danger" onClick={() => handleDeleteField(f.id, f.name)}>Fshi</button>
                       </div>
                     </td>
                   </tr>

@@ -16,8 +16,8 @@ function validateFieldPayload(body, isUpdate = false) {
     if (!String(body.location || '').trim()) errors.push('Lokacioni është i detyrueshëm.');
   }
   if (!isUpdate || body.terrain_type !== undefined) {
-    if (!['artificial_grass', 'indoor_hall'].includes(terrain)) {
-      errors.push('Lloji i terrenit duhet të jetë artificial_grass ose indoor_hall.');
+    if (!['artificial_grass', 'indoor_hall', 'futsal'].includes(terrain)) {
+      errors.push('Lloji i terrenit duhet të jetë artificial_grass, indoor_hall ose futsal.');
     }
   }
   if (!isUpdate || body.price_per_hour !== undefined) {
@@ -48,12 +48,20 @@ router.get('/fields', optionalAuthenticate, async (req, res) => {
       rows = result.rows;
     } else if (role === 'superadmin' || role === 'admin') {
       rows = await fieldService.getAllFields();
+    } else if (role === 'player' || role === 'participant' || !role) {
+      const result = await pool.query(
+        `SELECT id, name, location, terrain_type, price_per_hour, courts_count, is_active, created_at
+         FROM fields
+         WHERE is_active = TRUE
+         ORDER BY location ASC, name ASC`
+      );
+      rows = result.rows;
     } else {
       const result = await pool.query(
         `SELECT id, name, location, terrain_type, price_per_hour, courts_count, is_active, created_at
          FROM fields
          WHERE is_active = TRUE
-         ORDER BY id ASC`
+         ORDER BY location ASC, name ASC`
       );
       rows = result.rows;
     }
@@ -157,20 +165,22 @@ router.get('/fields/:id/availability', async (req, res) => {
   }
 });
 
-router.post('/fields', authenticateToken, requireRole(['admin']), async (req, res) => {
+router.post('/fields', authenticateToken, requireRole(['admin', 'field_admin']), async (req, res) => {
   try {
     const errors = validateFieldPayload(req.body, false);
     if (errors.length) return res.status(400).json({ error: errors.join(' ') });
+    const ownerId = req.user.role === 'field_admin' ? req.user.id : (req.body.owner_id ?? null);
     const field = await fieldService.createField({
       name: String(req.body.name).trim(),
       location: String(req.body.location).trim(),
       terrain_type: req.body.terrain_type,
       price_per_hour: Number(req.body.price_per_hour),
       courts_count: Number(req.body.courts_count),
+      owner_id: ownerId,
     });
     res.status(201).json(field);
-  } catch {
-    res.status(400).json({ error: 'Krijimi i fushës dështoi.' });
+  } catch (error) {
+    res.status(400).json({ error: error.message || 'Krijimi i fushës dështoi.' });
   }
 });
 
@@ -190,19 +200,30 @@ router.delete('/fields/:id', authenticateToken, requireRole(['admin', 'field_adm
     const data = await fieldService.deleteField(Number(req.params.id));
     res.json(data);
   } catch (error) {
-    res.status(400).json({ error: error.message || 'Çaktivizimi i fushës dështoi.' });
+    res.status(400).json({ error: error.message || 'Fshirja e fushës dështoi.' });
+  }
+});
+
+router.get('/fields/:id/shoes', authenticateToken, requireRole(['admin', 'field_admin']), requireFieldAccess, async (req, res) => {
+  try {
+    const shoes = await fieldService.getShoesByField(Number(req.params.id));
+    res.json(shoes);
+  } catch (error) {
+    res.status(400).json({ error: error.message || 'Nuk u lexua inventari i patikave.' });
   }
 });
 
 router.put('/fields/:id/shoes', authenticateToken, requireRole(['admin', 'field_admin']), requireFieldAccess, async (req, res) => {
   try {
-    const rows = Array.isArray(req.body?.inventory) ? req.body.inventory : [];
-    if (rows.length === 0) {
+    const raw = Array.isArray(req.body)
+      ? req.body
+      : (Array.isArray(req.body?.inventory) ? req.body.inventory : []);
+    if (raw.length === 0) {
       return res.status(400).json({ error: 'Dërgoni të paktën një rresht inventari.' });
     }
-    const sanitized = rows.map((r) => ({
-      shoe_size: Number(r.shoe_size),
-      quantity_available: Number(r.quantity_available),
+    const sanitized = raw.map((r) => ({
+      shoe_size: Number(r.shoe_size ?? r.size),
+      quantity_available: Number(r.quantity_available ?? r.quantity),
       rent_price: r.rent_price != null ? Number(r.rent_price) : undefined,
     }));
     const updated = await fieldService.updateShoesInventory(Number(req.params.id), sanitized);

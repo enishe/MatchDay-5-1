@@ -1,5 +1,6 @@
 const pool = require('../config/db');
 const { createUtcDateFromBelgradeLocal } = require('../utils/timezone');
+const { cascadeDeleteField } = require('../utils/fieldCascadeDelete');
 
 class FieldService {
   buildHourlySlots(startDate, days, startHour, endHour) {
@@ -44,12 +45,12 @@ class FieldService {
   }
 
   async createField(payload) {
-    const { name, location, terrain_type, price_per_hour, courts_count } = payload;
+    const { name, location, terrain_type, price_per_hour, courts_count, owner_id } = payload;
     const created = await pool.query(
-      `INSERT INTO fields (name, location, terrain_type, price_per_hour, courts_count, is_active)
-       VALUES ($1, $2, $3, $4, $5, TRUE)
+      `INSERT INTO fields (name, location, terrain_type, price_per_hour, courts_count, is_active, owner_id)
+       VALUES ($1, $2, $3, $4, $5, TRUE, $6)
        RETURNING id, name, location, terrain_type, price_per_hour, courts_count, is_active, created_at`,
-      [name, location, terrain_type, price_per_hour, courts_count]
+      [name, location, terrain_type, price_per_hour, courts_count, owner_id ?? null]
     );
     const field = created.rows[0];
     await pool.query(
@@ -87,6 +88,10 @@ class FieldService {
       updates.push(`terrain_type = $${idx++}`);
       values.push(payload.terrain_type);
     }
+    if (payload.is_active !== undefined) {
+      updates.push(`is_active = $${idx++}`);
+      values.push(Boolean(payload.is_active));
+    }
 
     if (updates.length === 0) return this.getFieldById(id);
     values.push(id);
@@ -102,15 +107,8 @@ class FieldService {
   }
 
   async deleteField(id) {
-    const result = await pool.query(
-      `UPDATE fields
-       SET is_active = FALSE
-       WHERE id = $1
-       RETURNING id`,
-      [id]
-    );
-    if (result.rows.length === 0) throw new Error('Fusha nuk u gjet.');
-    return { ok: true };
+    await cascadeDeleteField(id);
+    return { ok: true, message: 'Fusha dhe të gjitha rezervimet u fshinë përgjithmonë.' };
   }
 
   async updateShoesInventory(fieldId, updates) {

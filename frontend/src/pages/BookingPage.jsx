@@ -16,6 +16,7 @@ function isSlotStartInPast(dateStr, hourLabel) {
 function terrainLabel(t) {
   if (t === 'indoor_hall') return 'Sallë e mbyllur';
   if (t === 'artificial_grass') return 'Bar artificial';
+  if (t === 'futsal') return 'Futsal';
   return t || '—';
 }
 
@@ -101,6 +102,15 @@ export default function BookingPage() {
   }, [token, tregoBust]);
 
   const fushat = useMemo(() => (terreni ? fields.filter((f) => f.terrain_type === terreni) : fields), [fields, terreni]);
+  const fushatSipasLokacionit = useMemo(() => {
+    const grouped = {};
+    for (const f of fushat) {
+      const loc = f.location || 'Pa lokacion';
+      if (!grouped[loc]) grouped[loc] = [];
+      grouped[loc].push(f);
+    }
+    return Object.entries(grouped).sort(([a], [b]) => a.localeCompare(b, 'sq'));
+  }, [fushat]);
   const fusha = useMemo(() => fushat.find((f) => String(f.id) === String(fushaId)), [fushat, fushaId]);
   const cmimi = Number(fusha?.price_per_hour || 0);
   const splitPreview = Number((cmimi / 12).toFixed(2));
@@ -324,6 +334,9 @@ export default function BookingPage() {
                 <button type="button" className={`btn ${terreni === 'indoor_hall' ? 'btn-primary' : 'btn-ghost'}`} onClick={() => setTerreni('indoor_hall')}>
                   Sallë e mbyllur
                 </button>
+                <button type="button" className={`btn ${terreni === 'futsal' ? 'btn-primary' : 'btn-ghost'}`} onClick={() => setTerreni('futsal')}>
+                  Futsal
+                </button>
               </div>
             </div>
             <div className="card">
@@ -341,10 +354,14 @@ export default function BookingPage() {
                   }}
                 >
                   <option value="">— Zgjidh fushën —</option>
-                  {fushat.map((f) => (
-                    <option key={f.id} value={f.id}>
-                      {f.name} — {f.location} — {terrainLabel(f.terrain_type)} — {f.price_per_hour}€/orë
-                    </option>
+                  {fushatSipasLokacionit.map(([location, locationFields]) => (
+                    <optgroup key={location} label={location}>
+                      {locationFields.map((f) => (
+                        <option key={f.id} value={f.id}>
+                          {f.name} — {terrainLabel(f.terrain_type)} — {f.price_per_hour}€/orë
+                        </option>
+                      ))}
+                    </optgroup>
                   ))}
                 </select>
               )}

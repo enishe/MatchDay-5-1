@@ -3,6 +3,7 @@ const router = express.Router();
 const pool = require('../config/db');
 const bcrypt = require('bcryptjs');
 const { authenticateToken, requireRole } = require('../middleware/auth');
+const { cascadeDeleteFieldsForOwner } = require('../utils/fieldCascadeDelete');
 
 const isSuperAdmin = requireRole(['superadmin']);
 
@@ -103,10 +104,10 @@ router.delete('/admins/:id', authenticateToken, isSuperAdmin, async (req, res) =
       return res.status(400).json({ error: 'Ky user nuk është field_admin.' });
     }
 
-    await pool.query('UPDATE fields SET owner_id = NULL WHERE owner_id = $1', [adminId]);
+    await cascadeDeleteFieldsForOwner(adminId);
     await pool.query("UPDATE users SET role = 'participant' WHERE id = $1", [adminId]);
 
-    res.json({ success: true, message: 'Admin-i u largua me sukses.' });
+    res.json({ success: true, message: 'Admin-i dhe të gjitha fushat u larguan.' });
   } catch (err) {
     console.error('DELETE /superadmin/admins error:', err.message);
     res.status(500).json({ error: 'Gabim gjatë fshirjes së admin-it.' });

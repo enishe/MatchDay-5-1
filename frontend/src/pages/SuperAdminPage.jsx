@@ -85,11 +85,14 @@ export default function SuperAdminPage() {
   };
 
   const onDeleteAdmin = async (admin) => {
-    if (!window.confirm(`Të largohet admin-i "${admin.name}"?`)) return;
+    const ok = window.confirm(
+      'Duke fshirë këtë admin do të fshihen të gjitha fushat dhe rezervimet e tij përgjithmonë. A jeni i sigurt?'
+    );
+    if (!ok) return;
     setFeedback(null);
     try {
       await apiFetch(`/superadmin/admins/${admin.id}`, { token, method: 'DELETE' });
-      setFeedback({ type: 'success', text: 'Admin-i u largua me sukses.' });
+      setFeedback({ type: 'success', text: 'Admin-i dhe të gjitha fushat u fshiën me sukses!' });
       await loadAdmins();
       await loadFields();
     } catch (err) {
