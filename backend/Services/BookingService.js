@@ -2,6 +2,7 @@ const crypto = require('crypto');
 const pool = require('../config/db');
 const NotificationService = require('./NotificationService');
 const { formatBelgradeDate, formatBelgradeTime } = require('../utils/timezone');
+const { isSlotBlocked } = require('../utils/blockedSlots');
 
 class BookingService {
   constructor() {
@@ -99,6 +100,10 @@ class BookingService {
   }
 
   async ensureSlotAvailable(client, { fieldId, courtNumber, startTime, endTime }) {
+    if (await isSlotBlocked(client, fieldId, startTime)) {
+      throw new Error('Kjo orë është bllokuar nga administratori i fushës.');
+    }
+
     const conflict = await client.query(
       `SELECT 1
        FROM bookings

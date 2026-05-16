@@ -1,5 +1,6 @@
 const pool = require('../config/db');
 const { createUtcDateFromBelgradeLocal } = require('../utils/timezone');
+const { isSlotBlocked } = require('../utils/blockedSlots');
 const { cascadeDeleteField } = require('../utils/fieldCascadeDelete');
 
 class FieldService {
@@ -187,6 +188,18 @@ class FieldService {
 
   async getAvailableCourts(fieldId, start, end) {
     const field = await this.getFieldById(fieldId);
+    const startDate = start instanceof Date ? start : new Date(start);
+    if (await isSlotBlocked(pool, fieldId, startDate)) {
+      return {
+        field_id: Number(fieldId),
+        start,
+        end,
+        total_courts: Number(field.courts_count || 1),
+        available_courts: [],
+        taken_courts: [],
+        blocked: true,
+      };
+    }
     const booked = await pool.query(
       `SELECT court_number
        FROM bookings
@@ -211,6 +224,7 @@ class FieldService {
       total_courts: Number(field.courts_count || 1),
       available_courts: available,
       taken_courts: taken,
+      blocked: false,
     };
   }
 

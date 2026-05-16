@@ -742,6 +742,102 @@ router.get('/search-users', authenticateToken, async (req, res) => {
     }
 });
 
+router.post('/matches/:id/cancel-cash', authenticateToken, async (req, res) => {
+    try {
+        const bookingId = parseInt(req.params.id, 10);
+        const userId = Number(req.user.id);
+
+        const result = await pool.query(
+            `SELECT id, organizer_id, start_time, status, field_id
+             FROM bookings WHERE id = $1`,
+            [bookingId]
+        );
+
+        if (!result.rows.length) {
+            return res.status(404).json({ error: 'Rezervimi nuk u gjet.' });
+        }
+
+        const booking = result.rows[0];
+
+        if (!sameUserId(booking.organizer_id, userId)) {
+            return res.status(403).json({ error: 'Vetëm organizatori mund të anulojë.' });
+        }
+
+        if (booking.status !== 'confirmed') {
+            return res.status(400).json({ error: 'Vetëm rezervimet e konfirmuara (cash) mund të anulohen këtu.' });
+        }
+
+        if (booking.status === 'canceled') {
+            return res.status(400).json({ error: 'Rezervimi është tashmë i anuluar.' });
+        }
+
+        const startTime = new Date(booking.start_time);
+        const hoursUntilMatch = (startTime - new Date()) / (1000 * 60 * 60);
+
+        if (hoursUntilMatch < 2) {
+            return res.status(400).json({
+                error: 'Nuk mund të anuloni rezervimin më pak se 2 orë para ndeshjes.',
+            });
+        }
+
+        await pool.query(
+            `UPDATE bookings
+             SET status = 'canceled', cancelled_at = NOW(), cancel_reason = $1
+             WHERE id = $2`,
+            [req.body?.reason || 'Anuluar nga lojtari', bookingId]
+        );
+
+        const fieldResult = await pool.query(
+            'SELECT owner_id, name FROM fields WHERE id = $1',
+            [booking.field_id]
+        );
+        const fieldName = fieldResult.rows[0]?.name || 'Fusha';
+        const ownerId = fieldResult.rows[0]?.owner_id;
+
+        const startFormatted = new Date(booking.start_time).toLocaleString('sq-AL', {
+            day: '2-digit',
+            month: '2-digit',
+            year: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit',
+            timeZone: BELGRADE_TIMEZONE,
+        });
+
+        if (ownerId) {
+            await pool.query(
+                `INSERT INTO notifications
+                 (user_id, recipient_id, recipient_type, type, title, message,
+                  subject, body, booking_id, is_read)
+                 VALUES ($1, $1, 'admin', 'booking_canceled', $2, $3, $2, $3, $4, false)`,
+                [
+                    ownerId,
+                    'Rezervim i anuluar',
+                    `Rezervimi për ${fieldName} më ${startFormatted} u anulua nga lojtari.`,
+                    bookingId,
+                ]
+            );
+        }
+
+        await pool.query(
+            `INSERT INTO notifications
+             (user_id, recipient_id, recipient_type, type, title, message,
+              subject, body, booking_id, is_read)
+             VALUES ($1, $1, 'user', 'booking_canceled', $2, $3, $2, $3, $4, false)`,
+            [
+                userId,
+                'Rezervimi u anulua',
+                `Rezervimi juaj për ${fieldName} më ${startFormatted} u anulua me sukses.`,
+                bookingId,
+            ]
+        );
+
+        res.json({ success: true, message: 'Rezervimi u anulua me sukses.' });
+    } catch (err) {
+        console.error('Cancel cash booking error:', err.message);
+        res.status(500).json({ error: 'Gabim gjatë anulimit.' });
+    }
+});
+
 router.get('/matches/:id/payments', authenticateToken, async (req, res) => {
     try {
         const booking = await matchService.gjejSipasId(req.params.id);

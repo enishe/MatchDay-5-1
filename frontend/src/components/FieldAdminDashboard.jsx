@@ -3,6 +3,39 @@ import { apiFetch } from '../lib/api';
 import { useAuth } from '../context/AuthContext';
 
 const SIZES = [36, 37, 38, 39, 40, 41, 42, 43, 44, 45];
+const HOURS = ['12:00', '13:00', '14:00', '15:00', '16:00', '17:00', '18:00', '19:00', '20:00', '21:00', '22:00', '23:00'];
+const WEEKDAYS = [
+  { value: 0, label: 'E Diel' },
+  { value: 1, label: 'E Hënë' },
+  { value: 2, label: 'E Martë' },
+  { value: 3, label: 'E Mërkurë' },
+  { value: 4, label: 'E Enjte' },
+  { value: 5, label: 'E Premte' },
+  { value: 6, label: 'E Shtunë' },
+];
+
+function blockTypeLabel(type) {
+  if (type === 'hour') return 'Orë specifike';
+  if (type === 'full_day') return 'Ditë e plotë';
+  if (type === 'weekday') return 'Ditë e javës';
+  return type;
+}
+
+function formatBlockedSlot(row) {
+  if (row.block_type === 'hour') {
+    const d = row.blocked_date ? String(row.blocked_date).slice(0, 10) : '—';
+    const h = row.blocked_hour != null ? `${String(row.blocked_hour).padStart(2, '0')}:00` : '—';
+    return `${d} · ${h}`;
+  }
+  if (row.block_type === 'full_day') {
+    return row.blocked_date ? String(row.blocked_date).slice(0, 10) : '—';
+  }
+  if (row.block_type === 'weekday') {
+    const w = WEEKDAYS.find((x) => x.value === Number(row.weekday));
+    return w?.label || `Dita ${row.weekday}`;
+  }
+  return '—';
+}
 
 function terrainLabel(value) {
   if (value === 'artificial_grass') return 'Bar Artificial';
@@ -28,6 +61,16 @@ export default function FieldAdminDashboard({ fields, onRefresh, onMessage }) {
   const [shoesDraft, setShoesDraft] = useState({});
   const [activeShoesFieldId, setActiveShoesFieldId] = useState('');
   const [shoesSavingFieldId, setShoesSavingFieldId] = useState(null);
+  const [activeBlockedFieldId, setActiveBlockedFieldId] = useState('');
+  const [blockedSlots, setBlockedSlots] = useState([]);
+  const [blockForm, setBlockForm] = useState({
+    block_type: 'hour',
+    blocked_date: '',
+    blocked_hour: 12,
+    weekday: 1,
+    reason: '',
+  });
+  const [blockSaving, setBlockSaving] = useState(false);
 
   const notify = (text, type = 'sukses') => onMessage?.(text, type);
 
@@ -114,6 +157,69 @@ export default function FieldAdminDashboard({ fields, onRefresh, onMessage }) {
       setShoesDraft((prev) => ({ ...prev, [fieldId]: draft }));
     } catch (err) {
       notify(err.message || 'Gabim gjatë ngarkimit të inventarit.', 'error');
+    }
+  };
+
+  const loadBlockedSlots = async (fieldId) => {
+    if (!fieldId) {
+      setBlockedSlots([]);
+      return;
+    }
+    try {
+      const rows = await apiFetch(`/fields/${fieldId}/blocked-slots`, { token });
+      setBlockedSlots(Array.isArray(rows) ? rows : []);
+    } catch (err) {
+      notify(err.message || 'Gabim gjatë ngarkimit të orareve të bllokuara.', 'error');
+    }
+  };
+
+  const handleAddBlockedSlot = async (e) => {
+    e.preventDefault();
+    if (!activeBlockedFieldId) return;
+    const { block_type, blocked_date, blocked_hour, weekday, reason } = blockForm;
+    if (block_type === 'hour' && (!blocked_date || blocked_hour == null)) {
+      return notify('Ora dhe data janë të detyrueshme.', 'error');
+    }
+    if (block_type === 'full_day' && !blocked_date) {
+      return notify('Data është e detyrueshme.', 'error');
+    }
+    try {
+      setBlockSaving(true);
+      const body = {
+        block_type,
+        reason: reason.trim() || null,
+      };
+      if (block_type === 'hour') {
+        body.blocked_date = blocked_date;
+        body.blocked_hour = Number(blocked_hour);
+      } else if (block_type === 'full_day') {
+        body.blocked_date = blocked_date;
+      } else if (block_type === 'weekday') {
+        body.weekday = Number(weekday);
+      }
+      await apiFetch(`/fields/${activeBlockedFieldId}/blocked-slots`, {
+        token,
+        method: 'POST',
+        body,
+      });
+      notify('Orari u bllokua.');
+      setBlockForm((p) => ({ ...p, reason: '' }));
+      await loadBlockedSlots(activeBlockedFieldId);
+    } catch (err) {
+      notify(err.message || 'Gabim gjatë bllokimit.', 'error');
+    } finally {
+      setBlockSaving(false);
+    }
+  };
+
+  const handleRemoveBlockedSlot = async (fieldId, slotId) => {
+    if (!window.confirm('Të hiqet ky bllokim?')) return;
+    try {
+      await apiFetch(`/fields/${fieldId}/blocked-slots/${slotId}`, { token, method: 'DELETE' });
+      notify('Bllokimi u hoq.');
+      await loadBlockedSlots(fieldId);
+    } catch (err) {
+      notify(err.message || 'Gabim gjatë fshirjes.', 'error');
     }
   };
 
@@ -318,6 +424,137 @@ export default function FieldAdminDashboard({ fields, onRefresh, onMessage }) {
             )}
           </div>
         ))}
+      </div>
+
+      <div className="card" style={{ marginBottom: 20 }}>
+        <h2 className="card-title">Oraret e Bllokuara</h2>
+        {fields.length === 0 && <p style={{ color: 'var(--text-muted)' }}>Shtoni një fushë për të menaxhuar bllokimet.</p>}
+        {fields.length > 0 && (
+          <>
+            <div className="form-group" style={{ marginBottom: 12 }}>
+              <label className="label" htmlFor="blocked-field-select">Zgjidh fushën</label>
+              <select
+                id="blocked-field-select"
+                className="input"
+                value={activeBlockedFieldId}
+                onChange={(e) => {
+                  const next = e.target.value;
+                  setActiveBlockedFieldId(next);
+                  if (next) loadBlockedSlots(next);
+                  else setBlockedSlots([]);
+                }}
+              >
+                <option value="">— Zgjidh —</option>
+                {fields.map((f) => (
+                  <option key={`block-field-${f.id}`} value={String(f.id)}>
+                    {f.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+            {activeBlockedFieldId && (
+              <>
+                <form onSubmit={handleAddBlockedSlot} className="admin-field-create-grid" style={{ marginBottom: 16 }}>
+                  <select
+                    className="input"
+                    value={blockForm.block_type}
+                    onChange={(e) => setBlockForm((p) => ({ ...p, block_type: e.target.value }))}
+                  >
+                    <option value="hour">Orë specifike</option>
+                    <option value="full_day">Ditë e plotë</option>
+                    <option value="weekday">Ditë e javës gjithmonë</option>
+                  </select>
+                  {blockForm.block_type === 'hour' && (
+                    <>
+                      <input
+                        className="input"
+                        type="date"
+                        value={blockForm.blocked_date}
+                        onChange={(e) => setBlockForm((p) => ({ ...p, blocked_date: e.target.value }))}
+                      />
+                      <select
+                        className="input"
+                        value={blockForm.blocked_hour}
+                        onChange={(e) => setBlockForm((p) => ({ ...p, blocked_hour: Number(e.target.value) }))}
+                      >
+                        {HOURS.map((h) => (
+                          <option key={h} value={parseInt(h.split(':')[0], 10)}>
+                            {h}
+                          </option>
+                        ))}
+                      </select>
+                    </>
+                  )}
+                  {blockForm.block_type === 'full_day' && (
+                    <input
+                      className="input"
+                      type="date"
+                      value={blockForm.blocked_date}
+                      onChange={(e) => setBlockForm((p) => ({ ...p, blocked_date: e.target.value }))}
+                    />
+                  )}
+                  {blockForm.block_type === 'weekday' && (
+                    <select
+                      className="input"
+                      value={blockForm.weekday}
+                      onChange={(e) => setBlockForm((p) => ({ ...p, weekday: Number(e.target.value) }))}
+                    >
+                      {WEEKDAYS.map((w) => (
+                        <option key={w.value} value={w.value}>
+                          {w.label}
+                        </option>
+                      ))}
+                    </select>
+                  )}
+                  <input
+                    className="input"
+                    placeholder="Arsyeja (opsionale)"
+                    value={blockForm.reason}
+                    onChange={(e) => setBlockForm((p) => ({ ...p, reason: e.target.value }))}
+                  />
+                  <button type="submit" className="btn btn-accent" disabled={blockSaving}>
+                    {blockSaving ? 'Duke ruajtur…' : 'Blloко'}
+                  </button>
+                </form>
+                {blockedSlots.length === 0 ? (
+                  <p style={{ color: 'var(--text-muted)', margin: 0 }}>Nuk ka orare të bllokuara.</p>
+                ) : (
+                  <div className="table-wrap">
+                    <table className="table">
+                      <thead>
+                        <tr>
+                          <th>Lloji</th>
+                          <th>Data / Ora</th>
+                          <th>Arsyeja</th>
+                          <th />
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {blockedSlots.map((row) => (
+                          <tr key={row.id}>
+                            <td>{blockTypeLabel(row.block_type)}</td>
+                            <td>{formatBlockedSlot(row)}</td>
+                            <td>{row.reason || '—'}</td>
+                            <td>
+                              <button
+                                type="button"
+                                className="btn btn-ghost"
+                                style={{ fontSize: 12, padding: '4px 10px' }}
+                                onClick={() => handleRemoveBlockedSlot(activeBlockedFieldId, row.id)}
+                              >
+                                Hiq
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </>
+            )}
+          </>
+        )}
       </div>
 
     </>

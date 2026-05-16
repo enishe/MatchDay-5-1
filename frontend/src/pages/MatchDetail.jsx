@@ -83,6 +83,27 @@ export default function MatchDetail() {
     }
   };
 
+  const handleCancelCash = async () => {
+    const ok = window.confirm(
+      'A jeni i sigurt që doni të anuloni?\nRezervimet mund të anulohen deri 2 orë para ndeshjes.'
+    );
+    if (!ok) return;
+    setBusy(true);
+    setMsg(null);
+    try {
+      await apiFetch(`/matches/${id}/cancel-cash`, { token, method: 'POST', body: { reason: 'Anuluar nga lojtari' } });
+      setMsg('Rezervimi u anulua me sukses.');
+      setData((prev) => {
+        if (!prev) return prev;
+        return { ...prev, match: { ...prev.match, status: 'canceled' } };
+      });
+    } catch (e) {
+      setMsg(e.message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="page">
@@ -99,10 +120,16 @@ export default function MatchDetail() {
   }
 
   const { match, players, financials, cancelPolicy } = data;
-  const canAct = match.organizer_id === user?.id
+  const isOrganizer = Number(match.organizer_id) === Number(user?.id);
+  const canAct = isOrganizer
     || user?.role === 'admin'
     || user?.role === 'superadmin'
     || user?.role === 'field_admin';
+  const hoursUntilStart = (new Date(match.start_time) - Date.now()) / (1000 * 60 * 60);
+  const canCancelCash =
+    isOrganizer
+    && match.status === 'confirmed'
+    && hoursUntilStart >= 2;
 
   return (
     <div className="page">
@@ -111,7 +138,13 @@ export default function MatchDetail() {
         {match.field_name} · {formatBelgradeDateTime(match.start_time, 'sq-AL')}
       </p>
 
-      {msg && <div className="feedback feedback-warning">{msg}</div>}
+      {msg && (
+        <div
+          className={`feedback ${String(msg).toLowerCase().includes('sukses') ? 'feedback-success' : 'feedback-error'}`}
+        >
+          {msg}
+        </div>
+      )}
 
       <div className="grid-2-col">
         <div className="card">
@@ -206,6 +239,17 @@ export default function MatchDetail() {
                 Anulo
               </button>
             </div>
+          )}
+          {canCancelCash && (
+            <button
+              type="button"
+              className="btn btn-danger"
+              disabled={busy}
+              style={{ marginBottom: 12 }}
+              onClick={handleCancelCash}
+            >
+              Anulo Rezervimin
+            </button>
           )}
           <button type="button" className="btn btn-ghost" style={{ marginTop: 16 }} onClick={() => navigate('/dashboard')}>
             ← Dashboard

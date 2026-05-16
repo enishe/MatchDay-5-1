@@ -293,8 +293,10 @@ export default function AdminPanel({ section = 'dashboard' }) {
     if (!stats) return [];
     if (isFieldAdmin) {
       return [
+        { label: 'Të ardhurat sot', value: `${Number(stats.today_revenue || 0).toFixed(2)}€`, accent: '#27ae60' },
+        { label: 'Të ardhurat këtë javë', value: `${Number(stats.week_revenue || 0).toFixed(2)}€`, accent: '#8e44ad' },
+        { label: 'Të ardhurat këtë muaj', value: `${Number(stats.month_revenue || 0).toFixed(2)}€`, accent: '#f39c12' },
         { label: 'Të ardhurat totale', value: `${Number(stats.total_revenue || 0).toFixed(2)}€`, accent: '#3498db' },
-        { label: 'Të ardhurat këtë muaj', value: `${Number(stats.month_revenue || 0).toFixed(2)}€`, accent: '#27ae60' },
       ];
     }
     return [

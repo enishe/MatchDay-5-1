@@ -370,6 +370,27 @@ async function ensureSchema() {
     UPDATE users SET role = 'superadmin'
     WHERE email = 'admin@matchday.com' AND role = 'admin'
   `);
+
+  await migrationQuery(`
+    CREATE TABLE IF NOT EXISTS blocked_slots (
+      id SERIAL PRIMARY KEY,
+      field_id INTEGER NOT NULL REFERENCES fields(id) ON DELETE CASCADE,
+      blocked_date DATE,
+      blocked_hour SMALLINT CHECK (blocked_hour BETWEEN 12 AND 23),
+      block_type VARCHAR(20) NOT NULL DEFAULT 'hour'
+        CHECK (block_type IN ('hour', 'full_day', 'weekday')),
+      weekday SMALLINT CHECK (weekday BETWEEN 0 AND 6),
+      reason VARCHAR(200),
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+
+  await migrationQuery(
+    'ALTER TABLE bookings ADD COLUMN IF NOT EXISTS cancelled_at TIMESTAMP'
+  );
+  await migrationQuery(
+    'ALTER TABLE bookings ADD COLUMN IF NOT EXISTS cancel_reason VARCHAR(200)'
+  );
 }
 
 module.exports = { ensureSchema };

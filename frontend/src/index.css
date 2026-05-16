@@ -747,6 +747,13 @@ a:hover {
   cursor: not-allowed;
   text-decoration: line-through;
 }
+.hour-slot--blocked {
+  opacity: 0.55;
+  cursor: not-allowed;
+  background: var(--bg-secondary);
+  color: var(--text-muted);
+  text-decoration: none;
+}
 
 /* ─── Admin tabs ─── */
 .tabs {

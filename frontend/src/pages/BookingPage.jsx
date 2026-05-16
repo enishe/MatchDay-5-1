@@ -198,8 +198,9 @@ export default function BookingPage() {
     });
   }, [fieldInventory]);
 
-  const hourOccupied = (hour) => (availabilityByHour[hour]?.available_courts || []).length === 0;
-  const hourBlocked = (hour) => hourOccupied(hour) || (data && isSlotStartInPast(data, hour));
+  const hourAdminBlocked = (hour) => Boolean(availabilityByHour[hour]?.blocked);
+  const hourOccupied = (hour) => !hourAdminBlocked(hour) && (availabilityByHour[hour]?.available_courts || []).length === 0;
+  const hourBlocked = (hour) => hourOccupied(hour) || hourAdminBlocked(hour) || (data && isSlotStartInPast(data, hour));
   const chosenHourAvailability = ora ? availabilityByHour[ora] : null;
   const courtTaken = ora && courtNumber && chosenHourAvailability && !(chosenHourAvailability.available_courts || []).includes(Number(courtNumber));
   const formComplete = fushaId && data && ora && courtNumber && !courtTaken && !hourBlocked(ora);
@@ -386,18 +387,22 @@ export default function BookingPage() {
                 <div className="hour-grid">
                   {ORET.map((h) => {
                     const blocked = hourBlocked(h);
+                    const adminBlocked = hourAdminBlocked(h);
                     return (
                       <button
                         key={h}
                         type="button"
-                        className={`hour-slot${ora === h ? ' hour-slot--active' : ''}${blocked ? ' hour-slot--disabled' : ''}`}
+                        className={`hour-slot${ora === h ? ' hour-slot--active' : ''}${blocked ? ' hour-slot--disabled' : ''}${adminBlocked ? ' hour-slot--blocked' : ''}`}
                         disabled={blocked}
                         onClick={() => {
                           setOra(h);
                           setCourtNumber('');
                         }}
                       >
-                        {h}
+                        {adminBlocked ? '🔒' : h}
+                        {adminBlocked && (
+                          <span style={{ display: 'block', fontSize: 10, marginTop: 2 }}>E bllokuar</span>
+                        )}
                       </button>
                     );
                   })}
