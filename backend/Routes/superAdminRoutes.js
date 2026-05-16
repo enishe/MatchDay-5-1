@@ -36,11 +36,8 @@ router.post('/admins', authenticateToken, isSuperAdmin, async (req, res) => {
   try {
     const { name, email, password, fieldIds } = req.body;
 
-    if (!name || !email || !password) {
-      return res.status(400).json({ error: 'Emri, email dhe fjalëkalimi janë të detyrueshëm.' });
-    }
-    if (!fieldIds || !Array.isArray(fieldIds) || fieldIds.length === 0) {
-      return res.status(400).json({ error: 'Zgjidhni të paktën një fushë.' });
+    if (!email || !password) {
+      return res.status(400).json({ error: 'Email dhe fjalëkalimi janë të detyrueshëm.' });
     }
 
     const emailRe = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -59,19 +56,22 @@ router.post('/admins', authenticateToken, isSuperAdmin, async (req, res) => {
       return res.status(400).json({ error: 'Ky email është tashmë i regjistruar.' });
     }
 
+    const adminName = name?.trim() || email.trim().toLowerCase().split('@')[0];
     const hash = await bcrypt.hash(password, 10);
     const inserted = await pool.query(
       `INSERT INTO users (name, email, password, role)
        VALUES ($1, $2, $3, 'field_admin')
        RETURNING id, name, email, role, created_at`,
-      [name.trim(), email.trim().toLowerCase(), hash]
+      [adminName, email.trim().toLowerCase(), hash]
     );
     const newUser = inserted.rows[0];
 
-    await pool.query(
-      'UPDATE fields SET owner_id = $1 WHERE id = ANY($2::int[])',
-      [newUser.id, fieldIds]
-    );
+    if (fieldIds && Array.isArray(fieldIds) && fieldIds.length > 0) {
+      await pool.query(
+        'UPDATE fields SET owner_id = $1 WHERE id = ANY($2::int[])',
+        [newUser.id, fieldIds]
+      );
+    }
 
     const fieldsResult = await pool.query(
       'SELECT id, name, location FROM fields WHERE owner_id = $1',

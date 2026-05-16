@@ -1,12 +1,6 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { apiFetch } from '../lib/api';
 import { useAuth } from '../context/AuthContext';
-
-function terrainLabel(value) {
-  if (value === 'artificial_grass') return 'Bar Artificial';
-  if (value === 'indoor_hall') return 'Sallë Futsali';
-  return value || '—';
-}
 
 function formatDate(value) {
   if (!value) return '—';
@@ -24,16 +18,12 @@ function formatDate(value) {
 export default function SuperAdminPage() {
   const { token } = useAuth();
   const [admins, setAdmins] = useState([]);
-  const [fields, setFields] = useState([]);
   const [loadingAdmins, setLoadingAdmins] = useState(true);
-  const [loadingFields, setLoadingFields] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [feedback, setFeedback] = useState(null);
   const [form, setForm] = useState({
-    name: '',
     email: '',
     password: '',
-    fieldIds: [],
   });
 
   const loadAdmins = useCallback(async () => {
@@ -48,41 +38,9 @@ export default function SuperAdminPage() {
     }
   }, [token]);
 
-  const loadFields = useCallback(async () => {
-    setLoadingFields(true);
-    try {
-      const rows = await apiFetch('/fields', { token });
-      setFields(Array.isArray(rows) ? rows : []);
-    } catch {
-      setFields([]);
-    } finally {
-      setLoadingFields(false);
-    }
-  }, [token]);
-
   useEffect(() => {
     loadAdmins();
-    loadFields();
-  }, [loadAdmins, loadFields]);
-
-  const fieldsByLocation = useMemo(() => {
-    const grouped = {};
-    for (const field of fields) {
-      const loc = field.location || 'Pa lokacion';
-      if (!grouped[loc]) grouped[loc] = [];
-      grouped[loc].push(field);
-    }
-    return Object.entries(grouped).sort(([a], [b]) => a.localeCompare(b, 'sq'));
-  }, [fields]);
-
-  const toggleField = (fieldId) => {
-    setForm((prev) => {
-      const ids = new Set(prev.fieldIds);
-      if (ids.has(fieldId)) ids.delete(fieldId);
-      else ids.add(fieldId);
-      return { ...prev, fieldIds: [...ids] };
-    });
-  };
+  }, [loadAdmins]);
 
   const onDeleteAdmin = async (admin) => {
     const ok = window.confirm(
@@ -94,7 +52,6 @@ export default function SuperAdminPage() {
       await apiFetch(`/superadmin/admins/${admin.id}`, { token, method: 'DELETE' });
       setFeedback({ type: 'success', text: 'Admin-i dhe të gjitha fushat u fshiën me sukses!' });
       await loadAdmins();
-      await loadFields();
     } catch (err) {
       setFeedback({ type: 'error', text: err.message || 'Fshirja dështoi.' });
     }
@@ -103,16 +60,12 @@ export default function SuperAdminPage() {
   const onSubmit = async (e) => {
     e.preventDefault();
     setFeedback(null);
-    if (!form.name.trim() || !form.email.trim() || !form.password) {
+    if (!form.email.trim() || !form.password) {
       setFeedback({ type: 'error', text: 'Plotësoni të gjitha fushat e detyrueshme.' });
       return;
     }
     if (form.password.length < 8) {
       setFeedback({ type: 'error', text: 'Fjalëkalimi duhet të ketë të paktën 8 karaktere.' });
-      return;
-    }
-    if (form.fieldIds.length === 0) {
-      setFeedback({ type: 'error', text: 'Zgjidhni të paktën një fushë.' });
       return;
     }
     setSubmitting(true);
@@ -121,16 +74,13 @@ export default function SuperAdminPage() {
         token,
         method: 'POST',
         body: {
-          name: form.name.trim(),
           email: form.email.trim(),
           password: form.password,
-          fieldIds: form.fieldIds,
         },
       });
       setFeedback({ type: 'success', text: 'Admin u krijua me sukses!' });
-      setForm({ name: '', email: '', password: '', fieldIds: [] });
+      setForm({ email: '', password: '' });
       await loadAdmins();
-      await loadFields();
     } catch (err) {
       setFeedback({ type: 'error', text: err.message || 'Krijimi dështoi.' });
     } finally {
@@ -208,17 +158,6 @@ export default function SuperAdminPage() {
         )}
         <form onSubmit={onSubmit}>
           <div className="form-group">
-            <label className="label" htmlFor="admin-name">Emri i plotë</label>
-            <input
-              id="admin-name"
-              className="input"
-              type="text"
-              required
-              value={form.name}
-              onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))}
-            />
-          </div>
-          <div className="form-group">
             <label className="label" htmlFor="admin-email">Email</label>
             <input
               id="admin-email"
@@ -240,38 +179,6 @@ export default function SuperAdminPage() {
               value={form.password}
               onChange={(e) => setForm((p) => ({ ...p, password: e.target.value }))}
             />
-          </div>
-          <div className="form-group">
-            <span className="label">Zgjidhni Fushat</span>
-            {loadingFields ? (
-              <p className="feedback">Duke ngarkuar fushat...</p>
-            ) : fields.length === 0 ? (
-              <p className="feedback">Nuk ka fusha në sistem.</p>
-            ) : (
-              fieldsByLocation.map(([location, locationFields]) => (
-                <div key={location} style={{ marginBottom: 16 }}>
-                  <div style={{ fontWeight: 600, marginBottom: 8 }}>{location}</div>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                    {locationFields.map((field) => (
-                      <label key={field.id} style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
-                        <input
-                          type="checkbox"
-                          checked={form.fieldIds.includes(field.id)}
-                          onChange={() => toggleField(field.id)}
-                        />
-                        <span>
-                          {field.name}
-                          {' '}
-                          <span style={{ color: 'var(--text-muted)', fontSize: 13 }}>
-                            ({terrainLabel(field.terrain_type)})
-                          </span>
-                        </span>
-                      </label>
-                    ))}
-                  </div>
-                </div>
-              ))
-            )}
           </div>
           <button type="submit" className="btn btn-accent" disabled={submitting}>
             {submitting ? 'Duke krijuar...' : 'Krijo Admin'}
