@@ -438,6 +438,65 @@ router.get('/admin/users', authenticateToken, requireRole(['admin']), async (req
     }
 });
 
+const ALBANIAN_WEEKDAY_SHORT = ['E Diel', 'E Hën', 'E Mar', 'E Mër', 'E Enj', 'E Pre', 'E Sht'];
+
+function belgradeWeekdayIndex(ymd) {
+    const parts = new Intl.DateTimeFormat('en-US', {
+        timeZone: BELGRADE_TIMEZONE,
+        weekday: 'short',
+    }).formatToParts(createUtcDateFromBelgradeLocal(ymd, 12, 0));
+    const short = parts.find((p) => p.type === 'weekday')?.value || '';
+    const map = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 };
+    return map[short] ?? 0;
+}
+
+function last7BelgradeDates() {
+    const todayYmd = formatBelgradeYmd(new Date());
+    const anchor = createUtcDateFromBelgradeLocal(todayYmd, 12, 0);
+    const dates = [];
+    for (let i = 6; i >= 0; i -= 1) {
+        const d = new Date(anchor.getTime() - i * 24 * 60 * 60 * 1000);
+        dates.push(formatBelgradeYmd(d));
+    }
+    return dates;
+}
+
+router.get('/admin/revenue-chart', authenticateToken, requireRole(['admin', 'field_admin']), async (req, res) => {
+    try {
+        const isFieldAdmin = req.user.role === 'field_admin';
+        const ownerClause = isFieldAdmin ? 'AND f.owner_id = $1' : '';
+        const params = isFieldAdmin ? [req.user.id] : [];
+        const result = await pool.query(
+            `SELECT
+                DATE(b.created_at AT TIME ZONE '${BELGRADE_TIMEZONE}') AS date,
+                COALESCE(SUM(b.total_price), 0)::numeric AS revenue
+             FROM bookings b
+             JOIN fields f ON f.id = b.field_id
+             WHERE b.created_at >= NOW() - INTERVAL '7 days'
+               AND b.status <> 'canceled'
+               ${ownerClause}
+             GROUP BY DATE(b.created_at AT TIME ZONE '${BELGRADE_TIMEZONE}')
+             ORDER BY date ASC`,
+            params
+        );
+        const byDate = Object.fromEntries(
+            result.rows.map((row) => [
+                formatBelgradeYmd(row.date),
+                Number(row.revenue || 0),
+            ])
+        );
+        const data = last7BelgradeDates().map((date) => ({
+            date,
+            revenue: Number(byDate[date] || 0),
+            weekdayLabel: ALBANIAN_WEEKDAY_SHORT[belgradeWeekdayIndex(date)],
+        }));
+        res.json({ data });
+    } catch (error) {
+        console.error('Admin revenue chart error:', error);
+        res.status(400).json({ error: 'Nuk u lexua grafiku i të ardhurave.' });
+    }
+});
+
 router.get('/admin/stats', authenticateToken, requireRole(['admin', 'field_admin']), async (req, res) => {
     try {
         const isFieldAdmin = req.user.role === 'field_admin';
@@ -588,12 +647,16 @@ router.get('/admin/field-calendar', authenticateToken, requireRole(['admin', 'fi
         }
         const field = fieldResult.rows[0];
 
+        const courtsCount = Math.max(1, Number(field.courts_count || 1));
+
         const bookingsResult = await pool.query(
             `SELECT b.id,
                     b.start_time,
                     b.end_time,
                     b.created_at,
                     b.court_number,
+                    b.total_price,
+                    b.shoes_summary,
                     b.organizer_id,
                     u.name AS organizer_name,
                     u.phone AS organizer_phone
@@ -616,35 +679,50 @@ router.get('/admin/field-calendar', authenticateToken, requireRole(['admin', 'fi
             const slotStart = createUtcDateFromBelgradeLocal(selectedDate, hour, 0);
             const slotEnd = new Date(slotStart.getTime() + 60 * 60 * 1000);
             const isPast = slotStart.getTime() <= now.getTime();
-            const bookingRow = bookingsResult.rows.find((row) => {
-                const bookingStart = new Date(row.start_time);
-                const bookingEnd = new Date(row.end_time);
-                return bookingStart < slotEnd && bookingEnd > slotStart;
-            });
+            const hourLabel = `${pad2(hour)}:00`;
+            const courts = [];
 
-            let status = 'available';
-            if (isPast) status = 'past';
-            else if (bookingRow) status = 'booked';
+            for (let court = 1; court <= courtsCount; court += 1) {
+                const bookingRow = bookingsResult.rows.find((row) => {
+                    const courtNum = Number(row.court_number || 1);
+                    if (courtNum !== court) return false;
+                    const bookingStart = new Date(row.start_time);
+                    const bookingEnd = new Date(row.end_time);
+                    return bookingStart < slotEnd && bookingEnd > slotStart;
+                });
 
-            if (status === 'past') pastCount += 1;
-            else if (status === 'booked') bookedCount += 1;
-            else freeCount += 1;
+                let status = 'free';
+                if (isPast) status = 'past';
+                else if (bookingRow) status = 'booked';
+
+                if (status === 'past') pastCount += 1;
+                else if (status === 'booked') bookedCount += 1;
+                else freeCount += 1;
+
+                courts.push({
+                    court,
+                    status,
+                    booking: bookingRow
+                        ? {
+                            booking_id: bookingRow.id,
+                            organizer_name: bookingRow.organizer_name || `Përdoruesi #${bookingRow.organizer_id}`,
+                            organizer_phone: bookingRow.organizer_phone || null,
+                            phone: bookingRow.organizer_phone || null,
+                            total_price: Number(bookingRow.total_price || 0),
+                            shoes_summary: formatShoesSummary(bookingRow.shoes_summary),
+                            court_number: bookingRow.court_number || court,
+                            created_at: bookingRow.created_at,
+                            start_time: bookingRow.start_time,
+                            end_time: bookingRow.end_time,
+                        }
+                        : null,
+                });
+            }
 
             slots.push({
-                hour: `${pad2(hour)}:00`,
-                label: `${pad2(hour)}:00 - ${pad2(hour + 1)}:00`,
-                status,
-                booking: bookingRow
-                    ? {
-                        booking_id: bookingRow.id,
-                        organizer_name: bookingRow.organizer_name || `Përdoruesi #${bookingRow.organizer_id}`,
-                        organizer_phone: bookingRow.organizer_phone || null,
-                        court_number: bookingRow.court_number || null,
-                        created_at: bookingRow.created_at,
-                        start_time: bookingRow.start_time,
-                        end_time: bookingRow.end_time,
-                    }
-                    : null,
+                hour: hourLabel,
+                label: `${hourLabel} - ${pad2(hour + 1)}:00`,
+                courts,
             });
         }
 
@@ -656,7 +734,7 @@ router.get('/admin/field-calendar', authenticateToken, requireRole(['admin', 'fi
                 name: field.name,
                 location: field.location,
                 terrain_type: field.terrain_type,
-                courts_count: Number(field.courts_count || 1),
+                courts_count: courtsCount,
             },
             counts: {
                 free: freeCount,
@@ -906,6 +984,9 @@ router.put('/matches/:id', authenticateToken, async (req, res) => {
     try {
         const { status } = req.body;
         if (!status) return res.status(400).json({ error: 'status është i detyrueshëm' });
+        if (status === 'canceled' && req.user.role !== 'superadmin') {
+            return res.status(403).json({ error: 'Vetëm superadmin mund të anulojë rezervimin.' });
+        }
         const booking = await matchService.gjejSipasId(req.params.id);
         const isAdmin = isStaffAdmin(req.user.role);
         const isOwner = sameUserId(booking.organizer_id, req.user.id);
@@ -924,7 +1005,7 @@ router.put('/matches/:id', authenticateToken, async (req, res) => {
     }
 });
 
-router.delete('/matches/:id', authenticateToken, requireRole(['admin']), async (req, res) => {
+router.delete('/matches/:id', authenticateToken, requireRole(['superadmin']), async (req, res) => {
     try {
         const bookingId = req.params.id;
         try {

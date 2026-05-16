@@ -132,15 +132,18 @@ class FieldService {
     for (const row of rows) {
       const size = Number(row.size);
       const quantity = Number(row.quantity);
+      const rentRaw = row.rent_price ?? row.rental_price;
+      const rentPrice = rentRaw != null && Number.isFinite(Number(rentRaw)) ? Number(rentRaw) : 2;
       if (!Number.isInteger(size) || size < 36 || size > 45) continue;
       if (!Number.isFinite(quantity) || quantity < 0) continue;
       await pool.query(
         `INSERT INTO field_shoes_inventory (field_id, shoe_size, quantity_available, rent_price)
-         VALUES ($1, $2, $3, 2.00)
+         VALUES ($1, $2, $3, $4)
          ON CONFLICT (field_id, shoe_size)
          DO UPDATE SET quantity_available = EXCLUDED.quantity_available,
+                       rent_price = EXCLUDED.rent_price,
                        updated_at = CURRENT_TIMESTAMP`,
-        [fieldId, size, Math.floor(quantity)]
+        [fieldId, size, Math.floor(quantity), rentPrice]
       );
     }
     return this.getShoesByField(fieldId);

@@ -1,9 +1,36 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Fragment, useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import {
+  Bar,
+  BarChart,
+  CartesianGrid,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from 'recharts';
 import { apiFetch } from '../lib/api';
 import { useAuth } from '../context/AuthContext';
 import { formatBelgradeDate, formatBelgradeDateTime, getBelgradeTodayYmd } from '../lib/timezone';
 import FieldAdminDashboard from '../components/FieldAdminDashboard';
+
+const CHART_BAR_COLOR = '#00b86b';
+
+function truncateName(name, maxLen = 12) {
+  const s = String(name || '').trim();
+  if (s.length <= maxLen) return s || '—';
+  return `${s.slice(0, maxLen)}…`;
+}
+
+function DashboardStatSkeleton() {
+  return (
+    <div className="stat-grid-4" style={{ marginBottom: 20 }}>
+      {[1, 2, 3, 4].map((i) => (
+        <div key={i} className="stat-card admin-stat-skeleton" style={{ minHeight: 88 }} />
+      ))}
+    </div>
+  );
+}
 
 function statusBadgeClass(status) {
   if (status === 'confirmed') return 'badge-confirmed';
@@ -28,7 +55,7 @@ function terrainLabel(value) {
 }
 
 export default function AdminPanel({ section = 'dashboard' }) {
-  const { token, isFieldAdmin } = useAuth();
+  const { token, isFieldAdmin, isSuperAdmin } = useAuth();
   const navigate = useNavigate();
   const [tab, setTab] = useState(section);
   const [matches, setMatches] = useState([]);
@@ -51,6 +78,10 @@ export default function AdminPanel({ section = 'dashboard' }) {
   const [calendarDate, setCalendarDate] = useState(() => getBelgradeTodayYmd());
   const [calendarData, setCalendarData] = useState(null);
   const [calendarLoading, setCalendarLoading] = useState(false);
+  const [revenueChart, setRevenueChart] = useState([]);
+  const [initialLoading, setInitialLoading] = useState(true);
+  const [editingPlatformField, setEditingPlatformField] = useState(null);
+  const [calendarDetailKey, setCalendarDetailKey] = useState(null);
 
   useEffect(() => {
     if (isFieldAdmin && section === 'players') {
@@ -94,6 +125,21 @@ export default function AdminPanel({ section = 'dashboard' }) {
     return apiFetch('/admin/users', { token }).then((u) => setUsers(Array.isArray(u) ? u : []));
   }, [token, isFieldAdmin]);
 
+  const fetchRevenueChart = useCallback(() => {
+    if (!token) return Promise.resolve();
+    return apiFetch('/admin/revenue-chart', { token })
+      .then((r) => {
+        const rows = Array.isArray(r?.data) ? r.data : [];
+        setRevenueChart(
+          rows.map((row) => ({
+            name: row.weekdayLabel || row.date,
+            revenue: Number(row.revenue || 0),
+          }))
+        );
+      })
+      .catch(() => setRevenueChart([]));
+  }, [token]);
+
   const fetchAdminFieldCalendar = useCallback(async (fieldIdArg, dateArg) => {
     const fieldId = Number(fieldIdArg || calendarFieldId);
     const selectedDate = String(dateArg || calendarDate || getBelgradeTodayYmd());
@@ -117,10 +163,20 @@ export default function AdminPanel({ section = 'dashboard' }) {
   useEffect(() => {
     if (!token) return;
     setLoading(true);
-    Promise.all([fetchBookings(), fetchAdminStats(), fetchTodayByField(), fetchFields(), fetchUsers()])
+    Promise.all([
+      fetchBookings(),
+      fetchAdminStats(),
+      fetchTodayByField(),
+      fetchFields(),
+      fetchUsers(),
+      fetchRevenueChart(),
+    ])
       .catch(() => tregoBust('Gabim gjatë ngarkimit.', 'error'))
-      .finally(() => setLoading(false));
-  }, [token, fetchBookings, fetchAdminStats, fetchTodayByField, fetchFields, fetchUsers, tregoBust]);
+      .finally(() => {
+        setLoading(false);
+        setInitialLoading(false);
+      });
+  }, [token, fetchBookings, fetchAdminStats, fetchTodayByField, fetchFields, fetchUsers, fetchRevenueChart, tregoBust]);
 
   useEffect(() => {
     if (!token || tab !== 'bookings') return;
@@ -151,21 +207,11 @@ export default function AdminPanel({ section = 'dashboard' }) {
     return () => clearInterval(id);
   }, [tab, calendarFieldId, calendarDate, fetchAdminFieldCalendar]);
 
-  const handleFshi = async (id) => {
-    if (!window.confirm(`Fshi rezervimin #${id}?`)) return;
+  const handleAnulo = async (id) => {
+    if (!window.confirm('A jeni të sigurt? Rezervimi do të anulohet.')) return;
     try {
-      await apiFetch(`/matches/${id}`, { token, method: 'DELETE' });
-      tregoBust(`Rezervimi #${id} u fshi.`);
-      fetchBookings();
-    } catch (e) {
-      tregoBust(e.message, 'error');
-    }
-  };
-
-  const handleNdrysho = async (id, status) => {
-    try {
-      await apiFetch(`/matches/${id}`, { token, method: 'PUT', body: { status } });
-      tregoBust('Statusi u përditësua.');
+      await apiFetch(`/matches/${id}`, { token, method: 'PUT', body: { status: 'canceled' } });
+      tregoBust('Rezervimi u anulua.');
       fetchBookings();
     } catch (e) {
       tregoBust(e.message, 'error');
@@ -258,7 +304,10 @@ export default function AdminPanel({ section = 'dashboard' }) {
       const draft = {};
       SIZES.forEach((size) => {
         const row = inv.find((r) => Number(r.shoe_size) === size);
-        draft[size] = Number(row?.quantity_available ?? 0);
+        draft[size] = {
+          quantity: Number(row?.quantity_available ?? 0),
+          rent_price: Number(row?.rent_price ?? 2),
+        };
       });
       setBulkInventoryDraft(draft);
     } catch (e2) {
@@ -272,7 +321,8 @@ export default function AdminPanel({ section = 'dashboard' }) {
       setInventorySaving(true);
       const payload = SIZES.map((size) => ({
         size,
-        quantity: Number(bulkInventoryDraft[size] ?? 0),
+        quantity: Number(bulkInventoryDraft[size]?.quantity ?? bulkInventoryDraft[size] ?? 0),
+        rent_price: Number(bulkInventoryDraft[size]?.rent_price ?? 2),
       }));
       await apiFetch(`/fields/${selectedInventoryFieldId}/shoes/bulk`, {
         token,
@@ -338,6 +388,9 @@ export default function AdminPanel({ section = 'dashboard' }) {
 
       {tab === 'dashboard' && (
         <>
+          {initialLoading ? (
+            <DashboardStatSkeleton />
+          ) : (
           <div
             className="stat-grid-4"
             style={{
@@ -351,6 +404,20 @@ export default function AdminPanel({ section = 'dashboard' }) {
                 <div className="stat-card-value">{s.value}</div>
               </div>
             ))}
+          </div>
+          )}
+
+          <div className="card" style={{ marginBottom: 20 }}>
+            <h2 className="card-title">Të ardhurat — 7 ditët e fundit</h2>
+            <ResponsiveContainer width="100%" height={260}>
+              <BarChart data={revenueChart} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--border-color)" />
+                <XAxis dataKey="name" tick={{ fill: 'var(--text-muted)', fontSize: 12 }} />
+                <YAxis tick={{ fill: 'var(--text-muted)', fontSize: 12 }} tickFormatter={(v) => `€${v}`} />
+                <Tooltip formatter={(value) => `€${Number(value).toFixed(2)}`} />
+                <Bar dataKey="revenue" fill={CHART_BAR_COLOR} radius={[4, 4, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
           </div>
 
           <div className="card">
@@ -475,7 +542,7 @@ export default function AdminPanel({ section = 'dashboard' }) {
                       <th>Patika</th>
                       <th>Totali</th>
                       <th>Statusi</th>
-                      {!isFieldAdmin && <th>Veprimet</th>}
+                      <th>Veprimet</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -506,28 +573,18 @@ export default function AdminPanel({ section = 'dashboard' }) {
                         <td>
                           <span className={`badge ${statusBadgeClass(m.status)}`}>{statusLabel(m.status)}</span>
                         </td>
-                        {!isFieldAdmin && (
                         <td>
                           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
                             <button type="button" className="btn btn-ghost" style={{ fontSize: 12, padding: '6px 10px' }} onClick={() => navigate(`/match/${m.id}`)}>
                               Hap
                             </button>
-                            {m.status === 'pending' && (
-                              <button
-                                type="button"
-                                className="btn btn-primary"
-                                style={{ fontSize: 12, padding: '6px 10px' }}
-                                onClick={() => handleNdrysho(m.id, 'confirmed')}
-                              >
-                                Konfirmo
+                            {isSuperAdmin && m.status !== 'canceled' && (
+                              <button type="button" className="btn btn-danger" style={{ fontSize: 12, padding: '6px 10px' }} onClick={() => handleAnulo(m.id)}>
+                                Anulo
                               </button>
                             )}
-                            <button type="button" className="btn btn-danger" style={{ fontSize: 12, padding: '6px 10px' }} onClick={() => handleFshi(m.id)}>
-                              Fshi
-                            </button>
                           </div>
                         </td>
-                        )}
                       </tr>
                     ))}
                   </tbody>
@@ -573,26 +630,54 @@ export default function AdminPanel({ section = 'dashboard' }) {
               </thead>
               <tbody>
                 {fields.map((f) => (
-                  <tr key={f.id}>
-                    <td data-label="ID">{f.id}</td>
-                    <td data-label="Emri">{f.name}</td>
-                    <td data-label="Lokacioni">{f.location || '—'}</td>
-                    <td data-label="Terreni">{terrainLabel(f.terrain_type)}</td>
-                    <td data-label="Çmimi/orë">{Number(f.price_per_hour || 0).toFixed(2)}€</td>
-                    <td data-label="Nr. fushash">{f.courts_count || 1}</td>
-                    <td data-label="Statusi"><span className={`badge ${f.is_active ? 'badge-confirmed' : 'badge-canceled'}`}>{f.is_active ? 'Aktive' : 'Joaktive'}</span></td>
-                    <td data-label="Veprimet" className="actions-cell">
-                      <div style={{ display: 'flex', gap: 8 }}>
-                        <button type="button" className="btn btn-ghost" onClick={() => {
-                          const p = window.prompt('Çmimi i ri për orë', String(f.price_per_hour || ''));
-                          const c = window.prompt('Numri i ri i fushave', String(f.courts_count || 1));
-                          if (p == null || c == null) return;
-                          handleUpdateField({ ...f, price_per_hour: p, courts_count: c });
-                        }}>Ndrysho</button>
-                        <button type="button" className="btn btn-danger" onClick={() => handleDeleteField(f.id, f.name)}>Fshi</button>
-                      </div>
-                    </td>
-                  </tr>
+                  editingPlatformField?.id === f.id ? (
+                    <tr key={f.id}>
+                      <td colSpan={8}>
+                        <form
+                          className="admin-field-create-grid"
+                          onSubmit={async (e) => {
+                            e.preventDefault();
+                            await handleUpdateField(editingPlatformField);
+                            setEditingPlatformField(null);
+                          }}
+                        >
+                          <input className="input" value={editingPlatformField.name} onChange={(e) => setEditingPlatformField((p) => ({ ...p, name: e.target.value }))} />
+                          <input className="input" value={editingPlatformField.location} onChange={(e) => setEditingPlatformField((p) => ({ ...p, location: e.target.value }))} />
+                          <select className="input" value={editingPlatformField.terrain_type} onChange={(e) => setEditingPlatformField((p) => ({ ...p, terrain_type: e.target.value }))}>
+                            <option value="artificial_grass">Bar Artificial</option>
+                            <option value="indoor_hall">Sallë e mbyllur</option>
+                            <option value="futsal">Futsal</option>
+                          </select>
+                          <input className="input" type="number" step="0.01" value={editingPlatformField.price_per_hour} onChange={(e) => setEditingPlatformField((p) => ({ ...p, price_per_hour: e.target.value }))} />
+                          <input className="input" type="number" min="1" max="10" value={editingPlatformField.courts_count} onChange={(e) => setEditingPlatformField((p) => ({ ...p, courts_count: e.target.value }))} />
+                          <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                            <input type="checkbox" checked={Boolean(editingPlatformField.is_active)} onChange={(e) => setEditingPlatformField((p) => ({ ...p, is_active: e.target.checked }))} />
+                            Aktive
+                          </label>
+                          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                            <button type="submit" className="btn btn-accent">Ruaj</button>
+                            <button type="button" className="btn btn-ghost" onClick={() => setEditingPlatformField(null)}>Anulo</button>
+                          </div>
+                        </form>
+                      </td>
+                    </tr>
+                  ) : (
+                    <tr key={f.id}>
+                      <td data-label="ID">{f.id}</td>
+                      <td data-label="Emri">{f.name}</td>
+                      <td data-label="Lokacioni">{f.location || '—'}</td>
+                      <td data-label="Terreni">{terrainLabel(f.terrain_type)}</td>
+                      <td data-label="Çmimi/orë">{Number(f.price_per_hour || 0).toFixed(2)}€</td>
+                      <td data-label="Nr. fushash">{f.courts_count || 1}</td>
+                      <td data-label="Statusi"><span className={`badge ${f.is_active ? 'badge-confirmed' : 'badge-canceled'}`}>{f.is_active ? 'Aktive' : 'Joaktive'}</span></td>
+                      <td data-label="Veprimet" className="actions-cell">
+                        <div style={{ display: 'flex', gap: 8 }}>
+                          <button type="button" className="btn btn-ghost" onClick={() => setEditingPlatformField({ ...f })}>Ndrysho</button>
+                          <button type="button" className="btn btn-danger" onClick={() => handleDeleteField(f.id, f.name)}>Fshi</button>
+                        </div>
+                      </td>
+                    </tr>
+                  )
                 ))}
               </tbody>
             </table>
@@ -627,8 +712,8 @@ export default function AdminPanel({ section = 'dashboard' }) {
                     <tr>
                       <th>Madhësia</th>
                       <th>Sasia në dispozicion</th>
-                      <th>Çmimi i qirasë</th>
                       <th>Sasia e re</th>
+                      <th>Çmimi me qira (€)</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -638,17 +723,37 @@ export default function AdminPanel({ section = 'dashboard' }) {
                         <tr key={`bulk-${size}`}>
                           <td>{size}</td>
                           <td>{Number(row?.quantity_available ?? 0)}</td>
-                          <td>{Number(row?.rent_price ?? 2).toFixed(2)}€</td>
                           <td>
                             <input
                               className="input"
                               type="number"
                               min="0"
-                              value={bulkInventoryDraft[size] ?? 0}
+                              value={bulkInventoryDraft[size]?.quantity ?? bulkInventoryDraft[size] ?? 0}
                               onChange={(e) =>
                                 setBulkInventoryDraft((prev) => ({
                                   ...prev,
-                                  [size]: Math.max(0, Number(e.target.value || 0)),
+                                  [size]: {
+                                    ...(typeof prev[size] === 'object' ? prev[size] : { quantity: prev[size], rent_price: 2 }),
+                                    quantity: Math.max(0, Number(e.target.value || 0)),
+                                  },
+                                }))
+                              }
+                            />
+                          </td>
+                          <td>
+                            <input
+                              className="input"
+                              type="number"
+                              min="0"
+                              step="0.01"
+                              value={bulkInventoryDraft[size]?.rent_price ?? 2}
+                              onChange={(e) =>
+                                setBulkInventoryDraft((prev) => ({
+                                  ...prev,
+                                  [size]: {
+                                    ...(typeof prev[size] === 'object' ? prev[size] : { quantity: prev[size] ?? 0, rent_price: 2 }),
+                                    rent_price: Math.max(0, Number(e.target.value || 0)),
+                                  },
                                 }))
                               }
                             />
@@ -721,7 +826,10 @@ export default function AdminPanel({ section = 'dashboard' }) {
                 id="admin-calendar-field"
                 className="input"
                 value={calendarFieldId}
-                onChange={(e) => setCalendarFieldId(e.target.value)}
+                onChange={(e) => {
+                  setCalendarFieldId(e.target.value);
+                  setCalendarDetailKey(null);
+                }}
               >
                 <option value="">-- Zgjidh fushën --</option>
                 {fields.filter((f) => f.is_active).map((f) => (
@@ -738,7 +846,10 @@ export default function AdminPanel({ section = 'dashboard' }) {
                 className="input"
                 type="date"
                 value={calendarDate}
-                onChange={(e) => setCalendarDate(e.target.value)}
+                onChange={(e) => {
+                  setCalendarDate(e.target.value);
+                  setCalendarDetailKey(null);
+                }}
               />
             </div>
             <div style={{ display: 'flex', alignItems: 'flex-end' }}>
@@ -756,7 +867,7 @@ export default function AdminPanel({ section = 'dashboard' }) {
           <div className="admin-calendar-legend">
             <span>🟢 E lirë</span>
             <span>🔴 E zënë</span>
-            <span>⬛ Ka kaluar</span>
+            <span>⚫ Ka kaluar</span>
           </div>
 
           {calendarData?.counts && (
@@ -778,30 +889,76 @@ export default function AdminPanel({ section = 'dashboard' }) {
           )}
 
           {!calendarLoading && calendarData?.slots?.length > 0 && (
-            <div className="admin-slot-list">
-              {calendarData.slots.map((slot) => {
-                const statusClass = slot.status === 'past'
-                  ? 'admin-slot-card--past'
-                  : slot.status === 'booked'
-                    ? 'admin-slot-card--booked'
-                    : 'admin-slot-card--free';
-                const statusLabel = slot.status === 'past' ? 'Ka kaluar' : slot.status === 'booked' ? 'E zënë' : 'E lirë';
-                return (
-                  <article key={slot.hour} className={`admin-slot-card ${statusClass}`}>
-                    <div className="admin-slot-header">
-                      <strong>{slot.label}</strong>
-                      <span>{statusLabel}</span>
-                    </div>
-                    {slot.status === 'booked' && slot.booking && (
-                      <div className="admin-slot-details">
-                        <div><strong>Rezervuesi:</strong> {slot.booking.organizer_name || '—'}</div>
-                        <div><strong>Telefoni:</strong> {slot.booking.organizer_phone || '—'}</div>
-                        <div><strong>Rezervuar në:</strong> {slot.booking.created_at ? formatBelgradeDateTime(slot.booking.created_at, 'sq-AL', { hour: '2-digit', minute: '2-digit' }) : '—'}</div>
-                      </div>
-                    )}
-                  </article>
-                );
-              })}
+            <div className="admin-court-grid-wrap">
+              <table className="table admin-court-grid">
+                <thead>
+                  <tr>
+                    <th>Ora</th>
+                    {Array.from({ length: Number(calendarData.field?.courts_count || 1) }, (_, i) => (
+                      <th key={`court-head-${i + 1}`}>Court {i + 1}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {calendarData.slots.map((slot) => (
+                    <Fragment key={slot.hour}>
+                      <tr>
+                        <td className="admin-court-grid__time">{slot.label || slot.hour}</td>
+                        {(slot.courts || []).map((courtCell) => {
+                          const cellKey = `${slot.hour}-${courtCell.court}`;
+                          const isBooked = courtCell.status === 'booked';
+                          const isPast = courtCell.status === 'past';
+                          const cellClass = isPast
+                            ? 'admin-court-cell admin-court-cell--past'
+                            : isBooked
+                              ? 'admin-court-cell admin-court-cell--booked'
+                              : 'admin-court-cell admin-court-cell--free';
+                          return (
+                            <td key={cellKey} className={cellClass}>
+                              <button
+                                type="button"
+                                className="admin-court-cell__btn"
+                                disabled={!isBooked}
+                                onClick={() => setCalendarDetailKey((prev) => (prev === cellKey ? null : cellKey))}
+                              >
+                                {isPast && 'Ka kaluar'}
+                                {!isPast && isBooked && truncateName(courtCell.booking?.organizer_name)}
+                                {!isPast && !isBooked && 'E lirë'}
+                              </button>
+                            </td>
+                          );
+                        })}
+                      </tr>
+                      {calendarDetailKey && (slot.courts || []).some((c) => `${slot.hour}-${c.court}` === calendarDetailKey && c.status === 'booked') && (
+                        <tr className="admin-court-detail-row">
+                          <td colSpan={Number(calendarData.field?.courts_count || 1) + 1}>
+                            {(() => {
+                              const courtNum = Number(String(calendarDetailKey).split('-').pop());
+                              const cell = (slot.courts || []).find((c) => c.court === courtNum);
+                              const b = cell?.booking;
+                              if (!b) return null;
+                              return (
+                                <div className="admin-court-detail-card">
+                                  <div><strong>Rezervuesi:</strong> {b.organizer_name || '—'}</div>
+                                  <div><strong>Telefoni:</strong> {b.organizer_phone || b.phone || '—'}</div>
+                                  <div>
+                                    <strong>Ora:</strong>{' '}
+                                    {b.start_time ? formatBelgradeDateTime(b.start_time, 'sq-AL', { hour: '2-digit', minute: '2-digit' }) : '—'}
+                                    {' - '}
+                                    {b.end_time ? formatBelgradeDateTime(b.end_time, 'sq-AL', { hour: '2-digit', minute: '2-digit' }) : '—'}
+                                  </div>
+                                  <div><strong>Totali:</strong> {Number(b.total_price || 0).toFixed(2)}€</div>
+                                  <div><strong>Patika:</strong> {b.shoes_summary || 'Pa patika'}</div>
+                                </div>
+                              );
+                            })()}
+                          </td>
+                        </tr>
+                      )}
+                    </Fragment>
+                  ))}
+                </tbody>
+              </table>
             </div>
           )}
           </>

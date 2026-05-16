@@ -1,3 +1,4 @@
+// UNUSED — static demo file, do not import
 import React from 'react';
 import { Trophy, Users, Calendar, Euro, TrendingUp, ArrowUpRight } from 'lucide-react';
 import PageHeader from '../../components/Layout/PageHeader';

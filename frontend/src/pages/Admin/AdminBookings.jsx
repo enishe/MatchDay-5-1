@@ -1,3 +1,4 @@
+// UNUSED — static demo file, do not import
 import React from 'react';
 import { CalendarRange, ClipboardList, Sparkles } from 'lucide-react';
 import PageHeader from '../../components/Layout/PageHeader';

@@ -1072,6 +1072,82 @@ a:hover {
   margin-bottom: 8px;
 }
 
+@keyframes admin-pulse {
+  0%, 100% { opacity: 0.5; }
+  50% { opacity: 1; }
+}
+
+.admin-stat-skeleton {
+  background: var(--bg-secondary);
+  animation: admin-pulse 1.4s ease-in-out infinite;
+}
+
+.admin-court-grid-wrap {
+  overflow-x: auto;
+  margin-top: 12px;
+}
+
+.admin-court-grid {
+  min-width: 520px;
+}
+
+.admin-court-grid__time {
+  font-weight: 600;
+  white-space: nowrap;
+  vertical-align: middle;
+}
+
+.admin-court-cell {
+  padding: 4px;
+  vertical-align: middle;
+  min-width: 88px;
+}
+
+.admin-court-cell--free {
+  background: rgba(0, 184, 107, 0.12);
+}
+
+.admin-court-cell--booked {
+  background: rgba(231, 76, 60, 0.14);
+}
+
+.admin-court-cell--past {
+  background: var(--bg-secondary);
+  color: var(--text-muted);
+}
+
+.admin-court-cell__btn {
+  width: 100%;
+  border: none;
+  background: transparent;
+  font: inherit;
+  font-size: 12px;
+  padding: 8px 6px;
+  text-align: center;
+  cursor: default;
+  color: inherit;
+}
+
+.admin-court-cell--booked .admin-court-cell__btn {
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.admin-court-cell__btn:disabled {
+  cursor: default;
+}
+
+.admin-court-detail-row td {
+  background: var(--bg-secondary);
+  padding: 10px 12px;
+}
+
+.admin-court-detail-card {
+  display: grid;
+  gap: 4px;
+  font-size: 13px;
+}
+
 .admin-slot-details {
   font-size: 0.86rem;
   color: var(--text-secondary);
