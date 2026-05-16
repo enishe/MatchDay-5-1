@@ -230,19 +230,19 @@ export function useAuth() {
 }
 
 export function initThemeFromStorage() {
-  const t = localStorage.getItem(STORAGE_THEME) || 'light';
+  const t = localStorage.getItem(STORAGE_THEME) || 'dark';
   document.documentElement.setAttribute('data-theme', t);
 }
 
 export function toggleTheme() {
   const next =
-    document.documentElement.getAttribute('data-theme') === 'dark'
-      ? 'light'
-      : 'dark';
+    document.documentElement.getAttribute('data-theme') === 'light'
+      ? 'dark'
+      : 'light';
   document.documentElement.setAttribute('data-theme', next);
   localStorage.setItem(STORAGE_THEME, next);
 }
 
 export function getStoredTheme() {
-  return localStorage.getItem(STORAGE_THEME) || 'light';
+  return localStorage.getItem(STORAGE_THEME) || 'dark';
 }
