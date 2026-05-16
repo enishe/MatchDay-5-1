@@ -253,7 +253,7 @@ class FieldService {
       }
     }
     const fieldsQ = await pool.query(
-      `SELECT id, name, location, courts_count
+      `SELECT id, name, location, terrain_type, courts_count
        FROM fields
        WHERE ${filters.join(' AND ')}
        ORDER BY id ASC`,
@@ -263,6 +263,7 @@ class FieldService {
       id: Number(f.id),
       name: f.name,
       location: f.location,
+      terrain_type: f.terrain_type,
       courts_count: Number(f.courts_count || 1),
     }));
     if (fields.length === 0) return { fields: [], availability: {} };

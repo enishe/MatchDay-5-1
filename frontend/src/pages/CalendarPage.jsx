@@ -38,6 +38,13 @@ function formatDayYmd(ymd) {
   return `${DITET[dayIndex]} ${String(d).padStart(2, '0')} ${MUAJT[m - 1]}`;
 }
 
+function terrainLabel(t) {
+  if (t === 'artificial_grass') return 'Bar Artificial';
+  if (t === 'indoor_hall') return 'Sallë e mbyllur';
+  if (t === 'futsal') return 'Futsali';
+  return t || '';
+}
+
 export default function CalendarPage() {
   const { token } = useAuth();
   const navigate = useNavigate();
@@ -239,9 +246,20 @@ export default function CalendarPage() {
               <tr>
                 <th>Ora</th>
                 {fields.map((field) => (
-                  <th key={field.id}>
-                    {field.name}<br />
-                    <span className={`calendar-selected-date${daysToShow <= 3 ? ' calendar-mobile-dow' : ''}`}>
+                  <th key={field.id} style={{ verticalAlign: 'top', minWidth: 120 }}>
+                    <div style={{ fontWeight: 700, textTransform: 'uppercase', fontSize: 13 }}>{field.name}</div>
+                    <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 2 }}>
+                      {terrainLabel(field.terrain_type)}
+                    </div>
+                    {Number(field.courts_count) > 1 && (
+                      <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>
+                        • {field.courts_count} fusha
+                      </div>
+                    )}
+                    <span
+                      className={`calendar-selected-date${daysToShow <= 3 ? ' calendar-mobile-dow' : ''}`}
+                      style={{ display: 'block', marginTop: 4, fontSize: 12 }}
+                    >
                       {daysToShow <= 3 ? DITET_SHORT[getWeekdayFromYmd(selectedDate)] : formatDayYmd(selectedDate)}
                     </span>
                   </th>

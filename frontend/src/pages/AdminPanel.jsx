@@ -22,6 +22,72 @@ function truncateName(name, maxLen = 12) {
   return `${s.slice(0, maxLen)}…`;
 }
 
+function truncateOrganizer(name, maxLen = 14) {
+  const s = String(name || '').trim();
+  if (!s) return '—';
+  if (s.length <= maxLen) return s;
+  return `${s.slice(0, maxLen)}...`;
+}
+
+function shoesText(summary) {
+  if (!summary) return 'Pa patika';
+  if (typeof summary === 'string') {
+    const trimmed = summary.trim();
+    if (!trimmed || trimmed === 'Pa patika') return 'Pa patika';
+    try {
+      const parsed = JSON.parse(trimmed);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        return parsed.map((s) => `${s.count} palë nr.${s.size}`).join(', ');
+      }
+    } catch {
+      return trimmed;
+    }
+    return trimmed;
+  }
+  if (Array.isArray(summary) && summary.length > 0) {
+    return summary.map((s) => `${s.count} palë nr.${s.size}`).join(', ');
+  }
+  return 'Pa patika';
+}
+
+const ADMIN_COURT_CELL_BASE = {
+  padding: '8px',
+  borderRadius: '6px',
+  textAlign: 'center',
+  fontSize: '13px',
+  minWidth: '120px',
+  width: '100%',
+  boxSizing: 'border-box',
+};
+
+function adminCourtCellStyle(status) {
+  if (status === 'past') {
+    return {
+      ...ADMIN_COURT_CELL_BASE,
+      background: 'rgba(107, 114, 128, 0.15)',
+      border: '1px solid rgba(107, 114, 128, 0.2)',
+      color: '#6b7280',
+      cursor: 'default',
+    };
+  }
+  if (status === 'booked') {
+    return {
+      ...ADMIN_COURT_CELL_BASE,
+      background: 'rgba(239, 68, 68, 0.15)',
+      border: '1px solid rgba(239, 68, 68, 0.3)',
+      color: '#ef4444',
+      cursor: 'pointer',
+    };
+  }
+  return {
+    ...ADMIN_COURT_CELL_BASE,
+    background: 'rgba(34, 197, 94, 0.15)',
+    border: '1px solid rgba(34, 197, 94, 0.3)',
+    color: '#22c55e',
+    cursor: 'default',
+  };
+}
+
 function DashboardStatSkeleton() {
   return (
     <div className="stat-grid-4" style={{ marginBottom: 20 }}>
@@ -81,7 +147,8 @@ export default function AdminPanel({ section = 'dashboard' }) {
   const [revenueChart, setRevenueChart] = useState([]);
   const [initialLoading, setInitialLoading] = useState(true);
   const [editingPlatformField, setEditingPlatformField] = useState(null);
-  const [calendarDetailKey, setCalendarDetailKey] = useState(null);
+  const [activeBooking, setActiveBooking] = useState(null);
+  const [activeKey, setActiveKey] = useState(null);
 
   useEffect(() => {
     if (isFieldAdmin && section === 'players') {
@@ -828,13 +895,15 @@ export default function AdminPanel({ section = 'dashboard' }) {
                 value={calendarFieldId}
                 onChange={(e) => {
                   setCalendarFieldId(e.target.value);
-                  setCalendarDetailKey(null);
+                  setActiveKey(null);
+                  setActiveBooking(null);
                 }}
               >
                 <option value="">-- Zgjidh fushën --</option>
                 {fields.filter((f) => f.is_active).map((f) => (
                   <option key={f.id} value={String(f.id)}>
-                    {f.name} — {f.location || 'Pa lokacion'} — {terrainLabel(f.terrain_type)}
+                    {f.name} — {terrainLabel(f.terrain_type)}
+                    {Number(f.courts_count) > 1 ? ` (${f.courts_count} fusha)` : ' (1 fushë)'}
                   </option>
                 ))}
               </select>
@@ -848,7 +917,8 @@ export default function AdminPanel({ section = 'dashboard' }) {
                 value={calendarDate}
                 onChange={(e) => {
                   setCalendarDate(e.target.value);
-                  setCalendarDetailKey(null);
+                  setActiveKey(null);
+                  setActiveBooking(null);
                 }}
               />
             </div>
@@ -864,12 +934,6 @@ export default function AdminPanel({ section = 'dashboard' }) {
             </div>
           </div>
 
-          <div className="admin-calendar-legend">
-            <span>🟢 E lirë</span>
-            <span>🔴 E zënë</span>
-            <span>⚫ Ka kaluar</span>
-          </div>
-
           {calendarData?.counts && (
             <p className="admin-calendar-counts">
               Të lira: <strong>{Number(calendarData.counts.free || 0)}</strong> | Të zëna: <strong>{Number(calendarData.counts.booked || 0)}</strong> | Ka kaluar: <strong>{Number(calendarData.counts.past || 0)}</strong>
@@ -878,7 +942,7 @@ export default function AdminPanel({ section = 'dashboard' }) {
 
           {calendarData?.field && (
             <p style={{ color: 'var(--text-secondary)', marginTop: 0 }}>
-              Fusha: <strong>{calendarData.field.name}</strong> — {calendarData.field.location || 'Pa lokacion'} | Data: <strong>{calendarData.date}</strong>
+              Fusha: <strong>{calendarData.field.name}</strong> — {terrainLabel(calendarData.field.terrain_type)} | Data: <strong>{calendarData.date}</strong>
             </p>
           )}
 
@@ -889,13 +953,14 @@ export default function AdminPanel({ section = 'dashboard' }) {
           )}
 
           {!calendarLoading && calendarData?.slots?.length > 0 && (
-            <div className="admin-court-grid-wrap">
-              <table className="table admin-court-grid">
+            <>
+            <div className="admin-court-grid-wrap" style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
+              <table className="table admin-court-grid" style={{ minWidth: Number(calendarData.field?.courts_count || 1) > 1 ? 520 : 360 }}>
                 <thead>
                   <tr>
-                    <th>Ora</th>
+                    <th style={{ minWidth: 110, position: 'sticky', left: 0, background: 'var(--bg-card)', zIndex: 1 }}>ORA</th>
                     {Array.from({ length: Number(calendarData.field?.courts_count || 1) }, (_, i) => (
-                      <th key={`court-head-${i + 1}`}>Court {i + 1}</th>
+                      <th key={`court-head-${i + 1}`} style={{ minWidth: 120 }}>Court {i + 1}</th>
                     ))}
                   </tr>
                 </thead>
@@ -903,55 +968,86 @@ export default function AdminPanel({ section = 'dashboard' }) {
                   {calendarData.slots.map((slot) => (
                     <Fragment key={slot.hour}>
                       <tr>
-                        <td className="admin-court-grid__time">{slot.label || slot.hour}</td>
+                        <td
+                          className="admin-court-grid__time"
+                          style={{ position: 'sticky', left: 0, background: 'var(--bg-card)', zIndex: 1 }}
+                        >
+                          {slot.label || slot.hour}
+                        </td>
                         {(slot.courts || []).map((courtCell) => {
                           const cellKey = `${slot.hour}-${courtCell.court}`;
                           const isBooked = courtCell.status === 'booked';
                           const isPast = courtCell.status === 'past';
-                          const cellClass = isPast
-                            ? 'admin-court-cell admin-court-cell--past'
-                            : isBooked
-                              ? 'admin-court-cell admin-court-cell--booked'
-                              : 'admin-court-cell admin-court-cell--free';
+                          const cellStyle = adminCourtCellStyle(courtCell.status);
                           return (
-                            <td key={cellKey} className={cellClass}>
+                            <td key={cellKey} style={{ padding: 4, verticalAlign: 'middle' }}>
                               <button
                                 type="button"
-                                className="admin-court-cell__btn"
                                 disabled={!isBooked}
-                                onClick={() => setCalendarDetailKey((prev) => (prev === cellKey ? null : cellKey))}
+                                style={{
+                                  ...cellStyle,
+                                  border: 'none',
+                                  font: 'inherit',
+                                  fontWeight: isBooked ? 600 : 400,
+                                }}
+                                onClick={() => {
+                                  if (!isBooked || !courtCell.booking) return;
+                                  if (activeKey === cellKey) {
+                                    setActiveKey(null);
+                                    setActiveBooking(null);
+                                  } else {
+                                    setActiveKey(cellKey);
+                                    setActiveBooking(courtCell.booking);
+                                  }
+                                }}
                               >
                                 {isPast && 'Ka kaluar'}
-                                {!isPast && isBooked && truncateName(courtCell.booking?.organizer_name)}
+                                {!isPast && isBooked && truncateOrganizer(courtCell.booking?.organizer_name)}
                                 {!isPast && !isBooked && 'E lirë'}
                               </button>
                             </td>
                           );
                         })}
                       </tr>
-                      {calendarDetailKey && (slot.courts || []).some((c) => `${slot.hour}-${c.court}` === calendarDetailKey && c.status === 'booked') && (
+                      {activeKey && activeKey.startsWith(`${slot.hour}-`) && activeBooking && (
                         <tr className="admin-court-detail-row">
                           <td colSpan={Number(calendarData.field?.courts_count || 1) + 1}>
-                            {(() => {
-                              const courtNum = Number(String(calendarDetailKey).split('-').pop());
-                              const cell = (slot.courts || []).find((c) => c.court === courtNum);
-                              const b = cell?.booking;
-                              if (!b) return null;
-                              return (
-                                <div className="admin-court-detail-card">
-                                  <div><strong>Rezervuesi:</strong> {b.organizer_name || '—'}</div>
-                                  <div><strong>Telefoni:</strong> {b.organizer_phone || b.phone || '—'}</div>
-                                  <div>
-                                    <strong>Ora:</strong>{' '}
-                                    {b.start_time ? formatBelgradeDateTime(b.start_time, 'sq-AL', { hour: '2-digit', minute: '2-digit' }) : '—'}
-                                    {' - '}
-                                    {b.end_time ? formatBelgradeDateTime(b.end_time, 'sq-AL', { hour: '2-digit', minute: '2-digit' }) : '—'}
-                                  </div>
-                                  <div><strong>Totali:</strong> {Number(b.total_price || 0).toFixed(2)}€</div>
-                                  <div><strong>Patika:</strong> {b.shoes_summary || 'Pa patika'}</div>
-                                </div>
-                              );
-                            })()}
+                            <div
+                              className="admin-court-detail-card"
+                              style={{
+                                position: 'relative',
+                                padding: '14px 40px 14px 14px',
+                                background: 'var(--bg-secondary)',
+                                border: '1px solid var(--border-color)',
+                                borderRadius: 8,
+                              }}
+                            >
+                              <button
+                                type="button"
+                                aria-label="Mbyll"
+                                onClick={() => {
+                                  setActiveKey(null);
+                                  setActiveBooking(null);
+                                }}
+                                style={{
+                                  position: 'absolute',
+                                  top: 8,
+                                  right: 10,
+                                  border: 'none',
+                                  background: 'transparent',
+                                  color: 'var(--text-muted)',
+                                  fontSize: 18,
+                                  cursor: 'pointer',
+                                  lineHeight: 1,
+                                }}
+                              >
+                                ×
+                              </button>
+                              <div>👤 Rezervuesi: {activeBooking.organizer_name || '—'}</div>
+                              <div>📞 Telefoni: {activeBooking.organizer_phone || activeBooking.phone || 'Pa numër'}</div>
+                              <div>💰 Totali: {Number(activeBooking.total_price || 0).toFixed(2)}€</div>
+                              <div>👟 Patika: {shoesText(activeBooking.shoes_summary)}</div>
+                            </div>
                           </td>
                         </tr>
                       )}
@@ -960,6 +1056,12 @@ export default function AdminPanel({ section = 'dashboard' }) {
                 </tbody>
               </table>
             </div>
+            <div className="admin-calendar-legend" style={{ marginTop: 12 }}>
+              <span>🟢 E lirë</span>
+              <span>🔴 E zënë</span>
+              <span>⚫ Ka kaluar</span>
+            </div>
+            </>
           )}
           </>
           )}
