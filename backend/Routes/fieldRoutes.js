@@ -52,7 +52,7 @@ router.get('/fields', optionalAuthenticate, async (req, res) => {
       const result = await pool.query(
         `SELECT id, name, location, terrain_type, price_per_hour, courts_count, is_active, created_at
          FROM fields
-         WHERE is_active = TRUE
+         WHERE is_active = TRUE AND owner_id IS NOT NULL
          ORDER BY location ASC, name ASC`
       );
       rows = result.rows;
@@ -60,7 +60,7 @@ router.get('/fields', optionalAuthenticate, async (req, res) => {
       const result = await pool.query(
         `SELECT id, name, location, terrain_type, price_per_hour, courts_count, is_active, created_at
          FROM fields
-         WHERE is_active = TRUE
+         WHERE is_active = TRUE AND owner_id IS NOT NULL
          ORDER BY location ASC, name ASC`
       );
       rows = result.rows;

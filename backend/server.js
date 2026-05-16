@@ -11,7 +11,7 @@ const fieldRoutes = require('./Routes/fieldRoutes');
 const bookingRoutes = require('./Routes/bookingRoutes');
 const notificationRoutes = require('./Routes/notificationRoutes');
 const superAdminRoutes = require('./Routes/superAdminRoutes');
-const { ensureSchema, seedMitrovicaFields } = require('./config/ensureSchema');
+const { ensureSchema } = require('./config/ensureSchema');
 const AuthService = require('./Services/AuthService');
 const TokenBlacklistService = require('./Services/TokenBlacklistService');
 const checkTokenBlacklist = require('./middleware/checkTokenBlacklist');
@@ -109,10 +109,6 @@ async function bootstrap() {
   console.log('[startup] Step 2/4: Applying schema migrations (ensureSchema)...');
   await ensureSchema();
   console.log('[startup] ensureSchema complete');
-
-  console.log('[startup] Step 3/4: Seeding Mitrovica fields...');
-  await seedMitrovicaFields();
-  console.log('[startup] seedMitrovicaFields complete');
 
   console.log('[startup] Step 4/4: Ensuring admin user exists...');
   const authService = new AuthService();

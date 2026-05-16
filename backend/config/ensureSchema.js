@@ -8,14 +8,6 @@ async function migrationQuery(sql, params) {
   }
 }
 
-const MITROVICA_FIELDS = [
-  { name: 'Trepça Sport Center', location: 'Mitrovicë', terrain: 'artificial_grass', price_per_hour: 60, courts: 2 },
-  { name: 'Kompleksi Ibar', location: 'Mitrovicë', terrain: 'artificial_grass', price_per_hour: 55, courts: 4 },
-  { name: 'Salla Nafaka', location: 'Mitrovicë', terrain: 'indoor_hall', price_per_hour: 50, courts: 1 },
-  { name: 'Suhodoll FC', location: 'Suhodoll Mitrovicë', terrain: 'artificial_grass', price_per_hour: 45, courts: 2 },
-  { name: 'Salla Zveçan', location: 'Zveçan 5km from Mitrovica', terrain: 'indoor_hall', price_per_hour: 45, courts: 1 },
-];
-
 async function ensureSchema() {
   const alters = [
     'ALTER TABLE users ADD COLUMN IF NOT EXISTS phone VARCHAR(40)',
@@ -380,46 +372,4 @@ async function ensureSchema() {
   `);
 }
 
-async function seedMitrovicaFields() {
-  for (const f of MITROVICA_FIELDS) {
-    try {
-      const inserted = await pool.query(
-        `INSERT INTO fields (name, terrain_type, price_per_hour, location, is_active)
-         SELECT $1::varchar, $2::varchar, $3::numeric, $4::varchar, TRUE
-         WHERE NOT EXISTS (
-           SELECT 1 FROM fields WHERE LOWER(TRIM(name::text)) = LOWER(TRIM($1::text))
-         )
-         RETURNING id`,
-        [f.name, f.terrain, f.price_per_hour, f.location]
-      );
-      if (inserted.rows.length > 0) {
-        await pool.query(
-          `UPDATE fields
-           SET courts_count = $2
-           WHERE id = $1`,
-          [inserted.rows[0].id, f.courts]
-        );
-      } else {
-        await pool.query(
-          `UPDATE fields
-           SET location = $2, terrain_type = $3, price_per_hour = $4, courts_count = $5
-           WHERE LOWER(TRIM(name::text)) = LOWER(TRIM($1::text))`,
-          [f.name, f.location, f.terrain, f.price_per_hour, f.courts]
-        );
-      }
-
-      await pool.query(
-        `INSERT INTO field_shoes_inventory (field_id, shoe_size, quantity_available, rent_price)
-         SELECT ff.id, s.size, 3, 2.00
-         FROM (SELECT id FROM fields WHERE LOWER(TRIM(name::text)) = LOWER(TRIM($1::text)) LIMIT 1) ff
-         CROSS JOIN generate_series(36, 45) AS s(size)
-         ON CONFLICT (field_id, shoe_size) DO NOTHING`,
-        [f.name]
-      );
-    } catch (err) {
-      console.warn('[migration] Skipped:', err.message);
-    }
-  }
-}
-
-module.exports = { ensureSchema, seedMitrovicaFields };
+module.exports = { ensureSchema };
