@@ -1,5 +1,13 @@
 const pool = require('./db');
 
+async function migrationQuery(sql, params) {
+  try {
+    await pool.query(sql, params);
+  } catch (err) {
+    console.warn('[migration] Skipped:', err.message);
+  }
+}
+
 const MITROVICA_FIELDS = [
   { name: 'Trepça Sport Center', location: 'Mitrovicë', terrain: 'artificial_grass', price_per_hour: 60, courts: 2 },
   { name: 'Kompleksi Ibar', location: 'Mitrovicë', terrain: 'artificial_grass', price_per_hour: 55, courts: 4 },
@@ -24,10 +32,10 @@ async function ensureSchema() {
       console.warn('[ensureSchema] alter skip:', e.message);
     }
   }
-  await pool.query('ALTER TABLE users ALTER COLUMN avatar_url TYPE TEXT');
+  await migrationQuery('ALTER TABLE users ALTER COLUMN avatar_url TYPE TEXT');
 
-  await pool.query('ALTER TABLE fields ADD COLUMN IF NOT EXISTS courts_count INTEGER NOT NULL DEFAULT 1');
-  await pool.query('ALTER TABLE bookings ADD COLUMN IF NOT EXISTS court_number INTEGER');
+  await migrationQuery('ALTER TABLE fields ADD COLUMN IF NOT EXISTS courts_count INTEGER NOT NULL DEFAULT 1');
+  await migrationQuery('ALTER TABLE bookings ADD COLUMN IF NOT EXISTS court_number INTEGER');
   try {
     await pool.query('BEGIN');
     await pool.query('DROP VIEW IF EXISTS pendingautocancel CASCADE');
@@ -130,34 +138,36 @@ async function ensureSchema() {
     `);
     await pool.query('COMMIT');
   } catch (error) {
-    await pool.query('ROLLBACK');
-    throw error;
+    try {
+      await pool.query('ROLLBACK');
+    } catch {
+      /* ignore rollback errors */
+    }
+    console.warn('[migration] Skipped:', error.message);
   }
-  await pool.query(
+
+  await migrationQuery(
     "ALTER TABLE bookings ADD COLUMN IF NOT EXISTS payment_method VARCHAR(20) NOT NULL DEFAULT 'cash'"
   );
-  await pool.query(
+  await migrationQuery(
     "ALTER TABLE bookings ADD COLUMN IF NOT EXISTS payment_status VARCHAR(20) DEFAULT 'pending' CHECK (payment_status IN ('pending', 'partial', 'completed', 'refunded'))"
   );
-  await pool.query(
-    "ALTER TABLE bookings ADD COLUMN IF NOT EXISTS total_amount DECIMAL(10,2) DEFAULT 0"
+  await migrationQuery(
+    'ALTER TABLE bookings ADD COLUMN IF NOT EXISTS total_amount DECIMAL(10,2) DEFAULT 0'
   );
-  await pool.query(
-    "ALTER TABLE bookings ADD COLUMN IF NOT EXISTS invite_token VARCHAR(100) UNIQUE"
+  await migrationQuery(
+    'ALTER TABLE bookings ADD COLUMN IF NOT EXISTS invite_token VARCHAR(100) UNIQUE'
   );
-  await pool.query(
+  await migrationQuery(
     "ALTER TABLE bookings ADD COLUMN IF NOT EXISTS shoes_summary JSONB DEFAULT '[]'"
   );
-  await pool.query(
-    "ALTER TABLE bookings ADD COLUMN IF NOT EXISTS payment_method VARCHAR(10) DEFAULT 'cash' CHECK (payment_method IN ('cash', 'card'))"
+  await migrationQuery(
+    'ALTER TABLE users ADD COLUMN IF NOT EXISTS nickname VARCHAR(50)'
   );
-  await pool.query(
-    "ALTER TABLE users ADD COLUMN IF NOT EXISTS nickname VARCHAR(50)"
+  await migrationQuery(
+    'ALTER TABLE users ADD COLUMN IF NOT EXISTS profile_photo_url TEXT'
   );
-  await pool.query(
-    "ALTER TABLE users ADD COLUMN IF NOT EXISTS profile_photo_url TEXT"
-  );
-  await pool.query(
+  await migrationQuery(
     `DO $$
      BEGIN
        IF NOT EXISTS (
@@ -168,7 +178,7 @@ async function ensureSchema() {
      END $$;`
   );
 
-  await pool.query(`
+  await migrationQuery(`
     CREATE OR REPLACE FUNCTION update_updated_at_column()
     RETURNS TRIGGER AS $$
     BEGIN
@@ -178,7 +188,7 @@ async function ensureSchema() {
     $$ language 'plpgsql';
   `);
 
-  await pool.query(`
+  await migrationQuery(`
     CREATE TABLE IF NOT EXISTS field_shoes_inventory (
       id SERIAL PRIMARY KEY,
       field_id INTEGER NOT NULL REFERENCES fields(id) ON DELETE CASCADE,
@@ -191,7 +201,7 @@ async function ensureSchema() {
     )
   `);
 
-  await pool.query(`
+  await migrationQuery(`
     DO $$
     BEGIN
       IF NOT EXISTS (
@@ -204,7 +214,7 @@ async function ensureSchema() {
     END $$;
   `);
 
-  await pool.query(`
+  await migrationQuery(`
     CREATE TABLE IF NOT EXISTS friend_requests (
       id SERIAL PRIMARY KEY,
       from_user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -217,7 +227,7 @@ async function ensureSchema() {
     )
   `);
 
-  await pool.query(`
+  await migrationQuery(`
     CREATE TABLE IF NOT EXISTS booking_participants (
       id SERIAL PRIMARY KEY,
       booking_id INTEGER NOT NULL REFERENCES bookings(id) ON DELETE CASCADE,
@@ -235,7 +245,7 @@ async function ensureSchema() {
     )
   `);
 
-  await pool.query(`
+  await migrationQuery(`
     CREATE TABLE IF NOT EXISTS admin_notifications (
       id SERIAL PRIMARY KEY,
       type VARCHAR(50) NOT NULL,
@@ -247,7 +257,7 @@ async function ensureSchema() {
     )
   `);
 
-  await pool.query(`
+  await migrationQuery(`
     CREATE TABLE IF NOT EXISTS notifications (
       id SERIAL PRIMARY KEY,
       recipient_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
@@ -260,28 +270,28 @@ async function ensureSchema() {
       created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
     )
   `);
-  await pool.query(`ALTER TABLE notifications ADD COLUMN IF NOT EXISTS recipient_id INTEGER REFERENCES users(id) ON DELETE CASCADE`);
-  await pool.query(`ALTER TABLE notifications ADD COLUMN IF NOT EXISTS user_id INTEGER REFERENCES users(id) ON DELETE CASCADE`);
-  await pool.query(`ALTER TABLE notifications ADD COLUMN IF NOT EXISTS recipient_type VARCHAR(10) NOT NULL DEFAULT 'user'`);
-  await pool.query(`ALTER TABLE notifications ADD COLUMN IF NOT EXISTS type VARCHAR(50)`);
-  await pool.query(`ALTER TABLE notifications ADD COLUMN IF NOT EXISTS title VARCHAR(200)`);
-  await pool.query(`ALTER TABLE notifications ADD COLUMN IF NOT EXISTS message TEXT`);
-  await pool.query(`ALTER TABLE notifications ADD COLUMN IF NOT EXISTS subject VARCHAR(255)`);
-  await pool.query(`ALTER TABLE notifications ADD COLUMN IF NOT EXISTS body TEXT`);
-  await pool.query(`ALTER TABLE notifications ADD COLUMN IF NOT EXISTS is_sent BOOLEAN NOT NULL DEFAULT false`);
-  await pool.query(`ALTER TABLE notifications ADD COLUMN IF NOT EXISTS booking_id INTEGER REFERENCES bookings(id) ON DELETE SET NULL`);
-  await pool.query(`ALTER TABLE notifications ADD COLUMN IF NOT EXISTS is_read BOOLEAN NOT NULL DEFAULT false`);
-  await pool.query(`ALTER TABLE notifications ADD COLUMN IF NOT EXISTS created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP`);
-  await pool.query(`UPDATE notifications SET recipient_type = 'user' WHERE recipient_type IS NULL`);
-  await pool.query(`UPDATE notifications SET title = COALESCE(title, subject, type, 'Njoftim') WHERE title IS NULL`);
-  await pool.query(`UPDATE notifications SET message = COALESCE(message, body, '') WHERE message IS NULL`);
-  await pool.query(`UPDATE notifications SET subject = COALESCE(subject, title, type, 'Njoftim') WHERE subject IS NULL`);
-  await pool.query(`UPDATE notifications SET body = COALESCE(body, message, '') WHERE body IS NULL`);
-  await pool.query(`UPDATE notifications SET is_read = COALESCE(is_read, false)`);
-  await pool.query(`UPDATE notifications SET is_sent = COALESCE(is_sent, is_read, false)`);
-  await pool.query(`UPDATE notifications SET user_id = recipient_id WHERE user_id IS NULL AND recipient_id IS NOT NULL`);
-  await pool.query(`UPDATE notifications SET recipient_id = user_id WHERE recipient_id IS NULL AND user_id IS NOT NULL`);
-  await pool.query(`
+  await migrationQuery(`ALTER TABLE notifications ADD COLUMN IF NOT EXISTS recipient_id INTEGER REFERENCES users(id) ON DELETE CASCADE`);
+  await migrationQuery(`ALTER TABLE notifications ADD COLUMN IF NOT EXISTS user_id INTEGER REFERENCES users(id) ON DELETE CASCADE`);
+  await migrationQuery(`ALTER TABLE notifications ADD COLUMN IF NOT EXISTS recipient_type VARCHAR(10) NOT NULL DEFAULT 'user'`);
+  await migrationQuery(`ALTER TABLE notifications ADD COLUMN IF NOT EXISTS type VARCHAR(50)`);
+  await migrationQuery(`ALTER TABLE notifications ADD COLUMN IF NOT EXISTS title VARCHAR(200)`);
+  await migrationQuery(`ALTER TABLE notifications ADD COLUMN IF NOT EXISTS message TEXT`);
+  await migrationQuery(`ALTER TABLE notifications ADD COLUMN IF NOT EXISTS subject VARCHAR(255)`);
+  await migrationQuery(`ALTER TABLE notifications ADD COLUMN IF NOT EXISTS body TEXT`);
+  await migrationQuery(`ALTER TABLE notifications ADD COLUMN IF NOT EXISTS is_sent BOOLEAN NOT NULL DEFAULT false`);
+  await migrationQuery(`ALTER TABLE notifications ADD COLUMN IF NOT EXISTS booking_id INTEGER REFERENCES bookings(id) ON DELETE SET NULL`);
+  await migrationQuery(`ALTER TABLE notifications ADD COLUMN IF NOT EXISTS is_read BOOLEAN NOT NULL DEFAULT false`);
+  await migrationQuery(`ALTER TABLE notifications ADD COLUMN IF NOT EXISTS created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP`);
+  await migrationQuery(`UPDATE notifications SET recipient_type = 'user' WHERE recipient_type IS NULL`);
+  await migrationQuery(`UPDATE notifications SET title = COALESCE(title, subject, type, 'Njoftim') WHERE title IS NULL`);
+  await migrationQuery(`UPDATE notifications SET message = COALESCE(message, body, '') WHERE message IS NULL`);
+  await migrationQuery(`UPDATE notifications SET subject = COALESCE(subject, title, type, 'Njoftim') WHERE subject IS NULL`);
+  await migrationQuery(`UPDATE notifications SET body = COALESCE(body, message, '') WHERE body IS NULL`);
+  await migrationQuery(`UPDATE notifications SET is_read = COALESCE(is_read, false)`);
+  await migrationQuery(`UPDATE notifications SET is_sent = COALESCE(is_sent, is_read, false)`);
+  await migrationQuery(`UPDATE notifications SET user_id = recipient_id WHERE user_id IS NULL AND recipient_id IS NOT NULL`);
+  await migrationQuery(`UPDATE notifications SET recipient_id = user_id WHERE recipient_id IS NULL AND user_id IS NOT NULL`);
+  await migrationQuery(`
     UPDATE notifications n
     SET user_id = u.id,
         recipient_id = COALESCE(n.recipient_id, u.id)
@@ -291,15 +301,15 @@ async function ensureSchema() {
       AND u.role = 'admin'
   `);
 
-  await pool.query(`
+  await migrationQuery(`
     CREATE INDEX IF NOT EXISTS idx_notifications_recipient
     ON notifications(recipient_id, is_read)
   `);
-  await pool.query(`
+  await migrationQuery(`
     CREATE INDEX IF NOT EXISTS idx_notifications_user_sent
     ON notifications(user_id, is_sent)
   `);
-  await pool.query(`
+  await migrationQuery(`
     DO $$
     DECLARE r record;
     BEGIN
@@ -344,7 +354,7 @@ async function ensureSchema() {
     END $$;
   `);
 
-  await pool.query(`
+  await migrationQuery(`
     CREATE TABLE IF NOT EXISTS token_blacklist (
       id SERIAL PRIMARY KEY,
       jti VARCHAR(120) NOT NULL UNIQUE,
@@ -352,20 +362,20 @@ async function ensureSchema() {
       expires_at TIMESTAMP
     )
   `);
-  await pool.query(`
+  await migrationQuery(`
     CREATE INDEX IF NOT EXISTS idx_token_blacklist_expires_at
     ON token_blacklist(expires_at)
   `);
 
-  await pool.query(
+  await migrationQuery(
     'ALTER TABLE fields ADD COLUMN IF NOT EXISTS owner_id INTEGER REFERENCES users(id)'
   );
-  await pool.query('ALTER TABLE users DROP CONSTRAINT IF EXISTS users_role_check');
-  await pool.query(`
+  await migrationQuery('ALTER TABLE users DROP CONSTRAINT IF EXISTS users_role_check');
+  await migrationQuery(`
     ALTER TABLE users ADD CONSTRAINT users_role_check
     CHECK (role IN ('participant', 'player', 'admin', 'field_admin', 'superadmin'))
   `);
-  await pool.query(`
+  await migrationQuery(`
     UPDATE users SET role = 'superadmin'
     WHERE email = 'admin@matchday.com' AND role = 'admin'
   `);
@@ -373,39 +383,43 @@ async function ensureSchema() {
 
 async function seedMitrovicaFields() {
   for (const f of MITROVICA_FIELDS) {
-    const inserted = await pool.query(
-      `INSERT INTO fields (name, terrain_type, price_per_hour, location, is_active)
-       SELECT $1::varchar, $2::varchar, $3::numeric, $4::varchar, TRUE
-       WHERE NOT EXISTS (
-         SELECT 1 FROM fields WHERE LOWER(TRIM(name::text)) = LOWER(TRIM($1::text))
-       )
-       RETURNING id`,
-      [f.name, f.terrain, f.price_per_hour, f.location]
-    );
-    if (inserted.rows.length > 0) {
-      await pool.query(
-        `UPDATE fields
-         SET courts_count = $2
-         WHERE id = $1`,
-        [inserted.rows[0].id, f.courts]
+    try {
+      const inserted = await pool.query(
+        `INSERT INTO fields (name, terrain_type, price_per_hour, location, is_active)
+         SELECT $1::varchar, $2::varchar, $3::numeric, $4::varchar, TRUE
+         WHERE NOT EXISTS (
+           SELECT 1 FROM fields WHERE LOWER(TRIM(name::text)) = LOWER(TRIM($1::text))
+         )
+         RETURNING id`,
+        [f.name, f.terrain, f.price_per_hour, f.location]
       );
-    } else {
-      await pool.query(
-        `UPDATE fields
-         SET location = $2, terrain_type = $3, price_per_hour = $4, courts_count = $5
-         WHERE LOWER(TRIM(name::text)) = LOWER(TRIM($1::text))`,
-        [f.name, f.location, f.terrain, f.price_per_hour, f.courts]
-      );
-    }
+      if (inserted.rows.length > 0) {
+        await pool.query(
+          `UPDATE fields
+           SET courts_count = $2
+           WHERE id = $1`,
+          [inserted.rows[0].id, f.courts]
+        );
+      } else {
+        await pool.query(
+          `UPDATE fields
+           SET location = $2, terrain_type = $3, price_per_hour = $4, courts_count = $5
+           WHERE LOWER(TRIM(name::text)) = LOWER(TRIM($1::text))`,
+          [f.name, f.location, f.terrain, f.price_per_hour, f.courts]
+        );
+      }
 
-    await pool.query(
-      `INSERT INTO field_shoes_inventory (field_id, shoe_size, quantity_available, rent_price)
-       SELECT ff.id, s.size, 3, 2.00
-       FROM (SELECT id FROM fields WHERE LOWER(TRIM(name::text)) = LOWER(TRIM($1::text)) LIMIT 1) ff
-       CROSS JOIN generate_series(36, 45) AS s(size)
-       ON CONFLICT (field_id, shoe_size) DO NOTHING`,
-      [f.name]
-    );
+      await pool.query(
+        `INSERT INTO field_shoes_inventory (field_id, shoe_size, quantity_available, rent_price)
+         SELECT ff.id, s.size, 3, 2.00
+         FROM (SELECT id FROM fields WHERE LOWER(TRIM(name::text)) = LOWER(TRIM($1::text)) LIMIT 1) ff
+         CROSS JOIN generate_series(36, 45) AS s(size)
+         ON CONFLICT (field_id, shoe_size) DO NOTHING`,
+        [f.name]
+      );
+    } catch (err) {
+      console.warn('[migration] Skipped:', err.message);
+    }
   }
 }
 
