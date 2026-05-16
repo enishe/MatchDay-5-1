@@ -1,6 +1,7 @@
 const express = require('express');
+const pool = require('../config/db');
 const FieldService = require('../Services/FieldService');
-const { authenticateToken, requireRole } = require('../middleware/auth');
+const { authenticateToken, optionalAuthenticate, requireRole, requireFieldAccess } = require('../middleware/auth');
 
 const router = express.Router();
 const fieldService = new FieldService();
@@ -32,18 +33,51 @@ function validateFieldPayload(body, isUpdate = false) {
   return errors;
 }
 
-router.get('/fields', async (req, res) => {
+router.get('/fields', optionalAuthenticate, async (req, res) => {
   try {
-    const rows = await fieldService.getAllFields();
+    let rows;
+    const role = req.user?.role;
+    if (role === 'field_admin') {
+      const result = await pool.query(
+        `SELECT id, name, location, terrain_type, price_per_hour, courts_count, is_active, created_at
+         FROM fields
+         WHERE owner_id = $1
+         ORDER BY id ASC`,
+        [req.user.id]
+      );
+      rows = result.rows;
+    } else if (role === 'superadmin' || role === 'admin') {
+      rows = await fieldService.getAllFields();
+    } else {
+      const result = await pool.query(
+        `SELECT id, name, location, terrain_type, price_per_hour, courts_count, is_active, created_at
+         FROM fields
+         WHERE is_active = TRUE
+         ORDER BY id ASC`
+      );
+      rows = result.rows;
+    }
     res.json(rows);
-  } catch (error) {
+  } catch {
     res.status(400).json({ error: 'Nuk u lexuan fushat.' });
   }
 });
 
-router.get('/fields/inventory', authenticateToken, requireRole(['admin']), async (req, res) => {
+router.get('/fields/inventory', authenticateToken, requireRole(['admin', 'field_admin']), async (req, res) => {
   try {
     const grouped = await fieldService.getAllShoesGroupedByField();
+    if (req.user.role === 'field_admin') {
+      const owned = await pool.query(
+        'SELECT id FROM fields WHERE owner_id = $1',
+        [req.user.id]
+      );
+      const ownedIds = new Set(owned.rows.map((r) => r.id));
+      const filtered = {};
+      for (const [key, value] of Object.entries(grouped)) {
+        if (ownedIds.has(Number(key))) filtered[key] = value;
+      }
+      return res.json(filtered);
+    }
     res.json(grouped);
   } catch {
     res.status(400).json({ error: 'Nuk u lexua inventari.' });
@@ -140,7 +174,7 @@ router.post('/fields', authenticateToken, requireRole(['admin']), async (req, re
   }
 });
 
-router.put('/fields/:id', authenticateToken, requireRole(['admin']), async (req, res) => {
+router.put('/fields/:id', authenticateToken, requireRole(['admin', 'field_admin']), requireFieldAccess, async (req, res) => {
   try {
     const errors = validateFieldPayload(req.body, true);
     if (errors.length) return res.status(400).json({ error: errors.join(' ') });
@@ -151,7 +185,7 @@ router.put('/fields/:id', authenticateToken, requireRole(['admin']), async (req,
   }
 });
 
-router.delete('/fields/:id', authenticateToken, requireRole(['admin']), async (req, res) => {
+router.delete('/fields/:id', authenticateToken, requireRole(['admin', 'field_admin']), requireFieldAccess, async (req, res) => {
   try {
     const data = await fieldService.deleteField(Number(req.params.id));
     res.json(data);
@@ -160,7 +194,7 @@ router.delete('/fields/:id', authenticateToken, requireRole(['admin']), async (r
   }
 });
 
-router.put('/fields/:id/shoes', authenticateToken, requireRole(['admin']), async (req, res) => {
+router.put('/fields/:id/shoes', authenticateToken, requireRole(['admin', 'field_admin']), requireFieldAccess, async (req, res) => {
   try {
     const rows = Array.isArray(req.body?.inventory) ? req.body.inventory : [];
     if (rows.length === 0) {
@@ -178,7 +212,7 @@ router.put('/fields/:id/shoes', authenticateToken, requireRole(['admin']), async
   }
 });
 
-router.put('/fields/:id/shoes/bulk', authenticateToken, requireRole(['admin']), async (req, res) => {
+router.put('/fields/:id/shoes/bulk', authenticateToken, requireRole(['admin', 'field_admin']), requireFieldAccess, async (req, res) => {
   try {
     const fieldId = Number(req.params.id);
     const rows = Array.isArray(req.body?.inventory) ? req.body.inventory : [];

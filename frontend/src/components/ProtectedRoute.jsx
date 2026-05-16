@@ -4,6 +4,8 @@ import { useAuth } from '../context/AuthContext';
 function roleMatches(userRole, required) {
   if (!required) return true;
   if (userRole === required) return true;
+  if (required === 'superadmin' && userRole === 'superadmin') return true;
+  if (required === 'admin' && (userRole === 'admin' || userRole === 'field_admin' || userRole === 'superadmin')) return true;
   if (required === 'participant' && userRole === 'player') return true;
   if (required === 'player' && userRole === 'participant') return true;
   return false;

@@ -99,7 +99,10 @@ export default function MatchDetail() {
   }
 
   const { match, players, financials, cancelPolicy } = data;
-  const canAct = match.organizer_id === user?.id || user?.role === 'admin';
+  const canAct = match.organizer_id === user?.id
+    || user?.role === 'admin'
+    || user?.role === 'superadmin'
+    || user?.role === 'field_admin';
 
   return (
     <div className="page">

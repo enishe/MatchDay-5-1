@@ -279,7 +279,7 @@ class AuthService {
     if (adminExists.rows.length === 0) {
       await pool.query(
         `INSERT INTO users (name, email, password, role)
-         VALUES ($1, $2, $3, 'admin')`,
+         VALUES ($1, $2, $3, 'superadmin')`,
         ['Admin MatchDay', ADMIN_EMAIL, hash]
       );
       console.log('[seed] Admin user created:', ADMIN_EMAIL);
@@ -293,11 +293,11 @@ class AuthService {
         !currentHash.startsWith('$2b$') &&
         !currentHash.startsWith('$2y$');
       const hasPlaceholderHash = currentHash.includes('hash_placeholder');
-      const mustRepairAdmin = hasPlaceholderHash || hashLooksInvalid || admin.role !== 'admin';
+      const mustRepairAdmin = hasPlaceholderHash || hashLooksInvalid || !['admin', 'superadmin'].includes(admin.role);
 
       if (syncPw || mustRepairAdmin) {
         await pool.query(
-          `UPDATE users SET password = $1, role = 'admin', name = COALESCE(NULLIF(TRIM(name), ''), 'Admin MatchDay')
+          `UPDATE users SET password = $1, role = 'superadmin', name = COALESCE(NULLIF(TRIM(name), ''), 'Admin MatchDay')
            WHERE LOWER(TRIM(email)) = $2`,
           [hash, ADMIN_EMAIL]
         );

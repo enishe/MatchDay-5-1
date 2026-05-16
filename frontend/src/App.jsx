@@ -14,6 +14,7 @@ import FriendsPage from './pages/FriendsPage';
 import ProfilePage from './pages/ProfilePage';
 import AdminNotificationsPage from './pages/AdminNotificationsPage';
 import NotificationsPage from './pages/NotificationsPage';
+import SuperAdminPage from './pages/SuperAdminPage';
 
 function AppShell({ children }) {
   const location = useLocation();
@@ -28,6 +29,8 @@ function AppShell({ children }) {
 
 function HomeRedirect() {
   const { user } = useAuth();
+  if (user?.role === 'superadmin') return <Navigate to="/superadmin" replace />;
+  if (user?.role === 'field_admin') return <Navigate to="/admin/dashboard" replace />;
   if (user?.role === 'admin') return <Navigate to="/admin/dashboard" replace />;
   if (user) return <Navigate to="/dashboard" replace />;
   return <Navigate to="/login" replace />;
@@ -35,13 +38,22 @@ function HomeRedirect() {
 
 function PlayerOnlyRoute({ children }) {
   const { user } = useAuth();
-  if (user?.role === 'admin') return <Navigate to="/admin/dashboard" replace />;
+  if (user?.role === 'superadmin') return <Navigate to="/superadmin" replace />;
+  if (user?.role === 'field_admin' || user?.role === 'admin') return <Navigate to="/admin/dashboard" replace />;
   return children;
 }
 
 function AdminOnlyRoute({ children }) {
   const { user } = useAuth();
-  if (user?.role !== 'admin') return <Navigate to="/dashboard" replace />;
+  if (user?.role === 'superadmin') return <Navigate to="/superadmin" replace />;
+  if (user?.role !== 'admin' && user?.role !== 'field_admin') return <Navigate to="/dashboard" replace />;
+  return children;
+}
+
+function CalendarRoute({ children }) {
+  const { user } = useAuth();
+  if (user?.role === 'superadmin') return <Navigate to="/superadmin" replace />;
+  if (user?.role === 'admin') return <Navigate to="/admin/calendar" replace />;
   return children;
 }
 
@@ -96,9 +108,17 @@ export default function App() {
             path="/calendar"
             element={
               <ProtectedRoute>
-                <PlayerOnlyRoute>
+                <CalendarRoute>
                   <CalendarPage />
-                </PlayerOnlyRoute>
+                </CalendarRoute>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/superadmin"
+            element={
+              <ProtectedRoute requiredRole="superadmin">
+                <SuperAdminPage />
               </ProtectedRoute>
             }
           />

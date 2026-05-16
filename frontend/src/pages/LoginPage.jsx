@@ -14,7 +14,14 @@ export default function LoginPage() {
   const [show, setShow] = useState(false);
   const [localError, setLocalError] = useState(null);
 
-  if (user) return <Navigate to={user.role === 'admin' ? '/admin/dashboard' : from} replace />;
+  if (user) {
+    const dest = user.role === 'superadmin'
+      ? '/superadmin'
+      : user.role === 'admin' || user.role === 'field_admin'
+        ? '/admin/dashboard'
+        : from;
+    return <Navigate to={dest} replace />;
+  }
 
   const validate = () => {
     const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -30,7 +37,13 @@ export default function LoginPage() {
     if (v) return setLocalError(v);
     try {
       const result = await login(String(email).trim(), password);
-      navigate(result?.user?.role === 'admin' ? '/admin/dashboard' : '/dashboard', { replace: true });
+      const role = result?.user?.role;
+      const dest = role === 'superadmin'
+        ? '/superadmin'
+        : role === 'admin' || role === 'field_admin'
+          ? '/admin/dashboard'
+          : '/dashboard';
+      navigate(dest, { replace: true });
     } catch (err) {
       setLocalError(err.message || 'Kyçja dështoi.');
     }

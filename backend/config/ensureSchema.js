@@ -356,6 +356,19 @@ async function ensureSchema() {
     CREATE INDEX IF NOT EXISTS idx_token_blacklist_expires_at
     ON token_blacklist(expires_at)
   `);
+
+  await pool.query(
+    'ALTER TABLE fields ADD COLUMN IF NOT EXISTS owner_id INTEGER REFERENCES users(id)'
+  );
+  await pool.query('ALTER TABLE users DROP CONSTRAINT IF EXISTS users_role_check');
+  await pool.query(`
+    ALTER TABLE users ADD CONSTRAINT users_role_check
+    CHECK (role IN ('participant', 'player', 'admin', 'field_admin', 'superadmin'))
+  `);
+  await pool.query(`
+    UPDATE users SET role = 'superadmin'
+    WHERE email = 'admin@matchday.com' AND role = 'admin'
+  `);
 }
 
 async function seedMitrovicaFields() {

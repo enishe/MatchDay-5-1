@@ -207,7 +207,13 @@ export function AuthProvider({ children }) {
       refreshUser,
       setError,
       authHeader,
-      isAdmin: user?.role === 'admin',
+      isAdmin: user?.role === 'admin' || user?.role === 'field_admin',
+      isSuperAdmin: user?.role === 'superadmin',
+      isFieldAdmin: user?.role === 'field_admin',
+      isStaffAdmin:
+        user?.role === 'admin' ||
+        user?.role === 'field_admin' ||
+        user?.role === 'superadmin',
     }),
     [user, token, isLoading, error, login, register, logout, refreshUser, authHeader]
   );

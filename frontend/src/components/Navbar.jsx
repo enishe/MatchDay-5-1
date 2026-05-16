@@ -43,7 +43,7 @@ function avatarSource(user) {
 }
 
 export default function Navbar() {
-  const { user, token, logout, isAdmin } = useAuth();
+  const { user, token, logout, isAdmin, isSuperAdmin, isFieldAdmin, isStaffAdmin } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const [menuOpen, setMenuOpen] = useState(false);
@@ -87,7 +87,7 @@ export default function Navbar() {
 
   const fetchUnreadCount = useCallback(async () => {
     if (!token) return;
-    const endpoint = isAdmin ? '/notifications/count' : '/notifications/my/count';
+    const endpoint = isStaffAdmin ? '/notifications/count' : '/notifications/my/count';
     try {
       const r = await apiFetch(endpoint, { token });
       const count = parseInt(r?.count, 10) || 0;
@@ -95,7 +95,7 @@ export default function Navbar() {
     } catch {
       setUnreadCount(0);
     }
-  }, [isAdmin, token]);
+  }, [isStaffAdmin, token]);
 
   useEffect(() => {
     if (!token) return;
@@ -131,32 +131,32 @@ export default function Navbar() {
 
   const fetchBellNotifications = useCallback(async () => {
     if (!token) return;
-    const endpoint = isAdmin ? '/notifications' : '/notifications/my';
+    const endpoint = isStaffAdmin ? '/notifications' : '/notifications/my';
     try {
       const r = await apiFetch(endpoint, { token });
       const nextList = Array.isArray(r) ? r.slice(0, 5) : [];
-      if (isAdmin) setNotifications(nextList);
+      if (isStaffAdmin) setNotifications(nextList);
       else setPlayerNotifications(nextList);
     } catch {
-      if (isAdmin) setNotifications([]);
+      if (isStaffAdmin) setNotifications([]);
       else setPlayerNotifications([]);
     }
-  }, [token, isAdmin]);
+  }, [token, isStaffAdmin]);
 
   const markAllBellNotificationsRead = useCallback(async () => {
     if (!token) return;
     setUnreadCount(0);
-    if (isAdmin) setNotifications((prev) => prev.map((x) => ({ ...x, is_read: true })));
+    if (isStaffAdmin) setNotifications((prev) => prev.map((x) => ({ ...x, is_read: true })));
     else setPlayerNotifications((prev) => prev.map((x) => ({ ...x, is_read: true })));
-    const path = isAdmin ? '/notifications/admin/read-all' : '/notifications/my/read-all';
+    const path = isStaffAdmin ? '/notifications/admin/read-all' : '/notifications/my/read-all';
     try {
       await apiFetch(path, { token, method: 'PUT' });
     } catch {
       fetchUnreadCount();
     }
-  }, [token, isAdmin, fetchUnreadCount]);
+  }, [token, isStaffAdmin, fetchUnreadCount]);
 
-  const bellDropdownOpen = isAdmin ? notifOpen : bellOpen;
+  const bellDropdownOpen = isStaffAdmin ? notifOpen : bellOpen;
 
   useEffect(() => {
     if (!bellDropdownOpen || !token) return undefined;
@@ -168,7 +168,7 @@ export default function Navbar() {
   }, [bellDropdownOpen, token, fetchBellNotifications, markAllBellNotificationsRead]);
 
   const markRead = async (id) => {
-    if (isAdmin) {
+    if (isStaffAdmin) {
       const endpoint = `/notifications/${encodeURIComponent(id)}/read`;
       let wasUnread = false;
       setNotifications((prev) => {
@@ -258,9 +258,31 @@ export default function Navbar() {
 
   const navClass = ({ isActive }) => `nav-link${isActive ? ' active' : ''}`;
 
+  const brandTarget = isSuperAdmin
+    ? '/superadmin'
+    : isStaffAdmin
+      ? '/admin/dashboard'
+      : '/dashboard';
+
   const links = (
     <>
-      {isAdmin ? (
+      {isSuperAdmin ? (
+        <NavLink to="/superadmin" className={navClass} end onClick={() => setMenuOpen(false)}>
+          Super Admin
+        </NavLink>
+      ) : isFieldAdmin ? (
+        <>
+          <NavLink to="/admin/dashboard" className={navClass} end onClick={() => setMenuOpen(false)}>
+            Dashboard
+          </NavLink>
+          <NavLink to="/admin/bookings" className={navClass} onClick={() => setMenuOpen(false)}>
+            Rezervimet
+          </NavLink>
+          <NavLink to="/calendar" className={navClass} onClick={() => setMenuOpen(false)}>
+            Kalendari
+          </NavLink>
+        </>
+      ) : isAdmin ? (
         <>
           <NavLink to="/admin/dashboard" className={navClass} end onClick={() => setMenuOpen(false)}>
             Dashboard
@@ -306,7 +328,7 @@ export default function Navbar() {
   return (
     <header className="navbar">
       <div className="navbar-start">
-        <NavLink to={isAdmin ? '/admin/dashboard' : '/dashboard'} className="navbar-brand">
+        <NavLink to={brandTarget} className="navbar-brand">
           MatchDay 5+1
         </NavLink>
       </div>
@@ -334,7 +356,7 @@ export default function Navbar() {
         <button type="button" className="icon-btn" aria-label="Dark mode" onClick={onToggleTheme}>
           {dark ? <Sun size={20} /> : <Moon size={20} />}
         </button>
-        {!!user && isAdmin && (
+        {!!user && isStaffAdmin && !isSuperAdmin && (
           <div ref={notifRef} style={{ position: 'relative' }}>
             <button
               type="button"
@@ -387,7 +409,7 @@ export default function Navbar() {
             )}
           </div>
         )}
-        {!!user && !isAdmin && (
+        {!!user && !isStaffAdmin && (
           <div ref={bellRef} style={{ position: 'relative' }}>
             <button
               type="button"
@@ -469,6 +491,20 @@ export default function Navbar() {
             )}
           </div>
         )}
+        {!!user && (isSuperAdmin || isFieldAdmin) ? (
+          <button
+            type="button"
+            className="btn"
+            onClick={() => {
+              logout();
+              navigate('/login');
+            }}
+          >
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+              <LogOut size={16} /> Dil
+            </span>
+          </button>
+        ) : (
         <div className="navbar-user" ref={ddRef}>
           <button
             type="button"
@@ -508,6 +544,7 @@ export default function Navbar() {
             </button>
           </div>
         </div>
+        )}
       </div>
     </header>
   );

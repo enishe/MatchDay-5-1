@@ -10,6 +10,7 @@ const matchRouter = require('./Routes/matchRoutes');
 const fieldRoutes = require('./Routes/fieldRoutes');
 const bookingRoutes = require('./Routes/bookingRoutes');
 const notificationRoutes = require('./Routes/notificationRoutes');
+const superAdminRoutes = require('./Routes/superAdminRoutes');
 const { ensureSchema, seedMitrovicaFields } = require('./config/ensureSchema');
 const AuthService = require('./Services/AuthService');
 const TokenBlacklistService = require('./Services/TokenBlacklistService');
@@ -45,6 +46,7 @@ app.use('/api/bookings', bookingRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api', fieldRoutes);
 app.use('/api', matchRouter);
+app.use('/api/superadmin', superAdminRoutes);
 
 // Serve static files from frontend dist folder
 app.use(express.static(path.join(__dirname, '../frontend/dist')));

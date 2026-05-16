@@ -91,8 +91,12 @@ function sameUserId(a, b) {
     return Number(a) === Number(b);
 }
 
+function isStaffAdmin(role) {
+    return role === 'admin' || role === 'superadmin' || role === 'field_admin';
+}
+
 async function assertMatchAccess(booking, user) {
-    if (user.role === 'admin') return;
+    if (isStaffAdmin(user.role)) return;
     if (sameUserId(booking.organizer_id, user.id)) return;
     const err = new Error('Nuk keni akses në këtë ndeshje.');
     err.status = 403;
@@ -354,6 +358,9 @@ router.get('/fields/availability', authenticateToken, async (req, res) => {
 });
 
 router.get('/admin/users', authenticateToken, requireRole(['admin']), async (req, res) => {
+    if (req.user.role === 'field_admin') {
+        return res.status(403).json({ error: 'Nuk keni akses.' });
+    }
     try {
         const r = await pool.query(
             `SELECT u.id, u.name, u.email, u.role, u.created_at, COUNT(b.id)::int AS total_bookings
@@ -379,8 +386,13 @@ router.get('/admin/users', authenticateToken, requireRole(['admin']), async (req
     }
 });
 
-router.get('/admin/stats', authenticateToken, requireRole(['admin']), async (req, res) => {
+router.get('/admin/stats', authenticateToken, requireRole(['admin', 'field_admin']), async (req, res) => {
     try {
+        const isFieldAdmin = req.user.role === 'field_admin';
+        const bookingFilter = isFieldAdmin
+            ? 'WHERE b.field_id IN (SELECT id FROM fields WHERE owner_id = $1)'
+            : '';
+        const bookingParams = isFieldAdmin ? [req.user.id] : [];
         const result = await pool.query(
             `SELECT
                 COALESCE(SUM(CASE WHEN b.status = 'confirmed' THEN b.total_price ELSE 0 END), 0)::numeric AS total_revenue,
@@ -388,12 +400,19 @@ router.get('/admin/stats', authenticateToken, requireRole(['admin']), async (req
                 COALESCE(SUM(CASE WHEN b.status = 'confirmed' AND b.start_time >= date_trunc('week', NOW()) AND b.start_time < date_trunc('week', NOW()) + INTERVAL '7 day' THEN b.total_price ELSE 0 END), 0)::numeric AS week_revenue,
                 COUNT(b.id)::int AS total_bookings,
                 COUNT(CASE WHEN b.status = 'pending' THEN 1 END)::int AS pending_bookings
-             FROM bookings b`
+             FROM bookings b
+             ${bookingFilter}`,
+            bookingParams
         );
         const fieldsR = await pool.query(
-            `SELECT COUNT(*)::int AS total_fields
-             FROM fields
-             WHERE is_active = TRUE`
+            isFieldAdmin
+                ? `SELECT COUNT(*)::int AS total_fields
+                   FROM fields
+                   WHERE is_active = TRUE AND owner_id = $1`
+                : `SELECT COUNT(*)::int AS total_fields
+                   FROM fields
+                   WHERE is_active = TRUE`,
+            isFieldAdmin ? [req.user.id] : []
         );
         const playersR = await pool.query(
             `SELECT COUNT(*)::int AS total_players
@@ -416,8 +435,11 @@ router.get('/admin/stats', authenticateToken, requireRole(['admin']), async (req
     }
 });
 
-router.get('/admin/today-bookings', authenticateToken, requireRole(['admin']), async (req, res) => {
+router.get('/admin/today-bookings', authenticateToken, requireRole(['admin', 'field_admin']), async (req, res) => {
     try {
+        const isFieldAdmin = req.user.role === 'field_admin';
+        const ownerFilter = isFieldAdmin ? 'AND f.owner_id = $1' : '';
+        const params = isFieldAdmin ? [req.user.id] : [];
         const result = await pool.query(
             `SELECT
                 f.id AS field_id,
@@ -435,7 +457,9 @@ router.get('/admin/today-bookings', authenticateToken, requireRole(['admin']), a
               AND b.status = 'confirmed'
               AND b.start_time::date = CURRENT_DATE
              WHERE f.is_active = TRUE
-             ORDER BY f.id ASC, b.start_time ASC`
+             ${ownerFilter}
+             ORDER BY f.id ASC, b.start_time ASC`,
+            params
         );
         const grouped = {};
         for (const row of result.rows) {
@@ -469,7 +493,7 @@ router.get('/admin/today-bookings', authenticateToken, requireRole(['admin']), a
     }
 });
 
-router.get('/admin/field-calendar', authenticateToken, requireRole(['admin']), async (req, res) => {
+router.get('/admin/field-calendar', authenticateToken, requireRole(['admin', 'field_admin']), async (req, res) => {
     try {
         const fieldId = Number(req.query.fieldId);
         const selectedDate = String(req.query.date || formatBelgradeYmd(new Date())).trim();
@@ -480,11 +504,16 @@ router.get('/admin/field-calendar', authenticateToken, requireRole(['admin']), a
             return res.status(400).json({ error: 'date duhet të jetë në formatin YYYY-MM-DD.' });
         }
 
+        const isFieldAdmin = req.user.role === 'field_admin';
         const fieldResult = await pool.query(
-            `SELECT id, name, location, terrain_type, courts_count
-             FROM fields
-             WHERE id = $1 AND is_active = TRUE`,
-            [fieldId]
+            isFieldAdmin
+                ? `SELECT id, name, location, terrain_type, courts_count
+                   FROM fields
+                   WHERE id = $1 AND is_active = TRUE AND owner_id = $2`
+                : `SELECT id, name, location, terrain_type, courts_count
+                   FROM fields
+                   WHERE id = $1 AND is_active = TRUE`,
+            isFieldAdmin ? [fieldId, req.user.id] : [fieldId]
         );
         if (fieldResult.rows.length === 0) {
             return res.status(404).json({ error: 'Fusha nuk u gjet ose nuk është aktive.' });
@@ -714,7 +743,7 @@ router.put('/matches/:id', authenticateToken, async (req, res) => {
         const { status } = req.body;
         if (!status) return res.status(400).json({ error: 'status është i detyrueshëm' });
         const booking = await matchService.gjejSipasId(req.params.id);
-        const isAdmin = req.user.role === 'admin';
+        const isAdmin = isStaffAdmin(req.user.role);
         const isOwner = sameUserId(booking.organizer_id, req.user.id);
         if (!isAdmin && !(isOwner && status === 'confirmed')) {
             return res.status(403).json({ error: 'Nuk keni leje për këtë veprim' });
@@ -745,7 +774,7 @@ router.post('/matches/:id/cancel', authenticateToken, async (req, res) => {
     // TODO: deprecated — do të ridrejtohet te /api/bookings në v2
     try {
         const booking = await matchService.gjejSipasId(req.params.id);
-        if (req.user.role !== 'admin' && !sameUserId(booking.organizer_id, req.user.id)) {
+        if (!isStaffAdmin(req.user.role) && !sameUserId(booking.organizer_id, req.user.id)) {
             return res.status(403).json({ error: 'Nuk keni leje për këtë veprim' });
         }
         const { raw: result, normalized } = await unifiedBookingService.cancelBooking(req.params.id);

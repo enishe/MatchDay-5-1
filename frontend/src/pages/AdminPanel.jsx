@@ -26,7 +26,7 @@ function terrainLabel(value) {
 }
 
 export default function AdminPanel({ section = 'dashboard' }) {
-  const { token } = useAuth();
+  const { token, isFieldAdmin } = useAuth();
   const navigate = useNavigate();
   const [tab, setTab] = useState(section);
   const [matches, setMatches] = useState([]);
@@ -48,8 +48,13 @@ export default function AdminPanel({ section = 'dashboard' }) {
   const [calendarLoading, setCalendarLoading] = useState(false);
 
   useEffect(() => {
+    if (isFieldAdmin && (section === 'fields' || section === 'players')) {
+      setTab('dashboard');
+      navigate('/admin/dashboard', { replace: true });
+      return;
+    }
     setTab(section);
-  }, [section]);
+  }, [section, isFieldAdmin, navigate]);
 
   const tregoBust = useCallback((tekst, lloji = 'sukses') => {
     setMesazhi({ tekst, lloji });
@@ -80,9 +85,9 @@ export default function AdminPanel({ section = 'dashboard' }) {
   }, [token]);
 
   const fetchUsers = useCallback(() => {
-    if (!token) return;
+    if (!token || isFieldAdmin) return Promise.resolve();
     return apiFetch('/admin/users', { token }).then((u) => setUsers(Array.isArray(u) ? u : []));
-  }, [token]);
+  }, [token, isFieldAdmin]);
 
   const fetchAdminFieldCalendar = useCallback(async (fieldIdArg, dateArg) => {
     const fieldId = Number(fieldIdArg || calendarFieldId);
@@ -263,15 +268,19 @@ export default function AdminPanel({ section = 'dashboard' }) {
         <button type="button" className={`tab${tab === 'dashboard' ? ' tab--active' : ''}`} onClick={() => { setTab('dashboard'); navigate('/admin/dashboard'); }}>
           Dashboard
         </button>
-        <button type="button" className={`tab${tab === 'fields' ? ' tab--active' : ''}`} onClick={() => { setTab('fields'); navigate('/admin/fields'); }}>
-          Fushat
-        </button>
+        {!isFieldAdmin && (
+          <button type="button" className={`tab${tab === 'fields' ? ' tab--active' : ''}`} onClick={() => { setTab('fields'); navigate('/admin/fields'); }}>
+            Fushat
+          </button>
+        )}
         <button type="button" className={`tab${tab === 'bookings' ? ' tab--active' : ''}`} onClick={() => { setTab('bookings'); navigate('/admin/bookings'); }}>
           Rezervimet
         </button>
-        <button type="button" className={`tab${tab === 'players' ? ' tab--active' : ''}`} onClick={() => { setTab('players'); navigate('/admin/players'); }}>
-          Lojtarët
-        </button>
+        {!isFieldAdmin && (
+          <button type="button" className={`tab${tab === 'players' ? ' tab--active' : ''}`} onClick={() => { setTab('players'); navigate('/admin/players'); }}>
+            Lojtarët
+          </button>
+        )}
         <button type="button" className={`tab${tab === 'calendar' ? ' tab--active' : ''}`} onClick={() => { setTab('calendar'); navigate('/admin/calendar'); }}>
           Kalendari i Fushave
         </button>

@@ -26,18 +26,41 @@ class BookingService {
     return candidate || 'Keni një njoftim të ri.';
   }
 
-  async createAdminNotification(client, { type, title, message, bookingId = null, fallbackUserId = null }) {
-    const adminRows = await client.query(
-      `SELECT id FROM users WHERE role = 'admin' ORDER BY id ASC`,
-      []
-    );
-    const adminIds = adminRows.rows
-      .map((r) => Number(r.id))
-      .filter((id) => Number.isInteger(id) && id > 0);
-    if (adminIds.length === 0 && Number.isInteger(Number(fallbackUserId)) && Number(fallbackUserId) > 0) {
-      adminIds.push(Number(fallbackUserId));
+  async createAdminNotification(client, { type, title, message, bookingId = null, fieldId = null }) {
+    let resolvedFieldId = fieldId != null ? Number(fieldId) : null;
+    if (!resolvedFieldId && bookingId) {
+      const bookingField = await client.query(
+        'SELECT field_id FROM bookings WHERE id = $1',
+        [bookingId]
+      );
+      resolvedFieldId = bookingField.rows[0]?.field_id != null
+        ? Number(bookingField.rows[0].field_id)
+        : null;
     }
-    if (adminIds.length === 0) {
+
+    let recipientIds = [];
+    if (resolvedFieldId) {
+      const fieldResult = await client.query(
+        'SELECT owner_id FROM fields WHERE id = $1',
+        [resolvedFieldId]
+      );
+      const fieldOwnerId = fieldResult.rows[0]?.owner_id;
+      if (fieldOwnerId) {
+        recipientIds.push(Number(fieldOwnerId));
+      }
+    }
+
+    if (recipientIds.length === 0) {
+      const superadminRows = await client.query(
+        `SELECT id FROM users WHERE role = 'superadmin' ORDER BY id ASC`,
+        []
+      );
+      recipientIds = superadminRows.rows
+        .map((r) => Number(r.id))
+        .filter((id) => Number.isInteger(id) && id > 0);
+    }
+
+    if (recipientIds.length === 0) {
       throw new Error('Nuk u gjet asnjë admin valid për njoftim.');
     }
 
@@ -48,7 +71,7 @@ class BookingService {
     );
     const safeSubject = this.normalizeSubject(type, title);
     const safeBody = this.normalizeBody(message);
-    for (const adminUserId of adminIds) {
+    for (const adminUserId of recipientIds) {
       await client.query(
         `INSERT INTO notifications (user_id, recipient_id, recipient_type, type, title, message, subject, body, booking_id, is_read)
          VALUES ($1, $1, 'admin', $2, $3, $4, $5, $6, $7, false)`,
@@ -186,7 +209,7 @@ class BookingService {
         title: 'Rezervim i ri (Cash)',
         message: msg,
         bookingId: booking.id,
-        fallbackUserId: organizerId,
+        fieldId: booking.field_id,
       });
 
       await client.query('COMMIT');
@@ -263,7 +286,7 @@ class BookingService {
         title: 'Rezervim i ri (Kartë)',
         message: msg,
         bookingId: booking.id,
-        fallbackUserId: organizerId,
+        fieldId: booking.field_id,
       });
 
       await client.query('COMMIT');
@@ -430,7 +453,7 @@ class BookingService {
           title: 'Rezervim i konfirmuar',
           message: `Rezervimi te "${booking.field_name}" u konfirmua. Të hyrat: ${Number(totalRevenue).toFixed(2)}€.`,
           bookingId,
-          fallbackUserId: Number(booking.organizer_id),
+          fieldId: booking.field_id,
         });
         await this.notifyBookingParticipants(
           client,
@@ -491,7 +514,7 @@ class BookingService {
           title: 'Rezervim i anuluar automatikisht',
           message: `Rezervimi te "${booking.field_name}" u anulua automatikisht. Pagesa të kryera: ${paidCount}/12.`,
           bookingId,
-          fallbackUserId: Number(booking.organizer_id),
+          fieldId: booking.field_id,
         });
         await this.notifyBookingParticipants(
           client,
