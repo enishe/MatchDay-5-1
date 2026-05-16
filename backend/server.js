@@ -17,7 +17,8 @@ const TokenBlacklistService = require('./Services/TokenBlacklistService');
 const checkTokenBlacklist = require('./middleware/checkTokenBlacklist');
 
 const app = express();
-const PORT = process.env.PORT || 5000;
+const HOST = process.env.HOST || '0.0.0.0';
+const PORT = Number(process.env.PORT) || 5000;
 
 // Middleware
 app.use(cors({
@@ -83,26 +84,6 @@ app.use('/api/*', (req, res) => {
   res.status(404).json({ error: 'Endpoint-i i API-së nuk u gjet.' });
 });
 
-async function bootstrap() {
-  await pool
-    .query('SELECT NOW()')
-    .then(() => console.log('[DB] PostgreSQL connected successfully'))
-    .catch((err) => {
-      console.error('[DB] Connection failed:', err.message);
-      throw err;
-    });
-  await ensureSchema();
-  await seedMitrovicaFields();
-  const authService = new AuthService();
-  try {
-    await authService.ensureAdminUser();
-    console.log('[startup] Admin check complete');
-  } catch (err) {
-    console.error('[startup] Admin check failed:', err?.message || err);
-    throw err;
-  }
-}
-
 function scheduleTokenBlacklistCleanup() {
   const tokenBlacklistService = new TokenBlacklistService();
   const cleanup = async () => {
@@ -116,17 +97,58 @@ function scheduleTokenBlacklistCleanup() {
   setInterval(cleanup, 24 * 60 * 60 * 1000);
 }
 
-bootstrap()
-  .then(() => {
-    app.listen(PORT, () => {
-      console.log(`MATCHDAY server running on port ${PORT}`);
-      console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
+async function bootstrap() {
+  if (!process.env.DATABASE_URL && process.env.NODE_ENV === 'production') {
+    throw new Error('DATABASE_URL environment variable is required in production.');
+  }
+
+  console.log('[startup] Step 1/4: Testing database connection...');
+  const ping = await pool.query('SELECT NOW() AS now');
+  console.log('[DB] PostgreSQL connected successfully at', ping.rows[0]?.now);
+
+  console.log('[startup] Step 2/4: Applying schema migrations (ensureSchema)...');
+  await ensureSchema();
+  console.log('[startup] ensureSchema complete');
+
+  console.log('[startup] Step 3/4: Seeding Mitrovica fields...');
+  await seedMitrovicaFields();
+  console.log('[startup] seedMitrovicaFields complete');
+
+  console.log('[startup] Step 4/4: Ensuring admin user exists...');
+  const authService = new AuthService();
+  await authService.ensureAdminUser();
+  console.log('[startup] Admin check complete');
+}
+
+async function startServer() {
+  try {
+    await bootstrap();
+
+    const server = app.listen(PORT, HOST, () => {
+      console.log(`[server] MATCHDAY listening on http://${HOST}:${PORT}`);
+      console.log(`[server] Environment: ${process.env.NODE_ENV || 'development'}`);
+      console.log(`[server] Health check: http://${HOST}:${PORT}/health`);
     });
+
+    server.on('error', (err) => {
+      console.error('[server] Failed to bind:', err.message);
+      if (err.code === 'EADDRINUSE') {
+        console.error(`[server] Port ${PORT} is already in use.`);
+      }
+      process.exit(1);
+    });
+
     scheduleTokenBlacklistCleanup();
-  })
-  .catch((err) => {
-    console.error('Bootstrap failed:', err);
+  } catch (err) {
+    console.error('[startup] FATAL — server did not start.');
+    console.error('[startup] Error:', err?.message || err);
+    if (err?.stack) {
+      console.error(err.stack);
+    }
     process.exit(1);
-  });
+  }
+}
+
+startServer();
 
 module.exports = app;
