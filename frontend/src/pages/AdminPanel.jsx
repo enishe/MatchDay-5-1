@@ -52,7 +52,7 @@ export default function AdminPanel({ section = 'dashboard' }) {
   const [calendarLoading, setCalendarLoading] = useState(false);
 
   useEffect(() => {
-    if (isFieldAdmin && (section === 'fields' || section === 'players')) {
+    if (isFieldAdmin && (section === 'players' || section === 'bookings')) {
       setTab('dashboard');
       navigate('/admin/dashboard', { replace: true });
       return;
@@ -285,9 +285,7 @@ export default function AdminPanel({ section = 'dashboard' }) {
     if (isFieldAdmin) {
       return [
         { label: 'Të ardhurat totale', value: `${Number(stats.total_revenue || 0).toFixed(2)}€`, accent: '#3498db' },
-        { label: 'Rezervimet sot', value: Number(stats.today_confirmed_bookings || 0), accent: '#27ae60' },
-        { label: 'Fushat aktive', value: Number(stats.total_fields || 0), accent: '#8e44ad' },
-        { label: 'Rezervime në pritje', value: Number(stats.pending_bookings || 0), accent: '#f39c12' },
+        { label: 'Të ardhurat këtë muaj', value: `${Number(stats.month_revenue || 0).toFixed(2)}€`, accent: '#27ae60' },
       ];
     }
     return [
@@ -311,14 +309,14 @@ export default function AdminPanel({ section = 'dashboard' }) {
         <button type="button" className={`tab${tab === 'dashboard' ? ' tab--active' : ''}`} onClick={() => { setTab('dashboard'); navigate('/admin/dashboard'); }}>
           Dashboard
         </button>
+        <button type="button" className={`tab${tab === 'fields' ? ' tab--active' : ''}`} onClick={() => { setTab('fields'); navigate('/admin/fields'); }}>
+          Fushat
+        </button>
         {!isFieldAdmin && (
-          <button type="button" className={`tab${tab === 'fields' ? ' tab--active' : ''}`} onClick={() => { setTab('fields'); navigate('/admin/fields'); }}>
-            Fushat
+          <button type="button" className={`tab${tab === 'bookings' ? ' tab--active' : ''}`} onClick={() => { setTab('bookings'); navigate('/admin/bookings'); }}>
+            Rezervimet
           </button>
         )}
-        <button type="button" className={`tab${tab === 'bookings' ? ' tab--active' : ''}`} onClick={() => { setTab('bookings'); navigate('/admin/bookings'); }}>
-          Rezervimet
-        </button>
         {!isFieldAdmin && (
           <button type="button" className={`tab${tab === 'players' ? ' tab--active' : ''}`} onClick={() => { setTab('players'); navigate('/admin/players'); }}>
             Lojtarët
@@ -331,18 +329,13 @@ export default function AdminPanel({ section = 'dashboard' }) {
 
       {tab === 'dashboard' && (
         <>
-          {isFieldAdmin && (
-            <FieldAdminDashboard
-              fields={fields}
-              onRefresh={() => {
-                fetchFields();
-                fetchTodayByField();
-                fetchBookings();
-              }}
-              onMessage={tregoBust}
-            />
-          )}
-          <div className="stat-grid-4" style={{ marginBottom: 20 }}>
+          <div
+            className="stat-grid-4"
+            style={{
+              marginBottom: 20,
+              ...(isFieldAdmin ? { gridTemplateColumns: 'repeat(2, minmax(0, 1fr))' } : {}),
+            }}
+          >
             {statCards.map((s) => (
               <div key={s.label} className="stat-card" style={{ '--stat-accent': s.accent }}>
                 <div className="stat-card-label">{s.label}</div>
@@ -353,8 +346,18 @@ export default function AdminPanel({ section = 'dashboard' }) {
 
           <div className="card">
             <h2 className="card-title">Rezervimet e konfirmuara sot sipas fushës</h2>
-            {todayByField.length === 0 && <p style={{ color: 'var(--text-muted)' }}>Nuk ka fusha aktive.</p>}
-            {todayByField.map((group) => (
+            {isFieldAdmin && fields.length === 0 && (
+              <p style={{ color: 'var(--text-muted)' }}>
+                Nuk keni fusha të regjistruara. Shko te Fushat për të shtuar.
+              </p>
+            )}
+            {!isFieldAdmin && todayByField.length === 0 && (
+              <p style={{ color: 'var(--text-muted)' }}>Nuk ka fusha aktive.</p>
+            )}
+            {isFieldAdmin && fields.length > 0 && todayByField.length === 0 && (
+              <p style={{ color: 'var(--text-muted)' }}>Nuk ka fusha aktive.</p>
+            )}
+            {!(isFieldAdmin && fields.length === 0) && todayByField.map((group) => (
               <div key={group.field_id} style={{ marginBottom: 16, borderBottom: '1px solid var(--border-color)', paddingBottom: 12 }}>
                 <h3 style={{ marginBottom: 6 }}>{group.field_name} — {group.location}</h3>
                 <p style={{ marginTop: 0, color: 'var(--text-secondary)', fontSize: 13 }}>
@@ -370,8 +373,9 @@ export default function AdminPanel({ section = 'dashboard' }) {
                       <thead>
                         <tr>
                           <th>Emri i lojtarit</th>
+                          <th>Fusha</th>
                           <th>Ora</th>
-                          <th>Fusha #</th>
+                          <th>Court</th>
                           <th>Patika</th>
                           <th>Totali</th>
                         </tr>
@@ -380,8 +384,9 @@ export default function AdminPanel({ section = 'dashboard' }) {
                         {group.bookings.map((b) => (
                           <tr key={b.booking_id}>
                             <td data-label="Emri i lojtarit">{b.organizer_name || '—'}</td>
+                            <td data-label="Fusha">{b.field_name || group.field_name || '—'}</td>
                             <td data-label="Ora">{formatBelgradeDateTime(b.start_time, 'sq-AL', { hour: '2-digit', minute: '2-digit' })} - {formatBelgradeDateTime(b.end_time, 'sq-AL', { hour: '2-digit', minute: '2-digit' })}</td>
-                            <td data-label="Fusha #">{b.court_number || '—'}</td>
+                            <td data-label="Court">{b.court_number || '—'}</td>
                             <td data-label="Patika">{b.shoes_summary || 'Pa patika'}</td>
                             <td data-label="Totali">{Number(b.total_price || 0).toFixed(2)}€</td>
                           </tr>
@@ -393,11 +398,14 @@ export default function AdminPanel({ section = 'dashboard' }) {
                     {group.bookings.map((b) => (
                       <div key={`mobile-${b.booking_id}`} className="card" style={{ marginBottom: 0, padding: 12 }}>
                         <div style={{ fontWeight: 700, marginBottom: 6 }}>{b.organizer_name || '—'}</div>
-                        <div style={{ fontSize: 14, color: 'var(--text-secondary)' }}>
+                        <div style={{ fontSize: 13, color: 'var(--text-secondary)' }}>
+                          {b.field_name || group.field_name || '—'}
+                        </div>
+                        <div style={{ fontSize: 14, color: 'var(--text-secondary)', marginTop: 4 }}>
                           {formatBelgradeDateTime(b.start_time, 'sq-AL', { hour: '2-digit', minute: '2-digit' })} - {formatBelgradeDateTime(b.end_time, 'sq-AL', { hour: '2-digit', minute: '2-digit' })}
                         </div>
                         <div style={{ fontSize: 13, color: 'var(--text-secondary)', marginTop: 4 }}>
-                          Fusha #{b.court_number || '—'} · {b.shoes_summary || 'Pa patika'}
+                          Court #{b.court_number || '—'} · {b.shoes_summary || 'Pa patika'}
                         </div>
                         <div style={{ marginTop: 6, fontWeight: 700 }}>{Number(b.total_price || 0).toFixed(2)}€</div>
                       </div>
@@ -493,7 +501,19 @@ export default function AdminPanel({ section = 'dashboard' }) {
         </>
       )}
 
-      {tab === 'fields' && (
+      {tab === 'fields' && isFieldAdmin && (
+        <FieldAdminDashboard
+          fields={fields}
+          onRefresh={() => {
+            fetchFields();
+            fetchTodayByField();
+            fetchBookings();
+          }}
+          onMessage={tregoBust}
+        />
+      )}
+
+      {tab === 'fields' && !isFieldAdmin && (
         <div className="card">
           <h2 className="card-title">Fushat</h2>
           <form onSubmit={handleCreateField} className="admin-field-create-grid">
@@ -650,6 +670,13 @@ export default function AdminPanel({ section = 'dashboard' }) {
       {tab === 'calendar' && (
         <div className="card">
           <h2 className="card-title">Kalendari i Fushave</h2>
+          {isFieldAdmin && fields.length === 0 && (
+            <p style={{ color: 'var(--text-muted)' }}>
+              Nuk keni fusha të regjistruara. Shko te Fushat për të shtuar.
+            </p>
+          )}
+          {!(isFieldAdmin && fields.length === 0) && (
+          <>
           <div className="admin-calendar-filter-bar">
             <div className="form-group" style={{ marginBottom: 0 }}>
               <label className="label" htmlFor="admin-calendar-field">Zgjidh Fushën</label>
@@ -739,6 +766,8 @@ export default function AdminPanel({ section = 'dashboard' }) {
                 );
               })}
             </div>
+          )}
+          </>
           )}
         </div>
       )}

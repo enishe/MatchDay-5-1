@@ -450,6 +450,7 @@ router.get('/admin/stats', authenticateToken, requireRole(['admin', 'field_admin
                 COALESCE(SUM(CASE WHEN b.status = 'confirmed' THEN b.total_price ELSE 0 END), 0)::numeric AS total_revenue,
                 COALESCE(SUM(CASE WHEN b.status = 'confirmed' AND b.start_time::date = CURRENT_DATE THEN b.total_price ELSE 0 END), 0)::numeric AS today_revenue,
                 COALESCE(SUM(CASE WHEN b.status = 'confirmed' AND b.start_time >= date_trunc('week', NOW()) AND b.start_time < date_trunc('week', NOW()) + INTERVAL '7 day' THEN b.total_price ELSE 0 END), 0)::numeric AS week_revenue,
+                COALESCE(SUM(CASE WHEN b.status = 'confirmed' AND date_trunc('month', b.start_time) = date_trunc('month', NOW()) THEN b.total_price ELSE 0 END), 0)::numeric AS month_revenue,
                 COUNT(b.id)::int AS total_bookings,
                 COUNT(CASE WHEN b.status = 'confirmed' AND b.start_time::date = CURRENT_DATE THEN 1 END)::int AS today_confirmed_bookings,
                 COUNT(CASE WHEN b.status = 'pending' THEN 1 END)::int AS pending_bookings
@@ -477,6 +478,7 @@ router.get('/admin/stats', authenticateToken, requireRole(['admin', 'field_admin
             total_revenue: Number(row.total_revenue || 0),
             today_revenue: Number(row.today_revenue || 0),
             week_revenue: Number(row.week_revenue || 0),
+            month_revenue: Number(row.month_revenue || 0),
             total_bookings: Number(row.total_bookings || 0),
             today_confirmed_bookings: Number(row.today_confirmed_bookings || 0),
             total_fields: Number(fieldsR.rows[0]?.total_fields || 0),
@@ -539,6 +541,7 @@ router.get('/admin/today-bookings', authenticateToken, requireRole(['admin', 'fi
                 grouped[row.field_id].revenue_today += Number(row.total_price || 0);
                 grouped[row.field_id].bookings.push({
                     booking_id: row.booking_id,
+                    field_name: row.field_name,
                     court_number: row.court_number,
                     start_time: row.start_time,
                     end_time: row.end_time,

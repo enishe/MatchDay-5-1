@@ -1,5 +1,4 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { apiFetch } from '../lib/api';
 import { useAuth } from '../context/AuthContext';
 
@@ -23,7 +22,6 @@ const emptyForm = {
 
 export default function FieldAdminDashboard({ fields, onRefresh, onMessage }) {
   const { token } = useAuth();
-  const navigate = useNavigate();
   const [showCreateField, setShowCreateField] = useState(false);
   const [fieldForm, setFieldForm] = useState(emptyForm);
   const [editingField, setEditingField] = useState(null);
@@ -322,15 +320,6 @@ export default function FieldAdminDashboard({ fields, onRefresh, onMessage }) {
         ))}
       </div>
 
-      <div className="card" style={{ marginBottom: 20 }}>
-        <h2 className="card-title">Rezervimet</h2>
-        <p style={{ color: 'var(--text-secondary)', marginTop: 0 }}>
-          Shikoni dhe menaxhoni rezervimet për fushat tuaja në skedën{' '}
-          <button type="button" className="btn btn-ghost" style={{ padding: '2px 8px', fontSize: 13 }} onClick={() => navigate('/admin/bookings')}>
-            Rezervimet
-          </button>
-        </p>
-      </div>
     </>
   );
 }

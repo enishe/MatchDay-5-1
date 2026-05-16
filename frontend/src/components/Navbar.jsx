@@ -275,11 +275,11 @@ export default function Navbar() {
           <NavLink to="/admin/dashboard" className={navClass} end onClick={() => setMenuOpen(false)}>
             Dashboard
           </NavLink>
-          <NavLink to="/admin/bookings" className={navClass} onClick={() => setMenuOpen(false)}>
-            Rezervimet
+          <NavLink to="/admin/fields" className={navClass} onClick={() => setMenuOpen(false)}>
+            Fushat
           </NavLink>
-          <NavLink to="/calendar" className={navClass} onClick={() => setMenuOpen(false)}>
-            Kalendari
+          <NavLink to="/admin/calendar" className={navClass} onClick={() => setMenuOpen(false)}>
+            Kalendari i Fushave
           </NavLink>
         </>
       ) : isAdmin ? (
