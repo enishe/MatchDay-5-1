@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Trash2 } from 'lucide-react';
 import { apiFetch } from '../lib/api';
 import { useAuth } from '../context/AuthContext';
-import { formatBelgradeDateTime } from '../lib/timezone';
+import { formatBelgradeDate, formatBelgradeDateTime } from '../lib/timezone';
 
 function iconForType(type) {
   if (type === 'invite') return '📅';
@@ -73,7 +73,16 @@ export default function AdminNotificationsPage() {
                     <div className="notification-item__top">
                       <span className="notification-item__title">{n.title}</span>
                       <span className="notification-item__time">
-                        {formatBelgradeDateTime(n.created_at, 'sq-AL')}
+                        {formatBelgradeDate(n.created_at, 'sq-AL', {
+                          day: 'numeric',
+                          month: 'long',
+                          year: 'numeric',
+                        })}
+                        {' · '}
+                        {formatBelgradeDateTime(n.created_at, 'sq-AL', {
+                          hour: '2-digit',
+                          minute: '2-digit',
+                        })}
                       </span>
                     </div>
                     <div className="notification-item__msg">{n.message}</div>

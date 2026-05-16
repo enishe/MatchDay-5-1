@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { apiFetch } from '../lib/api';
 import { useAuth } from '../context/AuthContext';
-import { formatBelgradeDateTime, getBelgradeTodayYmd } from '../lib/timezone';
+import { formatBelgradeDate, formatBelgradeDateTime, getBelgradeTodayYmd } from '../lib/timezone';
 import FieldAdminDashboard from '../components/FieldAdminDashboard';
 
 function statusBadgeClass(status) {
@@ -45,6 +45,7 @@ export default function AdminPanel({ section = 'dashboard' }) {
     name: '', location: '', terrain_type: 'artificial_grass', price_per_hour: '', courts_count: '1', is_active: true,
   });
   const [loading, setLoading] = useState(true);
+  const [bookingsLoading, setBookingsLoading] = useState(false);
   const [mesazhi, setMesazhi] = useState(null);
   const [calendarFieldId, setCalendarFieldId] = useState('');
   const [calendarDate, setCalendarDate] = useState(() => getBelgradeTodayYmd());
@@ -52,7 +53,7 @@ export default function AdminPanel({ section = 'dashboard' }) {
   const [calendarLoading, setCalendarLoading] = useState(false);
 
   useEffect(() => {
-    if (isFieldAdmin && (section === 'players' || section === 'bookings')) {
+    if (isFieldAdmin && section === 'players') {
       setTab('dashboard');
       navigate('/admin/dashboard', { replace: true });
       return;
@@ -120,6 +121,14 @@ export default function AdminPanel({ section = 'dashboard' }) {
       .catch(() => tregoBust('Gabim gjatë ngarkimit.', 'error'))
       .finally(() => setLoading(false));
   }, [token, fetchBookings, fetchAdminStats, fetchTodayByField, fetchFields, fetchUsers, tregoBust]);
+
+  useEffect(() => {
+    if (!token || tab !== 'bookings') return;
+    setBookingsLoading(true);
+    fetchBookings()
+      .catch(() => tregoBust('Gabim gjatë ngarkimit të rezervimeve.', 'error'))
+      .finally(() => setBookingsLoading(false));
+  }, [token, tab, filtri, fetchBookings, tregoBust]);
 
   useEffect(() => {
     if (!calendarFieldId && fields.length > 0) {
@@ -312,11 +321,9 @@ export default function AdminPanel({ section = 'dashboard' }) {
         <button type="button" className={`tab${tab === 'fields' ? ' tab--active' : ''}`} onClick={() => { setTab('fields'); navigate('/admin/fields'); }}>
           Fushat
         </button>
-        {!isFieldAdmin && (
-          <button type="button" className={`tab${tab === 'bookings' ? ' tab--active' : ''}`} onClick={() => { setTab('bookings'); navigate('/admin/bookings'); }}>
-            Rezervimet
-          </button>
-        )}
+        <button type="button" className={`tab${tab === 'bookings' ? ' tab--active' : ''}`} onClick={() => { setTab('bookings'); navigate('/admin/bookings'); }}>
+          Rezervimet
+        </button>
         {!isFieldAdmin && (
           <button type="button" className={`tab${tab === 'players' ? ' tab--active' : ''}`} onClick={() => { setTab('players'); navigate('/admin/players'); }}>
             Lojtarët
@@ -432,7 +439,7 @@ export default function AdminPanel({ section = 'dashboard' }) {
           <div className="card">
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, alignItems: 'center', marginBottom: 16 }}>
               <h2 className="card-title" style={{ marginBottom: 0, flex: 1 }}>
-                Të gjitha rezervimet
+                {isFieldAdmin ? 'Rezervimet' : 'Të gjitha rezervimet'}
               </h2>
               <select className="input" style={{ maxWidth: 200 }} value={filtri} onChange={(e) => setFiltri(e.target.value)}>
                 <option value="">Të gjitha statuset</option>
@@ -442,22 +449,31 @@ export default function AdminPanel({ section = 'dashboard' }) {
               </select>
             </div>
 
-            {loading && <p style={{ color: 'var(--text-muted)' }}>Duke ngarkuar…</p>}
-            {!loading && matches.length === 0 && (
-              <p style={{ color: 'var(--text-muted)' }}>Nuk ka rezervime për këtë filtrim.</p>
+            {bookingsLoading && <p style={{ color: 'var(--text-muted)' }}>Duke ngarkuar…</p>}
+            {!bookingsLoading && matches.length === 0 && (
+              <p style={{ color: 'var(--text-muted)' }}>
+                {isFieldAdmin && !filtri ? 'Nuk ka rezervime ende.' : 'Nuk ka rezervime për këtë filtrim.'}
+              </p>
             )}
-            {!loading && matches.length > 0 && (
+            {!bookingsLoading && matches.length > 0 && (
               <div className="table-wrap">
                 <table className="table">
                   <thead>
                     <tr>
                       <th>Lojtari</th>
                       <th>Fusha</th>
-                      <th>Data dhe Ora</th>
+                      {isFieldAdmin ? (
+                        <>
+                          <th>Data</th>
+                          <th>Ora</th>
+                        </>
+                      ) : (
+                        <th>Data dhe Ora</th>
+                      )}
                       <th>Patika</th>
                       <th>Totali</th>
                       <th>Statusi</th>
-                      <th>Veprimet</th>
+                      {!isFieldAdmin && <th>Veprimet</th>}
                     </tr>
                   </thead>
                   <tbody>
@@ -465,12 +481,30 @@ export default function AdminPanel({ section = 'dashboard' }) {
                       <tr key={m.id}>
                         <td>{m.organizer_name || '—'}</td>
                         <td>{m.field_name || `#${m.field_id}`}</td>
-                        <td>{formatBelgradeDateTime(m.start_time, 'sq-AL')}</td>
+                        {isFieldAdmin ? (
+                          <>
+                            <td>
+                              {formatBelgradeDate(m.start_time, 'sq-AL', {
+                                day: '2-digit',
+                                month: '2-digit',
+                                year: 'numeric',
+                              })}
+                            </td>
+                            <td>
+                              {formatBelgradeDateTime(m.start_time, 'sq-AL', { hour: '2-digit', minute: '2-digit' })}
+                              {' - '}
+                              {formatBelgradeDateTime(m.end_time, 'sq-AL', { hour: '2-digit', minute: '2-digit' })}
+                            </td>
+                          </>
+                        ) : (
+                          <td>{formatBelgradeDateTime(m.start_time, 'sq-AL')}</td>
+                        )}
                         <td>{m.shoes_summary || 'Pa patika'}</td>
                         <td>{Number(m.total_price || 0).toFixed(2)}€</td>
                         <td>
                           <span className={`badge ${statusBadgeClass(m.status)}`}>{statusLabel(m.status)}</span>
                         </td>
+                        {!isFieldAdmin && (
                         <td>
                           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
                             <button type="button" className="btn btn-ghost" style={{ fontSize: 12, padding: '6px 10px' }} onClick={() => navigate(`/match/${m.id}`)}>
@@ -491,6 +525,7 @@ export default function AdminPanel({ section = 'dashboard' }) {
                             </button>
                           </div>
                         </td>
+                        )}
                       </tr>
                     ))}
                   </tbody>

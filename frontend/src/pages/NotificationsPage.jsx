@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Trash2 } from 'lucide-react';
 import { apiFetch } from '../lib/api';
 import { useAuth } from '../context/AuthContext';
+import { formatBelgradeDate, formatBelgradeDateTime } from '../lib/timezone';
 
 function iconForType(type) {
   if (type === 'invite') return '📅';
@@ -9,17 +10,6 @@ function iconForType(type) {
   if (type === 'booking_confirmed') return '✅';
   if (type === 'booking_canceled') return '❌';
   return '🔔';
-}
-
-function formatAgo(value) {
-  const ms = Date.now() - new Date(value).getTime();
-  const min = Math.floor(ms / 60000);
-  if (min < 1) return 'Tani';
-  if (min < 60) return `${min} minuta më parë`;
-  const h = Math.floor(min / 60);
-  if (h < 24) return `${h} orë më parë`;
-  const d = Math.floor(h / 24);
-  return `${d} ditë më parë`;
 }
 
 export default function NotificationsPage() {
@@ -100,7 +90,18 @@ export default function NotificationsPage() {
                   <div className="notification-item__main">
                     <div className="notification-item__top">
                       <span className="notification-item__title">{n.title}</span>
-                      <span className="notification-item__time">{formatAgo(n.created_at)}</span>
+                      <span className="notification-item__time">
+                        {formatBelgradeDate(n.created_at, 'sq-AL', {
+                          day: 'numeric',
+                          month: 'long',
+                          year: 'numeric',
+                        })}
+                        {' · '}
+                        {formatBelgradeDateTime(n.created_at, 'sq-AL', {
+                          hour: '2-digit',
+                          minute: '2-digit',
+                        })}
+                      </span>
                     </div>
                     <div className="notification-item__msg">{n.message}</div>
                   </div>

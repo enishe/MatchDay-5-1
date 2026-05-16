@@ -1080,11 +1080,6 @@ a:hover {
   padding-left: 9px;
 }
 
-.notification-item:not(.notification-item--unread) {
-  border-left: 3px solid transparent;
-  padding-left: 9px;
-}
-
 .notification-item__click {
   flex: 1;
   min-width: 0;

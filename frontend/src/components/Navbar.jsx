@@ -28,7 +28,7 @@ function initials(name) {
   return (p[0][0] + p[p.length - 1][0]).toUpperCase();
 }
 
-function truncateNotificationMessage(text, maxLen = 100) {
+function truncateNotificationMessage(text, maxLen = 150) {
   const s = String(text || '');
   if (s.length <= maxLen) return s;
   return `${s.slice(0, maxLen)}…`;
@@ -278,8 +278,11 @@ export default function Navbar() {
           <NavLink to="/admin/fields" className={navClass} onClick={() => setMenuOpen(false)}>
             Fushat
           </NavLink>
+          <NavLink to="/admin/bookings" className={navClass} onClick={() => setMenuOpen(false)}>
+            Rezervimet
+          </NavLink>
           <NavLink to="/admin/calendar" className={navClass} onClick={() => setMenuOpen(false)}>
-            Kalendari i Fushave
+            Kalendari
           </NavLink>
         </>
       ) : isAdmin ? (

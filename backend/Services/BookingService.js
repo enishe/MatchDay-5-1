@@ -212,6 +212,16 @@ class BookingService {
         fieldId: booking.field_id,
       });
 
+      const playerTitle = 'Rezervimi u konfirmua!';
+      const playerMessage = `Ke rezervuar ${field.name} më ${dateStr} ora ${timeStr}. Totali: ${totalAmount.toFixed(2)}€. ${shoesText}`;
+      await client.query(
+        `INSERT INTO notifications
+           (user_id, recipient_id, recipient_type, type, title, message,
+            subject, body, booking_id, is_read)
+         VALUES ($1, $1, 'user', 'booking_confirmed', $2, $3, $2, $3, $4, false)`,
+        [organizerId, playerTitle, playerMessage, booking.id]
+      );
+
       await client.query('COMMIT');
       const shoesFromRow = this.parseShoesSummaryColumn(booking.shoes_summary);
       return {

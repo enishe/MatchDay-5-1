@@ -830,7 +830,18 @@ router.put('/matches/:id', authenticateToken, async (req, res) => {
 
 router.delete('/matches/:id', authenticateToken, requireRole(['admin']), async (req, res) => {
     try {
-        await matchService.fshiNdeshjen(req.params.id);
+        const bookingId = req.params.id;
+        try {
+            await pool.query('DELETE FROM notifications WHERE booking_id = $1', [bookingId]);
+        } catch (err) {
+            console.warn('[delete booking] notifications skip:', err.message);
+        }
+        try {
+            await pool.query('DELETE FROM admin_notifications WHERE booking_id = $1', [bookingId]);
+        } catch (err) {
+            console.warn('[delete booking] admin_notifications skip:', err.message);
+        }
+        await matchService.fshiNdeshjen(bookingId);
         res.json({ ok: true });
     } catch (error) {
         console.error('Delete match error:', error);
