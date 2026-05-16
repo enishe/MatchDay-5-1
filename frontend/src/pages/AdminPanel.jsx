@@ -280,17 +280,23 @@ export default function AdminPanel({ section = 'dashboard' }) {
     }
   };
 
-  const statCards = useMemo(
-    () => (stats
-      ? [
-          { label: 'Të ardhurat totale', value: `${Number(stats.total_revenue || 0).toFixed(2)}€`, accent: '#3498db' },
-          { label: 'Të ardhurat sot', value: `${Number(stats.today_revenue || 0).toFixed(2)}€`, accent: '#27ae60' },
-          { label: 'Të ardhurat këtë javë', value: `${Number(stats.week_revenue || 0).toFixed(2)}€`, accent: '#8e44ad' },
-          { label: 'Numri total i rezervimeve', value: Number(stats.total_bookings || 0), accent: '#f39c12' },
-        ]
-      : []),
-    [stats]
-  );
+  const statCards = useMemo(() => {
+    if (!stats) return [];
+    if (isFieldAdmin) {
+      return [
+        { label: 'Të ardhurat totale', value: `${Number(stats.total_revenue || 0).toFixed(2)}€`, accent: '#3498db' },
+        { label: 'Rezervimet sot', value: Number(stats.today_confirmed_bookings || 0), accent: '#27ae60' },
+        { label: 'Fushat aktive', value: Number(stats.total_fields || 0), accent: '#8e44ad' },
+        { label: 'Rezervime në pritje', value: Number(stats.pending_bookings || 0), accent: '#f39c12' },
+      ];
+    }
+    return [
+      { label: 'Të ardhurat totale', value: `${Number(stats.total_revenue || 0).toFixed(2)}€`, accent: '#3498db' },
+      { label: 'Të ardhurat sot', value: `${Number(stats.today_revenue || 0).toFixed(2)}€`, accent: '#27ae60' },
+      { label: 'Të ardhurat këtë javë', value: `${Number(stats.week_revenue || 0).toFixed(2)}€`, accent: '#8e44ad' },
+      { label: 'Numri total i rezervimeve', value: Number(stats.total_bookings || 0), accent: '#f39c12' },
+    ];
+  }, [stats, isFieldAdmin]);
 
   return (
     <div className="page">
@@ -362,14 +368,22 @@ export default function AdminPanel({ section = 'dashboard' }) {
                   <div className="table-wrap hide-mobile">
                     <table className="table table--stack-on-mobile">
                       <thead>
-                        <tr><th>Numri i fushës</th><th>Ora</th><th>Vlera</th></tr>
+                        <tr>
+                          <th>Emri i lojtarit</th>
+                          <th>Ora</th>
+                          <th>Fusha #</th>
+                          <th>Patika</th>
+                          <th>Totali</th>
+                        </tr>
                       </thead>
                       <tbody>
                         {group.bookings.map((b) => (
                           <tr key={b.booking_id}>
-                            <td data-label="Numri i fushës">{b.court_number || '—'}</td>
+                            <td data-label="Emri i lojtarit">{b.organizer_name || '—'}</td>
                             <td data-label="Ora">{formatBelgradeDateTime(b.start_time, 'sq-AL', { hour: '2-digit', minute: '2-digit' })} - {formatBelgradeDateTime(b.end_time, 'sq-AL', { hour: '2-digit', minute: '2-digit' })}</td>
-                            <td data-label="Vlera">{Number(b.total_price || 0).toFixed(2)}€</td>
+                            <td data-label="Fusha #">{b.court_number || '—'}</td>
+                            <td data-label="Patika">{b.shoes_summary || 'Pa patika'}</td>
+                            <td data-label="Totali">{Number(b.total_price || 0).toFixed(2)}€</td>
                           </tr>
                         ))}
                       </tbody>
@@ -378,9 +392,12 @@ export default function AdminPanel({ section = 'dashboard' }) {
                   <div className="show-mobile-only" style={{ display: 'grid', gap: 8 }}>
                     {group.bookings.map((b) => (
                       <div key={`mobile-${b.booking_id}`} className="card" style={{ marginBottom: 0, padding: 12 }}>
-                        <div style={{ fontWeight: 700, marginBottom: 6 }}>Fusha #{b.court_number || '—'}</div>
+                        <div style={{ fontWeight: 700, marginBottom: 6 }}>{b.organizer_name || '—'}</div>
                         <div style={{ fontSize: 14, color: 'var(--text-secondary)' }}>
                           {formatBelgradeDateTime(b.start_time, 'sq-AL', { hour: '2-digit', minute: '2-digit' })} - {formatBelgradeDateTime(b.end_time, 'sq-AL', { hour: '2-digit', minute: '2-digit' })}
+                        </div>
+                        <div style={{ fontSize: 13, color: 'var(--text-secondary)', marginTop: 4 }}>
+                          Fusha #{b.court_number || '—'} · {b.shoes_summary || 'Pa patika'}
                         </div>
                         <div style={{ marginTop: 6, fontWeight: 700 }}>{Number(b.total_price || 0).toFixed(2)}€</div>
                       </div>
@@ -392,11 +409,13 @@ export default function AdminPanel({ section = 'dashboard' }) {
             ))}
           </div>
 
+          {!isFieldAdmin && (
           <div className="stat-grid-3" style={{ marginTop: 16 }}>
             <div className="stat-card"><div className="stat-card-label">Fusha aktive</div><div className="stat-card-value">{stats?.total_fields || 0}</div></div>
             <div className="stat-card"><div className="stat-card-label">Lojtarë të regjistruar</div><div className="stat-card-value">{stats?.total_players || 0}</div></div>
             <div className="stat-card"><div className="stat-card-label">Rezervime në pritje</div><div className="stat-card-value">{stats?.pending_bookings || 0}</div></div>
           </div>
+          )}
         </>
       )}
 
@@ -424,11 +443,11 @@ export default function AdminPanel({ section = 'dashboard' }) {
                 <table className="table">
                   <thead>
                     <tr>
-                      <th>ID</th>
+                      <th>Lojtari</th>
                       <th>Fusha</th>
-                      <th>Data / ora</th>
-                      <th>Çmimi</th>
-                      <th>Split</th>
+                      <th>Data dhe Ora</th>
+                      <th>Patika</th>
+                      <th>Totali</th>
                       <th>Statusi</th>
                       <th>Veprimet</th>
                     </tr>
@@ -436,11 +455,11 @@ export default function AdminPanel({ section = 'dashboard' }) {
                   <tbody>
                     {matches.map((m) => (
                       <tr key={m.id}>
-                        <td>#{m.id}</td>
+                        <td>{m.organizer_name || '—'}</td>
                         <td>{m.field_name || `#${m.field_id}`}</td>
                         <td>{formatBelgradeDateTime(m.start_time, 'sq-AL')}</td>
-                        <td>{m.total_price}€</td>
-                        <td>{m.price_per_player}€</td>
+                        <td>{m.shoes_summary || 'Pa patika'}</td>
+                        <td>{Number(m.total_price || 0).toFixed(2)}€</td>
                         <td>
                           <span className={`badge ${statusBadgeClass(m.status)}`}>{statusLabel(m.status)}</span>
                         </td>

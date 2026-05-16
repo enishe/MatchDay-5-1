@@ -35,6 +35,20 @@ async function loadFieldsMap() {
     return map;
 }
 
+function formatShoesSummary(value) {
+    if (value == null) return 'Pa patika';
+    let arr = value;
+    if (typeof value === 'string') {
+        try {
+            arr = JSON.parse(value);
+        } catch {
+            return 'Pa patika';
+        }
+    }
+    if (!Array.isArray(arr) || arr.length === 0) return 'Pa patika';
+    return arr.map((s) => `${s.count} palë nr.${s.size}`).join(', ');
+}
+
 function mapBookingRow(row, fieldMap) {
     const f = fieldMap[row.field_id] || {};
     return {
@@ -50,8 +64,11 @@ function mapBookingRow(row, fieldMap) {
         price_per_player: parseFloat(row.price_per_player),
         status: row.status,
         organizer_id: row.organizer_id,
+        organizer_name: row.organizer_name || null,
+        organizer_email: row.organizer_email || null,
         court_number: row.court_number ?? null,
         payment_method: row.payment_method || 'cash',
+        shoes_summary: formatShoesSummary(row.shoes_summary),
         smart_split: `${parseFloat(row.total_price)}€ ÷ 12`,
     };
 }
@@ -146,7 +163,42 @@ router.get('/matches', authenticateToken, async (req, res) => {
         const filters = {};
         if (req.query.status) filters.status = req.query.status;
         if (req.query.terrain_type) filters.terrain_type = req.query.terrain_type;
-        const rows = await matchService.listoTeGjitha(filters);
+
+        let rows;
+        if (req.user.role === 'field_admin') {
+            const values = [Number(req.user.id)];
+            let q = `SELECT b.*, u.name AS organizer_name, u.email AS organizer_email
+                     FROM bookings b
+                     JOIN users u ON u.id = b.organizer_id
+                     WHERE b.field_id IN (SELECT id FROM fields WHERE owner_id = $1)`;
+            if (filters.status) {
+                values.push(filters.status);
+                q += ` AND b.status = $${values.length}`;
+            }
+            if (filters.terrain_type) {
+                values.push(filters.terrain_type);
+                q += ` AND b.field_id IN (SELECT id FROM fields WHERE owner_id = $1 AND terrain_type = $${values.length})`;
+            }
+            q += ' ORDER BY b.start_time DESC';
+            const r = await pool.query(q, values);
+            rows = r.rows;
+        } else {
+            rows = await matchService.listoTeGjitha(filters);
+            if (rows.length > 0) {
+                const organizerIds = [...new Set(rows.map((row) => row.organizer_id).filter(Boolean))];
+                const userR = await pool.query(
+                    'SELECT id, name, email FROM users WHERE id = ANY($1::int[])',
+                    [organizerIds]
+                );
+                const userMap = Object.fromEntries(userR.rows.map((u) => [u.id, u]));
+                rows = rows.map((row) => ({
+                    ...row,
+                    organizer_name: userMap[row.organizer_id]?.name || null,
+                    organizer_email: userMap[row.organizer_id]?.email || null,
+                }));
+            }
+        }
+
         const fieldMap = await loadFieldsMap();
         res.json(rows.map((row) => mapBookingRow(row, fieldMap)));
     } catch (error) {
@@ -399,6 +451,7 @@ router.get('/admin/stats', authenticateToken, requireRole(['admin', 'field_admin
                 COALESCE(SUM(CASE WHEN b.status = 'confirmed' AND b.start_time::date = CURRENT_DATE THEN b.total_price ELSE 0 END), 0)::numeric AS today_revenue,
                 COALESCE(SUM(CASE WHEN b.status = 'confirmed' AND b.start_time >= date_trunc('week', NOW()) AND b.start_time < date_trunc('week', NOW()) + INTERVAL '7 day' THEN b.total_price ELSE 0 END), 0)::numeric AS week_revenue,
                 COUNT(b.id)::int AS total_bookings,
+                COUNT(CASE WHEN b.status = 'confirmed' AND b.start_time::date = CURRENT_DATE THEN 1 END)::int AS today_confirmed_bookings,
                 COUNT(CASE WHEN b.status = 'pending' THEN 1 END)::int AS pending_bookings
              FROM bookings b
              ${bookingFilter}`,
@@ -425,6 +478,7 @@ router.get('/admin/stats', authenticateToken, requireRole(['admin', 'field_admin
             today_revenue: Number(row.today_revenue || 0),
             week_revenue: Number(row.week_revenue || 0),
             total_bookings: Number(row.total_bookings || 0),
+            today_confirmed_bookings: Number(row.today_confirmed_bookings || 0),
             total_fields: Number(fieldsR.rows[0]?.total_fields || 0),
             total_players: Number(playersR.rows[0]?.total_players || 0),
             pending_bookings: Number(row.pending_bookings || 0),
@@ -450,12 +504,18 @@ router.get('/admin/today-bookings', authenticateToken, requireRole(['admin', 'fi
                 b.court_number,
                 b.start_time,
                 b.end_time,
-                b.total_price
+                b.total_price,
+                b.shoes_summary,
+                b.payment_method,
+                b.status,
+                u.name AS organizer_name,
+                u.email AS organizer_email
              FROM fields f
              LEFT JOIN bookings b
                ON b.field_id = f.id
               AND b.status = 'confirmed'
               AND b.start_time::date = CURRENT_DATE
+             LEFT JOIN users u ON u.id = b.organizer_id
              WHERE f.is_active = TRUE
              ${ownerFilter}
              ORDER BY f.id ASC, b.start_time ASC`,
@@ -483,6 +543,11 @@ router.get('/admin/today-bookings', authenticateToken, requireRole(['admin', 'fi
                     start_time: row.start_time,
                     end_time: row.end_time,
                     total_price: Number(row.total_price || 0),
+                    organizer_name: row.organizer_name || null,
+                    organizer_email: row.organizer_email || null,
+                    shoes_summary: formatShoesSummary(row.shoes_summary),
+                    payment_method: row.payment_method || null,
+                    status: row.status || 'confirmed',
                 });
             }
         }
