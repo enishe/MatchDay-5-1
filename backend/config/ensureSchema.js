@@ -13,7 +13,6 @@ const MITROVICA_FIELDS = [
   { name: 'Kompleksi Ibar', location: 'Mitrovicë', terrain: 'artificial_grass', price_per_hour: 55, courts: 4 },
   { name: 'Salla Nafaka', location: 'Mitrovicë', terrain: 'indoor_hall', price_per_hour: 50, courts: 1 },
   { name: 'Suhodoll FC', location: 'Suhodoll Mitrovicë', terrain: 'artificial_grass', price_per_hour: 45, courts: 2 },
-  { name: 'Arena Vushtrri', location: 'Vushtrri 15km from Mitrovica', terrain: 'artificial_grass', price_per_hour: 50, courts: 3 },
   { name: 'Salla Zveçan', location: 'Zveçan 5km from Mitrovica', terrain: 'indoor_hall', price_per_hour: 45, courts: 1 },
 ];
 
