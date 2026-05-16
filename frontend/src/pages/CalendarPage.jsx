@@ -247,21 +247,18 @@ export default function CalendarPage() {
                 <th>Ora</th>
                 {fields.map((field) => (
                   <th key={field.id} style={{ verticalAlign: 'top', minWidth: 120 }}>
-                    <div style={{ fontWeight: 700, textTransform: 'uppercase', fontSize: 13 }}>{field.name}</div>
-                    <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 2 }}>
+                    <div style={{ fontWeight: 700, fontSize: 13 }}>{field.name}</div>
+                    <div style={{ fontSize: 11, opacity: 0.7, marginTop: 2 }}>
                       {terrainLabel(field.terrain_type)}
                     </div>
                     {Number(field.courts_count) > 1 && (
-                      <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>
+                      <div style={{ fontSize: 11, color: '#22c55e', marginTop: 1 }}>
                         • {field.courts_count} fusha
                       </div>
                     )}
-                    <span
-                      className={`calendar-selected-date${daysToShow <= 3 ? ' calendar-mobile-dow' : ''}`}
-                      style={{ display: 'block', marginTop: 4, fontSize: 12 }}
-                    >
+                    <div style={{ fontSize: 11, opacity: 0.6, marginTop: 2 }}>
                       {daysToShow <= 3 ? DITET_SHORT[getWeekdayFromYmd(selectedDate)] : formatDayYmd(selectedDate)}
-                    </span>
+                    </div>
                   </th>
                 ))}
               </tr>

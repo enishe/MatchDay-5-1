@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { apiFetch } from '../lib/api';
+import { CourtsCountEditPreview, CourtsCountPreview } from '../lib/fieldCourtsUi';
 import { useAuth } from '../context/AuthContext';
 
 const SIZES = [36, 37, 38, 39, 40, 41, 42, 43, 44, 45];
@@ -40,7 +41,7 @@ function formatBlockedSlot(row) {
 function terrainLabel(value) {
   if (value === 'artificial_grass') return 'Bar Artificial';
   if (value === 'indoor_hall') return 'Sallë e mbyllur';
-  if (value === 'futsal') return 'Futsal';
+  if (value === 'futsal') return 'Futsali';
   return value || '—';
 }
 
@@ -272,7 +273,10 @@ export default function FieldAdminDashboard({ fields, onRefresh, onMessage }) {
               <option value="futsal">Futsal</option>
             </select>
             <input className="input" type="number" step="0.01" min="0" placeholder="Çmimi për orë (€) *" required value={fieldForm.price_per_hour} onChange={(e) => setFieldForm((p) => ({ ...p, price_per_hour: e.target.value }))} />
-            <input className="input" type="number" min="1" max="10" placeholder="Nr. fushave/korteve *" required value={fieldForm.courts_count} onChange={(e) => setFieldForm((p) => ({ ...p, courts_count: e.target.value }))} />
+            <div style={{ gridColumn: '1 / -1' }}>
+              <input className="input" type="number" min="1" max="10" placeholder="Nr. fushave/korteve *" required value={fieldForm.courts_count} onChange={(e) => setFieldForm((p) => ({ ...p, courts_count: e.target.value }))} />
+              <CourtsCountPreview count={fieldForm.courts_count} />
+            </div>
             <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
               <input type="checkbox" checked={fieldForm.is_active} onChange={(e) => setFieldForm((p) => ({ ...p, is_active: e.target.checked }))} />
               Aktive
@@ -300,7 +304,13 @@ export default function FieldAdminDashboard({ fields, onRefresh, onMessage }) {
                   <option value="futsal">Futsal</option>
                 </select>
                 <input className="input" type="number" step="0.01" value={editingField.price_per_hour} onChange={(e) => setEditingField((p) => ({ ...p, price_per_hour: e.target.value }))} />
-                <input className="input" type="number" min="1" max="10" value={editingField.courts_count} onChange={(e) => setEditingField((p) => ({ ...p, courts_count: e.target.value }))} />
+                <div style={{ gridColumn: '1 / -1' }}>
+                  <input className="input" type="number" min="1" max="10" value={editingField.courts_count} onChange={(e) => setEditingField((p) => ({ ...p, courts_count: e.target.value }))} />
+                  <CourtsCountEditPreview
+                    count={editingField.courts_count}
+                    originalCount={editingField._originalCourtsCount}
+                  />
+                </div>
                 <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                   <input type="checkbox" checked={Boolean(editingField.is_active)} onChange={(e) => setEditingField((p) => ({ ...p, is_active: e.target.checked }))} />
                   Aktive
@@ -322,7 +332,7 @@ export default function FieldAdminDashboard({ fields, onRefresh, onMessage }) {
                   </span>
                 </div>
                 <div style={{ display: 'flex', gap: 8 }}>
-                  <button type="button" className="btn btn-ghost" onClick={() => { setEditingField({ ...f }); setShowCreateField(false); }}>Edito</button>
+                  <button type="button" className="btn btn-ghost" onClick={() => { setEditingField({ ...f, _originalCourtsCount: Number(f.courts_count || 1) }); setShowCreateField(false); }}>Edito</button>
                   <button type="button" className="btn btn-danger" onClick={() => handleDeleteField(f.id, f.name)}>Fshi</button>
                 </div>
               </div>

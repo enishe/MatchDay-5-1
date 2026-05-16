@@ -13,6 +13,7 @@ import { apiFetch } from '../lib/api';
 import { useAuth } from '../context/AuthContext';
 import { formatBelgradeDate, formatBelgradeDateTime, getBelgradeTodayYmd } from '../lib/timezone';
 import FieldAdminDashboard from '../components/FieldAdminDashboard';
+import { CourtsCountEditPreview, CourtsCountPreview } from '../lib/fieldCourtsUi';
 
 const CHART_BAR_COLOR = '#00b86b';
 
@@ -116,7 +117,7 @@ const SIZES = [36, 37, 38, 39, 40, 41, 42, 43, 44, 45];
 function terrainLabel(value) {
   if (value === 'artificial_grass') return 'Bar Artificial';
   if (value === 'indoor_hall') return 'Sallë e mbyllur';
-  if (value === 'futsal') return 'Futsal';
+  if (value === 'futsal') return 'Futsali';
   return value || '—';
 }
 
@@ -686,7 +687,10 @@ export default function AdminPanel({ section = 'dashboard' }) {
               <option value="futsal">Futsal</option>
             </select>
             <input className="input" type="number" placeholder="Çmimi për orë" value={fieldForm.price_per_hour} onChange={(e) => setFieldForm((p) => ({ ...p, price_per_hour: e.target.value }))} />
-            <input className="input" type="number" min="1" max="10" placeholder="Numri i fushave" value={fieldForm.courts_count} onChange={(e) => setFieldForm((p) => ({ ...p, courts_count: e.target.value }))} />
+            <div style={{ gridColumn: '1 / -1' }}>
+              <input className="input" type="number" min="1" max="10" placeholder="Numri i fushave" value={fieldForm.courts_count} onChange={(e) => setFieldForm((p) => ({ ...p, courts_count: e.target.value }))} />
+              <CourtsCountPreview count={fieldForm.courts_count} />
+            </div>
             <button type="submit" className="btn btn-accent">Shto fushë</button>
           </form>
           {fields.length === 0 && <p style={{ color: 'var(--text-muted)' }}>Nuk ka fusha.</p>}
@@ -716,7 +720,13 @@ export default function AdminPanel({ section = 'dashboard' }) {
                             <option value="futsal">Futsal</option>
                           </select>
                           <input className="input" type="number" step="0.01" value={editingPlatformField.price_per_hour} onChange={(e) => setEditingPlatformField((p) => ({ ...p, price_per_hour: e.target.value }))} />
-                          <input className="input" type="number" min="1" max="10" value={editingPlatformField.courts_count} onChange={(e) => setEditingPlatformField((p) => ({ ...p, courts_count: e.target.value }))} />
+                          <div style={{ gridColumn: '1 / -1' }}>
+                            <input className="input" type="number" min="1" max="10" value={editingPlatformField.courts_count} onChange={(e) => setEditingPlatformField((p) => ({ ...p, courts_count: e.target.value }))} />
+                            <CourtsCountEditPreview
+                              count={editingPlatformField.courts_count}
+                              originalCount={editingPlatformField._originalCourtsCount}
+                            />
+                          </div>
                           <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                             <input type="checkbox" checked={Boolean(editingPlatformField.is_active)} onChange={(e) => setEditingPlatformField((p) => ({ ...p, is_active: e.target.checked }))} />
                             Aktive
@@ -739,7 +749,7 @@ export default function AdminPanel({ section = 'dashboard' }) {
                       <td data-label="Statusi"><span className={`badge ${f.is_active ? 'badge-confirmed' : 'badge-canceled'}`}>{f.is_active ? 'Aktive' : 'Joaktive'}</span></td>
                       <td data-label="Veprimet" className="actions-cell">
                         <div style={{ display: 'flex', gap: 8 }}>
-                          <button type="button" className="btn btn-ghost" onClick={() => setEditingPlatformField({ ...f })}>Ndrysho</button>
+                          <button type="button" className="btn btn-ghost" onClick={() => setEditingPlatformField({ ...f, _originalCourtsCount: Number(f.courts_count || 1) })}>Ndrysho</button>
                           <button type="button" className="btn btn-danger" onClick={() => handleDeleteField(f.id, f.name)}>Fshi</button>
                         </div>
                       </td>
@@ -903,7 +913,7 @@ export default function AdminPanel({ section = 'dashboard' }) {
                 {fields.filter((f) => f.is_active).map((f) => (
                   <option key={f.id} value={String(f.id)}>
                     {f.name} — {terrainLabel(f.terrain_type)}
-                    {Number(f.courts_count) > 1 ? ` (${f.courts_count} fusha)` : ' (1 fushë)'}
+                    {Number(f.courts_count) > 1 ? ` (${f.courts_count} fusha)` : ''}
                   </option>
                 ))}
               </select>
@@ -957,6 +967,15 @@ export default function AdminPanel({ section = 'dashboard' }) {
             <div className="admin-court-grid-wrap" style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
               <table className="table admin-court-grid" style={{ minWidth: Number(calendarData.field?.courts_count || 1) > 1 ? 520 : 360 }}>
                 <thead>
+                  <tr>
+                    <th style={{ minWidth: 110, position: 'sticky', left: 0, background: 'var(--bg-card)', zIndex: 1 }} />
+                    <th
+                      colSpan={Number(calendarData.field?.courts_count || 1)}
+                      style={{ textAlign: 'center', fontWeight: 700, background: 'var(--bg-card)' }}
+                    >
+                      {calendarData.field.name} — {terrainLabel(calendarData.field.terrain_type)}
+                    </th>
+                  </tr>
                   <tr>
                     <th style={{ minWidth: 110, position: 'sticky', left: 0, background: 'var(--bg-card)', zIndex: 1 }}>ORA</th>
                     {Array.from({ length: Number(calendarData.field?.courts_count || 1) }, (_, i) => (

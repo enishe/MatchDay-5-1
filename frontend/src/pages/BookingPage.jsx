@@ -409,20 +409,22 @@ export default function BookingPage() {
                 </div>
                 {ora && chosenHourAvailability && (
                   <div style={{ marginTop: 12 }}>
-                    <div className="label">Zgjidh fushën (court)</div>
+                    <div className="label">Zgjidh kortin</div>
                     <div className="court-number-grid">
                       {Array.from({ length: Number(chosenHourAvailability.total_courts || 0) }).map((_, i) => {
                         const nr = i + 1;
                         const free = (chosenHourAvailability.available_courts || []).includes(nr);
+                        const selected = String(nr) === String(courtNumber);
                         return (
                           <button
                             key={nr}
                             type="button"
-                            className={`btn ${String(nr) === String(courtNumber) ? 'btn-primary' : 'btn-ghost'}`}
+                            title={free ? `Court ${nr}` : 'I zënë'}
+                            className={`court-btn${selected ? ' court-btn--selected' : ''}${free ? ' court-btn--free' : ' court-btn--taken'}`}
                             disabled={!free}
-                            onClick={() => setCourtNumber(String(nr))}
+                            onClick={() => free && setCourtNumber(String(nr))}
                           >
-                            {nr}
+                            {free ? `Court ${nr}` : `🔒 Court ${nr}`}
                           </button>
                         );
                       })}
