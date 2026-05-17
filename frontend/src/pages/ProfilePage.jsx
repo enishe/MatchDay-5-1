@@ -18,6 +18,10 @@ export default function ProfilePage() {
   const [avatarErr, setAvatarErr] = useState('');
   const [nickname, setNickname] = useState('');
   const [prefField, setPrefField] = useState('');
+  const [pwForm, setPwForm] = useState({ current: '', next: '', confirm: '' });
+  const [pwLoading, setPwLoading] = useState(false);
+  const [pwError, setPwError] = useState('');
+  const [pwSuccess, setPwSuccess] = useState('');
 
   const load = useCallback(() => {
     if (!token) return;
@@ -76,6 +80,47 @@ export default function ProfilePage() {
       setMsg({ type: 'err', text: err.message || 'Ruajtja dështoi.' });
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleChangePassword = async () => {
+    setPwError('');
+    setPwSuccess('');
+
+    if (!pwForm.current || !pwForm.next || !pwForm.confirm) {
+      setPwError('Të gjitha fushat janë të detyrueshme.');
+      return;
+    }
+    if (pwForm.next.length < 8) {
+      setPwError('Fjalëkalimi i ri duhet të ketë të paktën 8 karaktere.');
+      return;
+    }
+    if (pwForm.next !== pwForm.confirm) {
+      setPwError('Fjalëkalimet e reja nuk përputhen.');
+      return;
+    }
+    if (pwForm.current === pwForm.next) {
+      setPwError('Fjalëkalimi i ri duhet të jetë i ndryshëm.');
+      return;
+    }
+
+    setPwLoading(true);
+    try {
+      await apiFetch('/auth/change-password', {
+        token,
+        method: 'POST',
+        body: {
+          currentPassword: pwForm.current,
+          newPassword: pwForm.next,
+        },
+      });
+      setPwSuccess('Fjalëkalimi u ndryshua me sukses!');
+      setPwForm({ current: '', next: '', confirm: '' });
+      setTimeout(() => setPwSuccess(''), 4000);
+    } catch (err) {
+      setPwError(err.message || 'Gabim gjatë ndryshimit të fjalëkalimit.');
+    } finally {
+      setPwLoading(false);
     }
   };
 
@@ -237,6 +282,67 @@ export default function ProfilePage() {
             {saving ? 'Duke ruajtur…' : 'Ruaj ndryshimet'}
           </button>
         </form>
+      </div>
+
+      <div className="card" style={{ marginTop: 24 }}>
+        <h3 className="card-title">Ndrysho Fjalëkalimin</h3>
+
+        <div className="form-group">
+          <label className="label" htmlFor="pw-current">
+            Fjalëkalimi aktual
+          </label>
+          <input
+            id="pw-current"
+            type="password"
+            className="input"
+            value={pwForm.current}
+            onChange={(e) => setPwForm((p) => ({ ...p, current: e.target.value }))}
+            placeholder="Fjalëkalimi juaj aktual"
+            autoComplete="current-password"
+          />
+        </div>
+
+        <div className="form-group">
+          <label className="label" htmlFor="pw-next">
+            Fjalëkalimi i ri
+          </label>
+          <input
+            id="pw-next"
+            type="password"
+            className="input"
+            value={pwForm.next}
+            onChange={(e) => setPwForm((p) => ({ ...p, next: e.target.value }))}
+            placeholder="Minimumi 8 karaktere"
+            autoComplete="new-password"
+          />
+        </div>
+
+        <div className="form-group">
+          <label className="label" htmlFor="pw-confirm">
+            Konfirmo fjalëkalimin e ri
+          </label>
+          <input
+            id="pw-confirm"
+            type="password"
+            className="input"
+            value={pwForm.confirm}
+            onChange={(e) => setPwForm((p) => ({ ...p, confirm: e.target.value }))}
+            placeholder="Përsërit fjalëkalimin e ri"
+            autoComplete="new-password"
+          />
+        </div>
+
+        {pwError && <div className="feedback feedback-error">{pwError}</div>}
+        {pwSuccess && <div className="feedback feedback-success">{pwSuccess}</div>}
+
+        <button
+          type="button"
+          className="btn btn-accent"
+          disabled={pwLoading}
+          onClick={handleChangePassword}
+        >
+          {pwLoading ? 'Duke ndryshuar...' : 'Ndrysho fjalëkalimin'}
+        </button>
       </div>
     </div>
   );

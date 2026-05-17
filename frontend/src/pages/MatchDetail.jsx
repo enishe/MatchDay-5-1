@@ -140,7 +140,11 @@ export default function MatchDetail() {
 
       {msg && (
         <div
-          className={`feedback ${String(msg).toLowerCase().includes('sukses') ? 'feedback-success' : 'feedback-error'}`}
+          className={`feedback ${
+            String(msg).toLowerCase().includes('sukses') || String(msg).toLowerCase().includes('anulua')
+              ? 'feedback-success'
+              : 'feedback-error'
+          }`}
         >
           {msg}
         </div>

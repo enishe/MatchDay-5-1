@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { apiFetch } from '../lib/api';
 import { useAuth } from '../context/AuthContext';
@@ -35,6 +35,10 @@ function parseShoesSummaryRow(m) {
   return Array.isArray(s) ? s : [];
 }
 
+function hoursUntil(startTime) {
+  return (new Date(startTime) - new Date()) / (1000 * 60 * 60);
+}
+
 function statsFromMatches(matches) {
   const arr = Array.isArray(matches) ? matches : [];
   if (arr.length === 0) {
@@ -60,29 +64,33 @@ function statsFromMatches(matches) {
 }
 
 export default function Dashboard() {
-  const { token } = useAuth();
+  const { token, user } = useAuth();
   const [stats, setStats] = useState(null);
   const [matches, setMatches] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [autoCancelNotice, setAutoCancelNotice] = useState('');
+  const [bookingTab, setBookingTab] = useState('upcoming');
+  const [cancelSuccess, setCancelSuccess] = useState('');
+  const [cancelingId, setCancelingId] = useState(null);
   const navigate = useNavigate();
+
+  const loadMatches = useCallback(() => {
+    if (!token) return Promise.resolve();
+    return apiFetch('/bookings/my', { token }).then((m) => {
+      const list = Array.isArray(m) ? m : [];
+      setStats(statsFromMatches(list));
+      setMatches(list);
+      setError(null);
+      return list;
+    });
+  }, [token]);
 
   useEffect(() => {
     if (!token) return;
     let cancelled = false;
     setLoading(true);
-    const req = apiFetch('/bookings/my', { token }).then((m) => {
-      const list = Array.isArray(m) ? m : [];
-      return { stats: statsFromMatches(list), matches: list };
-    });
-    req
-      .then(({ stats: s, matches: m }) => {
-        if (cancelled) return;
-        setStats(s);
-        setMatches(m);
-        setError(null);
-      })
+    loadMatches()
       .catch((e) => {
         if (!cancelled) setError(e.message || 'Nuk mund të lidhet me serverin.');
       })
@@ -92,10 +100,9 @@ export default function Dashboard() {
     return () => {
       cancelled = true;
     };
-  }, [token]);
+  }, [token, loadMatches]);
 
   useEffect(() => {
-    // TODO: Replace this fallback with socket event listener when realtime auto-cancel event is available.
     const autoCanceled = matches.find((m) => m.status === 'canceled');
     if (!autoCanceled) return;
     const key = `autocancel-notice-${autoCanceled.id}`;
@@ -103,6 +110,12 @@ export default function Dashboard() {
     sessionStorage.setItem(key, '1');
     setAutoCancelNotice('Rezervimi u anulua automatikisht.');
   }, [matches]);
+
+  useEffect(() => {
+    if (!cancelSuccess) return undefined;
+    const t = setTimeout(() => setCancelSuccess(''), 3000);
+    return () => clearTimeout(t);
+  }, [cancelSuccess]);
 
   const fillim = useMemo(() => {
     const d = new Date();
@@ -123,7 +136,66 @@ export default function Dashboard() {
     });
   }, [matches, fillim]);
 
+  const upcomingMatches = useMemo(
+    () => matches.filter((m) => new Date(m.start_time) > new Date()),
+    [matches]
+  );
+
+  const pastMatches = useMemo(
+    () => matches.filter((m) => new Date(m.start_time) <= new Date()),
+    [matches]
+  );
+
+  const displayedMatches = bookingTab === 'upcoming' ? upcomingMatches : pastMatches;
+
   const ndeshjeKeteJave = javaMatches.length;
+  const userId = Number(user?.id);
+
+  const canShowCancelConfirmed = (m) =>
+    bookingTab === 'upcoming'
+    && m.status === 'confirmed'
+    && Number(m.organizer_id) === userId
+    && hoursUntil(m.start_time) >= 2
+    && new Date(m.start_time) > new Date();
+
+  const canShowCancelPending = (m) =>
+    bookingTab === 'upcoming'
+    && m.status === 'pending'
+    && Number(m.organizer_id) === userId
+    && new Date(m.start_time) > new Date();
+
+  const handleCancelBooking = async (m, e) => {
+    e?.stopPropagation?.();
+    const isPending = m.status === 'pending';
+    const ok = window.confirm(
+      'A jeni të sigurt? Rezervimi do të anulohet. Ky veprim nuk mund të kthehet.'
+    );
+    if (!ok) return;
+
+    setCancelingId(m.id);
+    try {
+      if (isPending) {
+        await apiFetch(`/matches/${m.id}/cancel`, {
+          token,
+          method: 'POST',
+          body: { reason: 'user' },
+        });
+      } else {
+        await apiFetch(`/matches/${m.id}/cancel-cash`, {
+          token,
+          method: 'POST',
+          body: { reason: 'Anuluar nga lojtari' },
+        });
+      }
+      setError(null);
+      setCancelSuccess('Rezervimi u anulua me sukses.');
+      await loadMatches();
+    } catch (err) {
+      setError(err.message || 'Anulimi dështoi.');
+    } finally {
+      setCancelingId(null);
+    }
+  };
 
   if (loading) {
     return (
@@ -138,7 +210,7 @@ export default function Dashboard() {
       </div>
     );
   }
-  if (error) {
+  if (error && matches.length === 0) {
     return (
       <div className="page">
         <div className="feedback feedback-error">{error}</div>
@@ -164,6 +236,8 @@ export default function Dashboard() {
       <h1 className="page-title">Dashboard</h1>
       <p className="page-subtitle">Pamje lojtari — statistikat e tua personale</p>
       {autoCancelNotice && <div className="feedback feedback-error">{autoCancelNotice}</div>}
+      {cancelSuccess && <div className="feedback feedback-success">{cancelSuccess}</div>}
+      {error && matches.length > 0 && <div className="feedback feedback-error">{error}</div>}
 
       <div className="stat-grid-4">
         {statKartat.map((k) => (
@@ -177,7 +251,7 @@ export default function Dashboard() {
       <div className="card" style={{ marginTop: 16 }}>
         <div className="card-title">Veprime të shpejta</div>
         <div
-            className="quick-actions-grid"
+          className="quick-actions-grid"
           style={{
             display: 'grid',
             gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))',
@@ -204,8 +278,6 @@ export default function Dashboard() {
           ))}
         </div>
       </div>
-
-      
 
       <div className="grid-2-col dashboard-2col" style={{ marginTop: 16 }}>
         <div className="card">
@@ -253,7 +325,7 @@ export default function Dashboard() {
         </div>
 
         <div className="card">
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14, flexWrap: 'wrap', gap: 8 }}>
             <h2 className="card-title" style={{ marginBottom: 0 }}>
               Ndeshjet e mia
             </h2>
@@ -261,8 +333,30 @@ export default function Dashboard() {
               + Rezervo
             </button>
           </div>
-          {matches.length === 0 && (
-            <p style={{ color: 'var(--text-muted)', fontSize: 13 }}>Nuk ka ndeshje të regjistruara.</p>
+
+          <div style={{ display: 'flex', gap: 8, marginBottom: 14 }}>
+            <button
+              type="button"
+              className={`btn${bookingTab === 'upcoming' ? ' btn-accent' : ' btn-ghost'}`}
+              style={{ fontSize: 13, padding: '6px 14px' }}
+              onClick={() => setBookingTab('upcoming')}
+            >
+              Të ardhshme ({upcomingMatches.length})
+            </button>
+            <button
+              type="button"
+              className={`btn${bookingTab === 'past' ? ' btn-accent' : ' btn-ghost'}`}
+              style={{ fontSize: 13, padding: '6px 14px' }}
+              onClick={() => setBookingTab('past')}
+            >
+              Të kaluara ({pastMatches.length})
+            </button>
+          </div>
+
+          {displayedMatches.length === 0 && (
+            <p style={{ color: 'var(--text-muted)', fontSize: 13 }}>
+              {bookingTab === 'upcoming' ? 'Nuk ka ndeshje të ardhshme.' : 'Nuk ka ndeshje të kaluara.'}
+            </p>
           )}
           <div className="table-wrap">
             <table className="table table--stack-on-mobile">
@@ -274,44 +368,74 @@ export default function Dashboard() {
                   <th>Çmimi</th>
                   <th>Smart Split</th>
                   <th>Status</th>
+                  {bookingTab === 'upcoming' && <th>Veprimet</th>}
                 </tr>
               </thead>
               <tbody>
-                {matches.slice(0, 8).map((m) => (
-                  <tr
-                    key={m.id}
-                    onClick={() => navigate(`/match/${m.id}`)}
-                    style={{ cursor: 'pointer' }}
-                    onKeyDown={(e) => e.key === 'Enter' && navigate(`/match/${m.id}`)}
-                    tabIndex={0}
-                    role="link"
-                  >
-                    <td data-label="ID">#{m.id}</td>
-                    <td data-label="Fusha">{m.field_name || `Fusha #${m.field_id}`}</td>
-                    <td data-label="Data/Ora">{formatDate(m.start_time)}</td>
-                    <td data-label="Çmimi">{m.total_price}€</td>
-                    <td data-label="Smart Split">{m.price_per_player}€</td>
-                    <td data-label="Status">
-                      <div>
-                        <span
-                          className={`badge ${
-                            m.status === 'confirmed' ? 'badge-confirmed' : m.status === 'pending' ? 'badge-pending' : 'badge-canceled'
-                          }`}
-                        >
-                          {m.status === 'confirmed' ? 'Konfirmuar ✓' : m.status === 'pending' ? 'Në pritje' : 'Anuluar'}
-                        </span>
-                        {parseShoesSummaryRow(m).length > 0 && (
-                          <div style={{ fontSize: 12, marginTop: 4 }}>
-                            Patika:{' '}
-                            {parseShoesSummaryRow(m)
-                              .map((s) => `${s.count} palë nr.${s.size}`)
-                              .join(', ')}
-                          </div>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                ))}
+                {displayedMatches.map((m) => {
+                  const showCancelConfirmed = canShowCancelConfirmed(m);
+                  const showCancelPending = canShowCancelPending(m);
+                  return (
+                    <tr
+                      key={m.id}
+                      onClick={() => navigate(`/match/${m.id}`)}
+                      style={{ cursor: 'pointer' }}
+                      onKeyDown={(e) => e.key === 'Enter' && navigate(`/match/${m.id}`)}
+                      tabIndex={0}
+                      role="link"
+                    >
+                      <td data-label="ID">#{m.id}</td>
+                      <td data-label="Fusha">{m.field_name || `Fusha #${m.field_id}`}</td>
+                      <td data-label="Data/Ora">{formatDate(m.start_time)}</td>
+                      <td data-label="Çmimi">{m.total_price}€</td>
+                      <td data-label="Smart Split">{m.price_per_player}€</td>
+                      <td data-label="Status">
+                        <div>
+                          <span
+                            className={`badge ${
+                              m.status === 'confirmed' ? 'badge-confirmed' : m.status === 'pending' ? 'badge-pending' : 'badge-canceled'
+                            }`}
+                          >
+                            {m.status === 'confirmed' ? 'Konfirmuar ✓' : m.status === 'pending' ? 'Në pritje' : 'Anuluar'}
+                          </span>
+                          {parseShoesSummaryRow(m).length > 0 && (
+                            <div style={{ fontSize: 12, marginTop: 4 }}>
+                              Patika:{' '}
+                              {parseShoesSummaryRow(m)
+                                .map((s) => `${s.count} palë nr.${s.size}`)
+                                .join(', ')}
+                            </div>
+                          )}
+                        </div>
+                      </td>
+                      {bookingTab === 'upcoming' && (
+                        <td data-label="Veprimet" onClick={(e) => e.stopPropagation()}>
+                          {(showCancelConfirmed || showCancelPending) && (
+                            <button
+                              type="button"
+                              className={showCancelPending ? 'btn btn-ghost' : 'btn btn-danger'}
+                              style={{
+                                fontSize: 12,
+                                padding: '4px 10px',
+                                ...(showCancelConfirmed
+                                  ? {
+                                      background: 'transparent',
+                                      border: '1px solid var(--color-danger, #e74c3c)',
+                                      color: 'var(--color-danger, #e74c3c)',
+                                    }
+                                  : {}),
+                              }}
+                              disabled={cancelingId === m.id}
+                              onClick={(e) => handleCancelBooking(m, e)}
+                            >
+                              {cancelingId === m.id ? '...' : 'Anulo'}
+                            </button>
+                          )}
+                        </td>
+                      )}
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>

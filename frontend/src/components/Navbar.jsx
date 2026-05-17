@@ -494,7 +494,7 @@ export default function Navbar() {
             )}
           </div>
         )}
-        {!!user && (isSuperAdmin || isFieldAdmin) ? (
+        {!!user && isSuperAdmin ? (
           <button
             type="button"
             className="btn"
@@ -507,6 +507,59 @@ export default function Navbar() {
               <LogOut size={16} /> Dil
             </span>
           </button>
+        ) : !!user && isFieldAdmin ? (
+        <div className="navbar-user" ref={ddRef}>
+          <button
+            type="button"
+            className="avatar"
+            aria-expanded={userOpen}
+            aria-haspopup="true"
+            onClick={() => setUserOpen((o) => !o)}
+          >
+            {avatarSrc ? (
+              <img
+                src={avatarSrc}
+                alt={displayName(user) || 'User avatar'}
+                className="avatar-img"
+                width="40"
+                height="40"
+                style={{ display: 'block' }}
+              />
+            ) : (
+              initials(displayName(user))
+            )}
+          </button>
+          <div className={`user-dropdown${userOpen ? ' open' : ''}`}>
+            <div style={{ padding: '8px 12px', fontSize: 12, color: 'var(--text-muted)' }}>
+              <div style={{ fontWeight: 600, color: 'var(--text-primary)', marginBottom: 2 }}>
+                {displayName(user)}
+              </div>
+              <div>{user?.email || ''}</div>
+            </div>
+            <hr style={{ margin: '4px 0', border: 'none', borderTop: '1px solid var(--border-color)' }} />
+            <button
+              type="button"
+              onClick={() => {
+                setUserOpen(false);
+                navigate('/profile');
+              }}
+            >
+              Profili & Fjalëkalimi
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                logout();
+                setUserOpen(false);
+                navigate('/login');
+              }}
+            >
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+                <LogOut size={16} /> Dil
+              </span>
+            </button>
+          </div>
+        </div>
         ) : (
         <div className="navbar-user" ref={ddRef}>
           <button
