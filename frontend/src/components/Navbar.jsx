@@ -396,7 +396,9 @@ export default function Navbar() {
             {searchOpen ? (
               <>
                 <input
-                  type="search"
+                  type="text"
+                  name="player-nickname-search"
+                  id="player-nickname-search"
                   className="input"
                   placeholder="Kërko me nickname..."
                   value={searchValue}
@@ -408,6 +410,14 @@ export default function Navbar() {
                     }
                   }}
                   style={{ width: 'min(200px, 42vw)', minHeight: 40, fontSize: 14 }}
+                  autoComplete="off"
+                  autoCorrect="off"
+                  autoCapitalize="off"
+                  spellCheck={false}
+                  data-lpignore="true"
+                  data-form-type="other"
+                  readOnly
+                  onFocus={(e) => e.target.removeAttribute('readOnly')}
                   autoFocus
                 />
                 <button type="button" className="icon-btn" aria-label="Kërko" onClick={handleSearch}>
@@ -430,7 +440,10 @@ export default function Navbar() {
                 type="button"
                 className="icon-btn"
                 aria-label="Kërko lojtar"
-                onClick={() => setSearchOpen(true)}
+                onClick={() => {
+                  setSearchValue('');
+                  setSearchOpen(true);
+                }}
               >
                 <span aria-hidden style={{ fontSize: 18 }}>🔍</span>
               </button>
