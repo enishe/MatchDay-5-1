@@ -434,26 +434,6 @@ export default function AdminPanel({ section = 'dashboard' }) {
         <div className={`feedback feedback-${mesazhi.lloji === 'error' ? 'error' : 'success'}`}>{mesazhi.tekst}</div>
       )}
 
-      <div className="tabs">
-        <button type="button" className={`tab${tab === 'dashboard' ? ' tab--active' : ''}`} onClick={() => { setTab('dashboard'); navigate('/admin/dashboard'); }}>
-          Dashboard
-        </button>
-        <button type="button" className={`tab${tab === 'fields' ? ' tab--active' : ''}`} onClick={() => { setTab('fields'); navigate('/admin/fields'); }}>
-          Fushat
-        </button>
-        <button type="button" className={`tab${tab === 'bookings' ? ' tab--active' : ''}`} onClick={() => { setTab('bookings'); navigate('/admin/bookings'); }}>
-          Rezervimet
-        </button>
-        {!isFieldAdmin && (
-          <button type="button" className={`tab${tab === 'players' ? ' tab--active' : ''}`} onClick={() => { setTab('players'); navigate('/admin/players'); }}>
-            Lojtarët
-          </button>
-        )}
-        <button type="button" className={`tab${tab === 'calendar' ? ' tab--active' : ''}`} onClick={() => { setTab('calendar'); navigate('/admin/calendar'); }}>
-          Kalendari i Fushave
-        </button>
-      </div>
-
       {tab === 'dashboard' && (
         <>
           {initialLoading ? (

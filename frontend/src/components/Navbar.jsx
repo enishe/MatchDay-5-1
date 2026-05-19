@@ -60,6 +60,9 @@ export default function Navbar() {
   const menuButtonRef = useRef(null);
   const notifRef = useRef(null);
   const bellRef = useRef(null);
+  const searchRef = useRef(null);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [searchValue, setSearchValue] = useState('');
 
   useEffect(() => {
     // Avoid cascading renders warning by deferring the state update.
@@ -80,10 +83,36 @@ export default function Navbar() {
       if (bellRef.current && !bellRef.current.contains(e.target)) {
         setBellOpen(false);
       }
+      if (searchRef.current && !searchRef.current.contains(e.target)) {
+        setSearchOpen(false);
+      }
     }
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
+
+  useEffect(() => {
+    if (!searchOpen) return undefined;
+    function onKey(e) {
+      if (e.key === 'Escape') {
+        setSearchOpen(false);
+        setSearchValue('');
+      }
+    }
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [searchOpen]);
+
+  const handleSearch = () => {
+    if (searchValue.trim().length >= 2) {
+      navigate(`/player/${encodeURIComponent(searchValue.trim())}`);
+      setSearchValue('');
+      setSearchOpen(false);
+      setMenuOpen(false);
+    }
+  };
+
+  const isPlayer = !!user && !isStaffAdmin;
 
   const fetchUnreadCount = useCallback(async () => {
     if (!token) return;
@@ -284,6 +313,9 @@ export default function Navbar() {
           <NavLink to="/admin/calendar" className={navClass} onClick={() => setMenuOpen(false)}>
             Kalendari
           </NavLink>
+          <NavLink to="/profile" className={navClass} onClick={() => setMenuOpen(false)}>
+            Profili
+          </NavLink>
         </>
       ) : isAdmin ? (
         <>
@@ -359,6 +391,52 @@ export default function Navbar() {
         <button type="button" className="icon-btn" aria-label="Dark mode" onClick={onToggleTheme}>
           {dark ? <Sun size={20} /> : <Moon size={20} />}
         </button>
+        {isPlayer && (
+          <div ref={searchRef} style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: 6 }}>
+            {searchOpen ? (
+              <>
+                <input
+                  type="search"
+                  className="input"
+                  placeholder="Kërko me nickname..."
+                  value={searchValue}
+                  onChange={(e) => setSearchValue(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      handleSearch();
+                    }
+                  }}
+                  style={{ width: 'min(200px, 42vw)', minHeight: 40, fontSize: 14 }}
+                  autoFocus
+                />
+                <button type="button" className="icon-btn" aria-label="Kërko" onClick={handleSearch}>
+                  <span aria-hidden style={{ fontSize: 16 }}>→</span>
+                </button>
+                <button
+                  type="button"
+                  className="icon-btn"
+                  aria-label="Mbyll kërkimin"
+                  onClick={() => {
+                    setSearchOpen(false);
+                    setSearchValue('');
+                  }}
+                >
+                  <X size={18} />
+                </button>
+              </>
+            ) : (
+              <button
+                type="button"
+                className="icon-btn"
+                aria-label="Kërko lojtar"
+                onClick={() => setSearchOpen(true)}
+              >
+                <span aria-hidden style={{ fontSize: 18 }}>🔍</span>
+              </button>
+            )}
+          </div>
+        )}
         {!!user && isStaffAdmin && !isSuperAdmin && (
           <div ref={notifRef} style={{ position: 'relative' }}>
             <button

@@ -25,6 +25,7 @@ export default function SuperAdminPage() {
     email: '',
     password: '',
   });
+  const [formKey, setFormKey] = useState(0);
 
   const loadAdmins = useCallback(async () => {
     setLoadingAdmins(true);
@@ -41,6 +42,12 @@ export default function SuperAdminPage() {
   useEffect(() => {
     loadAdmins();
   }, [loadAdmins]);
+
+  useEffect(() => {
+    if (!feedback) return undefined;
+    const t = setTimeout(() => setFeedback(null), 4000);
+    return () => clearTimeout(t);
+  }, [feedback]);
 
   const onDeleteAdmin = async (admin) => {
     const ok = window.confirm(
@@ -80,6 +87,7 @@ export default function SuperAdminPage() {
       });
       setFeedback({ type: 'success', text: 'Admin u krijua me sukses!' });
       setForm({ email: '', password: '' });
+      setFormKey((k) => k + 1);
       await loadAdmins();
     } catch (err) {
       setFeedback({ type: 'error', text: err.message || 'Krijimi dështoi.' });
@@ -156,7 +164,7 @@ export default function SuperAdminPage() {
             {feedback.text}
           </p>
         )}
-        <form onSubmit={onSubmit}>
+        <form key={formKey} onSubmit={onSubmit}>
           <div className="form-group">
             <label className="label" htmlFor="admin-email">Email</label>
             <input

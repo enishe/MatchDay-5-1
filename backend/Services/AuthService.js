@@ -175,7 +175,6 @@ class AuthService {
       firstName,
       lastName,
       phone,
-      bank_account,
       avatar_url,
       preferred_field_id,
       nickname,
@@ -200,10 +199,6 @@ class AuthService {
     if (phone !== undefined) {
       updates.push(`phone = $${i++}`);
       vals.push(phone === '' || phone == null ? null : String(phone).trim());
-    }
-    if (bank_account !== undefined) {
-      updates.push(`bank_account = $${i++}`);
-      vals.push(bank_account === '' || bank_account == null ? null : String(bank_account).trim());
     }
     if (avatar_url !== undefined) {
       const avatar = avatar_url === '' || avatar_url == null ? null : String(avatar_url).trim();

@@ -15,6 +15,7 @@ import ProfilePage from './pages/ProfilePage';
 import AdminNotificationsPage from './pages/AdminNotificationsPage';
 import NotificationsPage from './pages/NotificationsPage';
 import SuperAdminPage from './pages/SuperAdminPage';
+import PlayerProfilePage from './pages/PlayerProfilePage';
 
 function AppShell({ children }) {
   const location = useLocation();
@@ -137,6 +138,14 @@ export default function App() {
             element={
               <ProtectedRoute>
                 <ProfilePage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/player/:nickname"
+            element={
+              <ProtectedRoute>
+                <PlayerProfilePage />
               </ProtectedRoute>
             }
           />

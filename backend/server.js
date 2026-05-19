@@ -12,6 +12,7 @@ const fieldRoutes = require('./Routes/fieldRoutes');
 const bookingRoutes = require('./Routes/bookingRoutes');
 const notificationRoutes = require('./Routes/notificationRoutes');
 const superAdminRoutes = require('./Routes/superAdminRoutes');
+const userRoutes = require('./Routes/userRoutes');
 const blockedSlotRoutes = require('./Routes/blockedSlotRoutes');
 const { ensureSchema } = require('./config/ensureSchema');
 const AuthService = require('./Services/AuthService');
@@ -78,6 +79,7 @@ app.use('/api', fieldRoutes);
 app.use('/api', matchRouter);
 app.use('/api', blockedSlotRoutes);
 app.use('/api/superadmin', superAdminRoutes);
+app.use('/api/users', userRoutes);
 
 // Serve static files from frontend dist folder
 app.use(express.static(path.join(__dirname, '../frontend/dist')));

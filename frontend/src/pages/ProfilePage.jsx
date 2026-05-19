@@ -2,86 +2,11 @@ import { useCallback, useEffect, useState } from 'react';
 import { apiFetch } from '../lib/api';
 import { useAuth } from '../context/AuthContext';
 
-export default function ProfilePage() {
-  const { token, user, refreshUser } = useAuth();
-  const [profile, setProfile] = useState(null);
-  const [fields, setFields] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [msg, setMsg] = useState(null);
-
-  const [firstName, setFirstName] = useState('');
-  const [lastName, setLastName] = useState('');
-  const [phone, setPhone] = useState('');
-  const [bank, setBank] = useState('');
-  const [avatar, setAvatar] = useState('');
-  const [avatarErr, setAvatarErr] = useState('');
-  const [nickname, setNickname] = useState('');
-  const [prefField, setPrefField] = useState('');
+function PasswordChangeSection({ token, subtitle }) {
   const [pwForm, setPwForm] = useState({ current: '', next: '', confirm: '' });
   const [pwLoading, setPwLoading] = useState(false);
   const [pwError, setPwError] = useState('');
   const [pwSuccess, setPwSuccess] = useState('');
-
-  const load = useCallback(() => {
-    if (!token) return;
-    setLoading(true);
-    Promise.all([apiFetch('/auth/profile', { token }), apiFetch('/fields', { token })])
-      .then(([p, f]) => {
-        setProfile(p);
-        setFields(Array.isArray(f) ? f : []);
-        setFirstName(p.firstName || '');
-        setLastName(p.lastName || '');
-        setPhone(p.phone || '');
-        setBank(p.bank_account || '');
-        setAvatar(p.avatar_url || '');
-        setNickname(p.nickname || '');
-        setPrefField(p.preferred_field_id != null ? String(p.preferred_field_id) : '');
-      })
-      .catch(() => setMsg({ type: 'err', text: 'Nuk u ngarkua profili.' }))
-      .finally(() => setLoading(false));
-  }, [token]);
-
-  useEffect(() => {
-    load();
-  }, [load]);
-
-  const onSave = async (e) => {
-    e.preventDefault();
-    if (!token) return;
-    setSaving(true);
-    setMsg(null);
-    try {
-      const body = {
-        firstName: firstName.trim(),
-        lastName: lastName.trim(),
-        phone: phone.trim(),
-        bank_account: bank.trim(),
-        avatar_url: avatar.trim(),
-        nickname: nickname.trim(),
-        profile_photo_url: avatar.trim(),
-        preferred_field_id: prefField === '' ? null : parseInt(prefField, 10),
-      };
-      const updated = await apiFetch('/auth/profile', { token, method: 'PUT', body });
-      setProfile(updated);
-      const raw = localStorage.getItem('matchday_user');
-      const prev = raw ? JSON.parse(raw) : {};
-      localStorage.setItem(
-        'matchday_user',
-        JSON.stringify({
-          ...prev,
-          ...updated,
-          name: updated.name,
-        })
-      );
-      refreshUser();
-      setMsg({ type: 'ok', text: 'Profili u ruajt.' });
-    } catch (err) {
-      setMsg({ type: 'err', text: err.message || 'Ruajtja dështoi.' });
-    } finally {
-      setSaving(false);
-    }
-  };
 
   const handleChangePassword = async () => {
     setPwError('');
@@ -124,20 +49,186 @@ export default function ProfilePage() {
     }
   };
 
+  return (
+    <div className="profile-card card">
+      <h2 style={{ marginBottom: 8 }}>Ndrysho Fjalëkalimin</h2>
+      <p style={{ opacity: 0.6, marginBottom: 24, fontSize: 14 }}>{subtitle}</p>
+
+      <div className="form-group">
+        <label className="label" htmlFor="pw-current">
+          Fjalëkalimi aktual
+        </label>
+        <input
+          id="pw-current"
+          type="password"
+          className="input"
+          value={pwForm.current}
+          onChange={(e) => setPwForm((p) => ({ ...p, current: e.target.value }))}
+          placeholder="Fjalëkalimi juaj aktual"
+          autoComplete="current-password"
+        />
+      </div>
+
+      <div className="form-group">
+        <label className="label" htmlFor="pw-next">
+          Fjalëkalimi i ri
+        </label>
+        <input
+          id="pw-next"
+          type="password"
+          className="input"
+          value={pwForm.next}
+          onChange={(e) => setPwForm((p) => ({ ...p, next: e.target.value }))}
+          placeholder="Minimumi 8 karaktere"
+          autoComplete="new-password"
+        />
+      </div>
+
+      <div className="form-group">
+        <label className="label" htmlFor="pw-confirm">
+          Konfirmo fjalëkalimin e ri
+        </label>
+        <input
+          id="pw-confirm"
+          type="password"
+          className="input"
+          value={pwForm.confirm}
+          onChange={(e) => setPwForm((p) => ({ ...p, confirm: e.target.value }))}
+          placeholder="Përsërit fjalëkalimin e ri"
+          autoComplete="new-password"
+        />
+      </div>
+
+      {pwError && <div className="feedback feedback-error">{pwError}</div>}
+      {pwSuccess && <div className="feedback feedback-success">{pwSuccess}</div>}
+
+      <button
+        type="button"
+        className="btn btn-accent"
+        disabled={pwLoading}
+        onClick={handleChangePassword}
+      >
+        {pwLoading ? 'Duke ndryshuar...' : 'Ndrysho fjalëkalimin'}
+      </button>
+    </div>
+  );
+}
+
+export default function ProfilePage() {
+  const { token, user, refreshUser } = useAuth();
+  const isFieldAdmin = user?.role === 'field_admin';
+  const [profile, setProfile] = useState(null);
+  const [fields, setFields] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [msg, setMsg] = useState(null);
+
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
+  const [phone, setPhone] = useState('');
+  const [avatar, setAvatar] = useState('');
+  const [avatarErr, setAvatarErr] = useState('');
+  const [nickname, setNickname] = useState('');
+  const [prefField, setPrefField] = useState('');
+
+  const load = useCallback(() => {
+    if (!token) return;
+    if (isFieldAdmin) {
+      setLoading(false);
+      return;
+    }
+    setLoading(true);
+    Promise.all([apiFetch('/auth/profile', { token }), apiFetch('/fields', { token })])
+      .then(([p, f]) => {
+        setProfile(p);
+        setFields(Array.isArray(f) ? f : []);
+        setFirstName(p.firstName || '');
+        setLastName(p.lastName || '');
+        setPhone(p.phone || '');
+        setAvatar(p.avatar_url || '');
+        setNickname(p.nickname || '');
+        setPrefField(p.preferred_field_id != null ? String(p.preferred_field_id) : '');
+      })
+      .catch(() => setMsg({ type: 'err', text: 'Nuk u ngarkua profili.' }))
+      .finally(() => setLoading(false));
+  }, [token, isFieldAdmin]);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  const onSave = async (e) => {
+    e.preventDefault();
+    if (!token) return;
+    setSaving(true);
+    setMsg(null);
+    try {
+      const body = {
+        firstName: firstName.trim(),
+        lastName: lastName.trim(),
+        phone: phone.trim(),
+        avatar_url: avatar.trim(),
+        nickname: nickname.trim(),
+        profile_photo_url: avatar.trim(),
+        preferred_field_id: prefField === '' ? null : parseInt(prefField, 10),
+      };
+      const updated = await apiFetch('/auth/profile', { token, method: 'PUT', body });
+      setProfile(updated);
+      const raw = localStorage.getItem('matchday_user');
+      const prev = raw ? JSON.parse(raw) : {};
+      localStorage.setItem(
+        'matchday_user',
+        JSON.stringify({
+          ...prev,
+          ...updated,
+          name: updated.name,
+        })
+      );
+      refreshUser();
+      setMsg({ type: 'ok', text: 'Profili u ruajt.' });
+    } catch (err) {
+      setMsg({ type: 'err', text: err.message || 'Ruajtja dështoi.' });
+    } finally {
+      setSaving(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="page">
-        <div className="card" style={{ marginBottom: 16 }}>
-          <div className="skeleton" style={{ height: 'clamp(70px, 12vw, 90px)' }} />
-        </div>
-        <div className="profile-layout">
+        {!isFieldAdmin && (
+          <>
+            <div className="card" style={{ marginBottom: 16 }}>
+              <div className="skeleton" style={{ height: 'clamp(70px, 12vw, 90px)' }} />
+            </div>
+            <div className="profile-layout">
+              <div className="card">
+                <div className="skeleton" style={{ height: 'clamp(180px, 36vw, 240px)' }} />
+              </div>
+              <div className="card">
+                <div className="skeleton" style={{ height: 'clamp(320px, 60vw, 440px)' }} />
+              </div>
+            </div>
+          </>
+        )}
+        {isFieldAdmin && (
           <div className="card">
-            <div className="skeleton" style={{ height: 'clamp(180px, 36vw, 240px)' }} />
+            <div className="skeleton" style={{ height: 280 }} />
           </div>
-          <div className="card">
-            <div className="skeleton" style={{ height: 'clamp(320px, 60vw, 440px)' }} />
-          </div>
-        </div>
+        )}
+      </div>
+    );
+  }
+
+  if (isFieldAdmin) {
+    return (
+      <div className="page">
+        <h1 className="page-title">Profili im</h1>
+        <p className="page-subtitle">Siguria e llogarisë së adminit</p>
+        <PasswordChangeSection
+          token={token}
+          subtitle="Ndrysho fjalëkalimin e llogarisë tënde të adminit."
+        />
       </div>
     );
   }
@@ -254,12 +345,6 @@ export default function ProfilePage() {
             <input id="ph" className="input" value={phone} onChange={(e) => setPhone(e.target.value)} />
           </div>
           <div className="form-group">
-            <label className="label" htmlFor="bk">
-              Numri i llogarisë bankare (opsional)
-            </label>
-            <input id="bk" className="input" value={bank} onChange={(e) => setBank(e.target.value)} />
-          </div>
-          <div className="form-group">
             <label className="label" htmlFor="nk">
               Nickname unik
             </label>
@@ -284,66 +369,10 @@ export default function ProfilePage() {
         </form>
       </div>
 
-      <div className="card" style={{ marginTop: 24 }}>
-        <h3 className="card-title">Ndrysho Fjalëkalimin</h3>
-
-        <div className="form-group">
-          <label className="label" htmlFor="pw-current">
-            Fjalëkalimi aktual
-          </label>
-          <input
-            id="pw-current"
-            type="password"
-            className="input"
-            value={pwForm.current}
-            onChange={(e) => setPwForm((p) => ({ ...p, current: e.target.value }))}
-            placeholder="Fjalëkalimi juaj aktual"
-            autoComplete="current-password"
-          />
-        </div>
-
-        <div className="form-group">
-          <label className="label" htmlFor="pw-next">
-            Fjalëkalimi i ri
-          </label>
-          <input
-            id="pw-next"
-            type="password"
-            className="input"
-            value={pwForm.next}
-            onChange={(e) => setPwForm((p) => ({ ...p, next: e.target.value }))}
-            placeholder="Minimumi 8 karaktere"
-            autoComplete="new-password"
-          />
-        </div>
-
-        <div className="form-group">
-          <label className="label" htmlFor="pw-confirm">
-            Konfirmo fjalëkalimin e ri
-          </label>
-          <input
-            id="pw-confirm"
-            type="password"
-            className="input"
-            value={pwForm.confirm}
-            onChange={(e) => setPwForm((p) => ({ ...p, confirm: e.target.value }))}
-            placeholder="Përsërit fjalëkalimin e ri"
-            autoComplete="new-password"
-          />
-        </div>
-
-        {pwError && <div className="feedback feedback-error">{pwError}</div>}
-        {pwSuccess && <div className="feedback feedback-success">{pwSuccess}</div>}
-
-        <button
-          type="button"
-          className="btn btn-accent"
-          disabled={pwLoading}
-          onClick={handleChangePassword}
-        >
-          {pwLoading ? 'Duke ndryshuar...' : 'Ndrysho fjalëkalimin'}
-        </button>
-      </div>
+      <PasswordChangeSection
+        token={token}
+        subtitle="Përditëso fjalëkalimin e llogarisë tënde."
+      />
     </div>
   );
 }
